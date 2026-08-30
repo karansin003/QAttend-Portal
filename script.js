@@ -88,6 +88,8 @@ const sectionLabel = document.getElementById("sectionLabel");
 
 const sectionSwitchBox = document.getElementById("sectionSwitchBox");
 const sectionSelect = document.getElementById("sectionSelect");
+const workArea = document.getElementById("workArea");
+const noSectionMessage = document.getElementById("noSectionMessage");
 
 const adminPanel = document.getElementById("adminPanel");
 const adminOnlyEls = document.querySelectorAll(".admin-only");
@@ -207,21 +209,30 @@ onAuthStateChanged(auth, async function (user) {
         welcomeSubtitle.textContent = "Manage every section, subject and CR from one place.";
 
         populateSectionDropdowns();
-        activeSection = SECTIONS[0].id;
-        sectionSelect.value = activeSection;
+
+        // No section chosen yet — don't load or show any section's data until Admin picks one
+        activeSection = null;
+        sectionSelect.value = "";
+        workArea.classList.add("hidden");
+        noSectionMessage.classList.remove("hidden");
+        sectionLabel.textContent = "-- Not selected --";
 
         await loadCrList();
+        await loadSubjects();
+
     } else {
         welcomeTitle.textContent = `${sectionLabelOf(profile.section)} Attendance Portal`;
         welcomeSubtitle.textContent = "Mark, save and download attendance for your section.";
+
         activeSection = profile.section;
+        workArea.classList.remove("hidden");
+        noSectionMessage.classList.add("hidden");
+        sectionLabel.textContent = sectionLabelOf(activeSection);
+
+        await loadSubjects();
+        await loadStudents();
+        await loadRecords();
     }
-
-    sectionLabel.textContent = sectionLabelOf(activeSection);
-
-    await loadSubjects();
-    await loadStudents();
-    await loadRecords();
 });
 
 
@@ -233,19 +244,34 @@ logoutBtn.addEventListener("click", async function () {
 
 // SECTION DROPDOWNS (admin)
 function populateSectionDropdowns() {
-    [sectionSelect, newCrSection].forEach(function (select) {
-        select.innerHTML = "";
-        SECTIONS.forEach(function (section) {
-            const option = document.createElement("option");
-            option.value = section.id;
-            option.textContent = section.label;
-            select.appendChild(option);
-        });
+    sectionSelect.innerHTML = `<option value="">-- Select Section --</option>`;
+    newCrSection.innerHTML = "";
+
+    SECTIONS.forEach(function (section) {
+        const option1 = document.createElement("option");
+        option1.value = section.id;
+        option1.textContent = section.label;
+        sectionSelect.appendChild(option1);
+
+        const option2 = document.createElement("option");
+        option2.value = section.id;
+        option2.textContent = section.label;
+        newCrSection.appendChild(option2);
     });
 }
 
 sectionSelect.addEventListener("change", async function () {
-    activeSection = sectionSelect.value;
+    activeSection = sectionSelect.value || null;
+
+    if (!activeSection) {
+        workArea.classList.add("hidden");
+        noSectionMessage.classList.remove("hidden");
+        sectionLabel.textContent = "-- Not selected --";
+        return;
+    }
+
+    workArea.classList.remove("hidden");
+    noSectionMessage.classList.add("hidden");
     sectionLabel.textContent = sectionLabelOf(activeSection);
 
     // Different section = different attendance context, so reset selection
@@ -342,6 +368,11 @@ function displayStudents() {
 
 addStudentForm.addEventListener("submit", async function (event) {
     event.preventDefault();
+
+    if (!activeSection) {
+        alert("Pick a section first (dropdown above).");
+        return;
+    }
 
     const qid = newStudentQid.value.trim();
     const name = newStudentName.value.trim().toUpperCase();

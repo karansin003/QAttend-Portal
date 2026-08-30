@@ -37,18 +37,19 @@ log in with the Admin account from Step 3.
 
 ## Step 5 — Run the one-time data import
 While logged in as Admin, open `yoursite.com/seed.html` and click
-"Run Import" once. This moves your existing 84 AIML-2 students and the
-10 existing subjects into the database. After it finishes, you can delete
-`seed.html` and `seed.js` — they're not needed again and aren't linked from
-the main app.
+"Run Import" once. This loads the full roster (539 students across
+Section 1-8, AIML-1, AIML-2) and the 10 subjects into the database.
+After it finishes, you can delete `seed.html` and `seed.js` — they're not
+needed again and aren't linked from the main app.
 
-## Step 6 — Add students for the other sections
-Log in as Admin, use the "Manage Section" dropdown to pick a section, and
-add its students one by one through the "Add Student" form. There's no bulk
-import for the other sections — that data doesn't exist anywhere yet, so
-someone has to enter it once.
+There's no roster for a **CSCQ** section yet — that data wasn't in the sheet
+you gave me. Add those students manually through the Admin panel once you
+have the list, the same way you'd add any student.
 
-## Step 7 — Onboard each CR
+9 rows in the sheet were exact duplicate Q.IDs — those were skipped
+automatically so the same student doesn't get added twice.
+
+## Step 6 — Onboard each CR
 1. Firebase Console → Authentication → Add user → create their login
    (lowercase email + password you give them).
 2. In the app, log in as Admin → "Assign CR" panel → enter that same

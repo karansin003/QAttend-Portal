@@ -122,7 +122,9 @@
                     <!-- ADMIN ONLY: switch which section is being managed -->
                     <div class="select-box admin-only hidden" id="sectionSwitchBox">
                         <label>🏫 Manage Section</label>
-                        <select id="sectionSelect"></select>
+                        <select id="sectionSelect">
+                            <option value="">-- Select Section --</option>
+                        </select>
                     </div>
 
                     <div class="select-box">
@@ -192,78 +194,87 @@
             </section>
 
 
-            <!-- STATS -->
-            <section class="stats">
-                <div class="stat-card">
-                    <p>Total Students</p>
-                    <h3 id="totalStudents">0</h3>
-                </div>
-                <div class="stat-card present-stat">
-                    <p>Present</p>
-                    <h3 id="presentStudents">0</h3>
-                </div>
-                <div class="stat-card absent-stat">
-                    <p>Absent</p>
-                    <h3 id="absentStudents">0</h3>
-                </div>
-            </section>
+            <!-- Shown to Admin only, before a section is picked -->
+            <p id="noSectionMessage" class="empty-record hidden">
+                👆 Pick a section above to view and manage its students and attendance.
+            </p>
 
+            <div id="workArea">
 
-            <!-- ACTIONS TOP -->
-            <section class="top-actions">
-                <button id="markAllPresentBtn" class="mark-present-btn">✓ Mark All Present</button>
-                <button id="markAllAbsentBtn" class="mark-absent-btn">✕ Mark All Absent</button>
-            </section>
-
-
-            <!-- ATTENDANCE -->
-            <section class="attendance-section">
-
-                <div class="attendance-header">
-                    <div>
-                        <p class="section-small-title">STUDENT LIST</p>
-                        <h2>Student Attendance</h2>
+                <!-- STATS -->
+                <section class="stats">
+                    <div class="stat-card">
+                        <p>Total Students</p>
+                        <h3 id="totalStudents">0</h3>
                     </div>
-                    <div class="search-container">
-                        🔍
-                        <input type="text" id="searchStudent" placeholder="Search by Q.ID or Name...">
+                    <div class="stat-card present-stat">
+                        <p>Present</p>
+                        <h3 id="presentStudents">0</h3>
                     </div>
-                </div>
-
-                <div class="table-header">
-                    <div>Q.ID</div>
-                    <div>Name of Student</div>
-                    <div>Attendance</div>
-                </div>
-
-                <div id="studentList"></div>
-
-            </section>
-
-
-            <!-- SAVE ACTIONS -->
-            <section class="action-buttons">
-                <button id="saveBtn" class="save-btn">💾 Save Attendance</button>
-                <button id="downloadBtn" class="download-btn">📊 Download XLSX</button>
-            </section>
-
-
-            <!-- RECORDS -->
-            <section class="records-section">
-
-                <div class="records-header">
-                    <div>
-                        <p class="section-small-title">SAVED RECORDS</p>
-                        <h2>Previous Attendance</h2>
+                    <div class="stat-card absent-stat">
+                        <p>Absent</p>
+                        <h3 id="absentStudents">0</h3>
                     </div>
-                    <button id="refreshRecordsBtn" class="refresh-btn">🔄 Refresh</button>
-                </div>
+                </section>
 
-                <div id="recordsList" class="records-list">
-                    <p class="empty-record">Loading records...</p>
-                </div>
 
-            </section>
+                <!-- ACTIONS TOP -->
+                <section class="top-actions">
+                    <button id="markAllPresentBtn" class="mark-present-btn">✓ Mark All Present</button>
+                    <button id="markAllAbsentBtn" class="mark-absent-btn">✕ Mark All Absent</button>
+                </section>
+
+
+                <!-- ATTENDANCE -->
+                <section class="attendance-section">
+
+                    <div class="attendance-header">
+                        <div>
+                            <p class="section-small-title">STUDENT LIST</p>
+                            <h2>Student Attendance</h2>
+                        </div>
+                        <div class="search-container">
+                            🔍
+                            <input type="text" id="searchStudent" placeholder="Search by Q.ID or Name...">
+                        </div>
+                    </div>
+
+                    <div class="table-header">
+                        <div>Q.ID</div>
+                        <div>Name of Student</div>
+                        <div>Attendance</div>
+                    </div>
+
+                    <div id="studentList"></div>
+
+                </section>
+
+
+                <!-- SAVE ACTIONS -->
+                <section class="action-buttons">
+                    <button id="saveBtn" class="save-btn">💾 Save Attendance</button>
+                    <button id="downloadBtn" class="download-btn">📊 Download XLSX</button>
+                </section>
+
+
+                <!-- RECORDS -->
+                <section class="records-section">
+
+                    <div class="records-header">
+                        <div>
+                            <p class="section-small-title">SAVED RECORDS</p>
+                            <h2>Previous Attendance</h2>
+                        </div>
+                        <button id="refreshRecordsBtn" class="refresh-btn">🔄 Refresh</button>
+                    </div>
+
+                    <div id="recordsList" class="records-list">
+                        <p class="empty-record">Loading records...</p>
+                    </div>
+
+                </section>
+
+            </div>
 
         </main>
 
