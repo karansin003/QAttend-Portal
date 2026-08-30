@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>QAttend | One-time Data Import</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div style="max-width:600px;margin:60px auto;padding:30px;font-family:Arial,sans-serif;">
+        <h1>QAttend — One-time Import</h1>
+        <p style="color:#757575;margin:15px 0;">
+            This pushes the original hardcoded AIML-2 student list and the original
+            subject list into Firestore. Run this <strong>once</strong>, while logged in
+            as Admin. After it finishes, delete this file — you won't need it again.
+        </p>
+        <button id="runBtn" style="padding:14px 20px;background:#e91e63;color:white;border:none;border-radius:8px;font-weight:bold;cursor:pointer;">
+            Run Import
+        </button>
+        <p id="status" style="margin-top:20px;white-space:pre-line;"></p>
+    </div>
+
+    <script type="module" src="seed.js"></script>
+</body>
+</html>

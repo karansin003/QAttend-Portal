@@ -465,6 +465,130 @@ button {
 }
 
 
+/* ROLE BADGE */
+
+.role-badge {
+    background: var(--pink);
+    color: white;
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+}
+
+
+/* ADMIN PANEL */
+
+.admin-panel {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 25px;
+    background: var(--light-gray);
+}
+
+.admin-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.admin-card {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+}
+
+.admin-card h3 {
+    margin-bottom: 12px;
+    font-size: 15px;
+}
+
+.admin-card form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.admin-card input,
+.admin-card select {
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 14px;
+    width: 100%;
+}
+
+.admin-card button {
+    padding: 10px;
+    border: none;
+    border-radius: 6px;
+    background: var(--pink);
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.admin-card button:hover {
+    background: var(--pink-dark);
+}
+
+.admin-hint {
+    color: var(--gray);
+    font-size: 12px;
+    margin-top: 8px;
+}
+
+.chip-list,
+.cr-list {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 180px;
+    overflow-y: auto;
+}
+
+.chip-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--light-gray);
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+}
+
+.chip-row button {
+    background: var(--red);
+    color: white;
+    border: none;
+    border-radius: 5px;
+    padding: 4px 8px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.student {
+    grid-template-columns: 140px 1fr 220px 40px;
+}
+
+.table-header {
+    grid-template-columns: 140px 1fr 220px 40px;
+}
+
+.delete-student-btn {
+    background: transparent;
+    border: none;
+    color: var(--red);
+    font-size: 18px;
+    cursor: pointer;
+}
+
+
 /* FOOTER */
 
 footer {
@@ -548,6 +672,10 @@ footer {
     .record-card {
         flex-direction: column;
         gap: 15px;
+    }
+
+    .admin-grid {
+        grid-template-columns: 1fr;
     }
 
 }

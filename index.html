@@ -36,46 +36,18 @@
 
                 <div class="input-group">
                     <label>Email</label>
-
-                    <input
-                        type="email"
-                        id="email"
-                        placeholder="Enter your email"
-                        required
-                    >
+                    <input type="email" id="email" placeholder="Enter your email" required>
                 </div>
-
 
                 <div class="input-group">
-
                     <label>Password</label>
-
                     <div class="password-wrapper">
-
-                        <input
-                            type="password"
-                            id="password"
-                            placeholder="Enter your password"
-                            required
-                        >
-
-                        <button
-                            type="button"
-                            id="togglePassword"
-                            class="toggle-password"
-                            aria-label="Show password"
-                        >
-                            👁
-                        </button>
-
+                        <input type="password" id="password" placeholder="Enter your password" required>
+                        <button type="button" id="togglePassword" class="toggle-password" aria-label="Show password">👁</button>
                     </div>
-
                 </div>
 
-
-                <button type="submit" class="login-btn">
-                    Login
-                </button>
+                <button type="submit" class="login-btn">Login</button>
 
             </form>
 
@@ -93,27 +65,19 @@
         <header class="top-header">
 
             <div class="brand">
-
                 <div class="header-logo">
                     <img src="logo.png" alt="QAttend Logo">
                 </div>
-
                 <div>
                     <h1>QAttend</h1>
                     <p>Attendance Management System</p>
                 </div>
-
             </div>
 
-
             <div class="header-right">
-
+                <span id="roleBadge" class="role-badge"></span>
                 <span id="loggedUser"></span>
-
-                <button id="logoutBtn" class="logout-btn">
-                    Logout
-                </button>
-
+                <button id="logoutBtn" class="logout-btn">Logout</button>
             </div>
 
         </header>
@@ -123,21 +87,11 @@
 
             <!-- WELCOME -->
             <section class="welcome-section">
-
                 <div>
-
-                    <p class="welcome-small">
-                        QUANTUM UNIVERSITY
-                    </p>
-
-                    <h2>AIML - 2 Attendance Portal</h2>
-
-                    <p>
-                        Manage student attendance quickly and securely.
-                    </p>
-
+                    <p class="welcome-small">QUANTUM UNIVERSITY</p>
+                    <h2 id="welcomeTitle">Attendance Portal</h2>
+                    <p id="welcomeSubtitle">Manage student attendance quickly and securely.</p>
                 </div>
-
             </section>
 
 
@@ -145,96 +99,92 @@
             <section class="control-section">
 
                 <div class="class-details">
-
                     <div class="detail-item">
                         <span>University</span>
                         <strong>Quantum University</strong>
                     </div>
-
                     <div class="detail-item">
                         <span>Course</span>
-                        <strong>B.Tech AI & ML</strong>
+                        <strong>B.Tech AI &amp; ML</strong>
                     </div>
-
                     <div class="detail-item">
                         <span>Section</span>
-                        <strong>AIML - 2</strong>
+                        <strong id="sectionLabel">--</strong>
                     </div>
-
                     <div class="detail-item">
                         <span>Total Students</span>
                         <strong id="headerTotalStudents">0</strong>
                     </div>
-
                 </div>
-
 
                 <div class="selectors">
 
-                    <div class="select-box">
-
-                        <label>📅 Select Date</label>
-
-                        <input
-                            type="date"
-                            id="attendanceDate"
-                        >
-
+                    <!-- ADMIN ONLY: switch which section is being managed -->
+                    <div class="select-box admin-only hidden" id="sectionSwitchBox">
+                        <label>🏫 Manage Section</label>
+                        <select id="sectionSelect"></select>
                     </div>
 
+                    <div class="select-box">
+                        <label>📅 Select Date</label>
+                        <input type="date" id="attendanceDate">
+                    </div>
 
                     <div class="select-box">
-
                         <label>📚 Select Subject</label>
-
                         <select id="subjectSelect">
-
-                            <option value="">
-                                -- Select Subject --
-                            </option>
-
-                            <option value="Design and Analysis of Algorithm">
-                                Design and Analysis of Algorithm
-                            </option>
-
-                            <option value="Mini Project - III">
-                                Mini Project - III
-                            </option>
-
-                            <option value="Design and Analysis of Algorithm Lab">
-                                Design and Analysis of Algorithm Lab
-                            </option>
-
-                            <option value="Corporate Communication">
-                                Corporate Communication
-                            </option>
-
-                            <option value="Summer Internship II">
-                                Summer Internship II
-                            </option>
-
-                            <option value="Technical Skills Development-IV">
-                                Technical Skills Development-IV
-                            </option>
-
-                            <option value="Scala for Data Science - Tools and Techniques">
-                                Scala for Data Science - Tools and Techniques
-                            </option>
-
-                            <option value="Foundation of Cloud Computing">
-                                Foundation of Cloud Computing
-                            </option>
-
-                            <option value="Advance Machine Learning Practical with Python, Scikit-learn, TensorFlow">
-                                Advance Machine Learning Practical with Python, Scikit-learn, TensorFlow
-                            </option>
-
-                            <option value="Robotic Industry 4.0">
-                                Robotic Industry 4.0
-                            </option>
-
+                            <option value="">-- Select Subject --</option>
                         </select>
+                    </div>
 
+                </div>
+
+            </section>
+
+
+            <!-- ADMIN PANEL -->
+            <section class="admin-panel admin-only hidden" id="adminPanel">
+
+                <p class="section-small-title">ADMIN CONTROLS</p>
+                <h2>Manage Students, Subjects &amp; CRs</h2>
+
+                <div class="admin-grid">
+
+                    <!-- ADD STUDENT -->
+                    <div class="admin-card">
+                        <h3>Add Student</h3>
+                        <form id="addStudentForm">
+                            <input type="text" id="newStudentQid" placeholder="Q.ID" required>
+                            <input type="text" id="newStudentName" placeholder="Full Name" required>
+                            <button type="submit">+ Add Student</button>
+                        </form>
+                        <p class="admin-hint">Adds to the section selected above.</p>
+                    </div>
+
+                    <!-- ADD SUBJECT -->
+                    <div class="admin-card">
+                        <h3>Add Subject</h3>
+                        <form id="addSubjectForm">
+                            <input type="text" id="newSubjectName" placeholder="Subject name" required>
+                            <button type="submit">+ Add Subject</button>
+                        </form>
+                        <p class="admin-hint">Subjects are shared across all sections.</p>
+                        <div id="subjectManageList" class="chip-list"></div>
+                    </div>
+
+                    <!-- ASSIGN CR -->
+                    <div class="admin-card">
+                        <h3>Assign CR</h3>
+                        <form id="addCrForm">
+                            <input type="email" id="newCrEmail" placeholder="CR's login email" required>
+                            <select id="newCrSection"></select>
+                            <button type="submit">+ Assign CR</button>
+                        </form>
+                        <p class="admin-hint">
+                            Create the login in Firebase Console first (Authentication tab),
+                            then assign it here so it can access its section.
+                        </p>
+                        <div id="crManageList" class="cr-list"></div>
                     </div>
 
                 </div>
@@ -244,36 +194,25 @@
 
             <!-- STATS -->
             <section class="stats">
-
                 <div class="stat-card">
                     <p>Total Students</p>
                     <h3 id="totalStudents">0</h3>
                 </div>
-
                 <div class="stat-card present-stat">
                     <p>Present</p>
                     <h3 id="presentStudents">0</h3>
                 </div>
-
                 <div class="stat-card absent-stat">
                     <p>Absent</p>
                     <h3 id="absentStudents">0</h3>
                 </div>
-
             </section>
 
 
             <!-- ACTIONS TOP -->
             <section class="top-actions">
-
-                <button id="markAllPresentBtn" class="mark-present-btn">
-                    ✓ Mark All Present
-                </button>
-
-                <button id="markAllAbsentBtn" class="mark-absent-btn">
-                    ✕ Mark All Absent
-                </button>
-
+                <button id="markAllPresentBtn" class="mark-present-btn">✓ Mark All Present</button>
+                <button id="markAllAbsentBtn" class="mark-absent-btn">✕ Mark All Absent</button>
             </section>
 
 
@@ -281,41 +220,21 @@
             <section class="attendance-section">
 
                 <div class="attendance-header">
-
                     <div>
-
-                        <p class="section-small-title">
-                            STUDENT LIST
-                        </p>
-
+                        <p class="section-small-title">STUDENT LIST</p>
                         <h2>Student Attendance</h2>
-
                     </div>
-
-
                     <div class="search-container">
-
                         🔍
-
-                        <input
-                            type="text"
-                            id="searchStudent"
-                            placeholder="Search by Q.ID or Name..."
-                        >
-
+                        <input type="text" id="searchStudent" placeholder="Search by Q.ID or Name...">
                     </div>
-
                 </div>
 
-
                 <div class="table-header">
-
                     <div>Q.ID</div>
                     <div>Name of Student</div>
                     <div>Attendance</div>
-
                 </div>
-
 
                 <div id="studentList"></div>
 
@@ -324,15 +243,8 @@
 
             <!-- SAVE ACTIONS -->
             <section class="action-buttons">
-
-                <button id="saveBtn" class="save-btn">
-                    💾 Save Attendance
-                </button>
-
-                <button id="downloadBtn" class="download-btn">
-                    📊 Download XLSX
-                </button>
-
+                <button id="saveBtn" class="save-btn">💾 Save Attendance</button>
+                <button id="downloadBtn" class="download-btn">📊 Download XLSX</button>
             </section>
 
 
@@ -340,30 +252,15 @@
             <section class="records-section">
 
                 <div class="records-header">
-
                     <div>
-
-                        <p class="section-small-title">
-                            SAVED RECORDS
-                        </p>
-
+                        <p class="section-small-title">SAVED RECORDS</p>
                         <h2>Previous Attendance</h2>
-
                     </div>
-
-                    <button id="refreshRecordsBtn" class="refresh-btn">
-                        🔄 Refresh
-                    </button>
-
+                    <button id="refreshRecordsBtn" class="refresh-btn">🔄 Refresh</button>
                 </div>
 
-
                 <div id="recordsList" class="records-list">
-
-                    <p class="empty-record">
-                        Loading records...
-                    </p>
-
+                    <p class="empty-record">Loading records...</p>
                 </div>
 
             </section>

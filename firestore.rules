@@ -1,0 +1,56 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function myProfile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.token.email)).data;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && myProfile().role == "admin";
+    }
+
+    function isCR() {
+      return isSignedIn() && myProfile().role == "cr";
+    }
+
+    function mySection() {
+      return myProfile().section;
+    }
+
+    // ROLE ASSIGNMENTS
+    // A user can read their own profile (to know their own role/section).
+    // Only Admin can create/edit/delete role assignments.
+    match /users/{email} {
+      allow read: if isSignedIn() && request.auth.token.email == email;
+      allow read, write: if isAdmin();
+    }
+
+    // SUBJECTS — shared across all sections
+    // Everyone signed in can read (needed for the dropdown).
+    // Only Admin can add/delete.
+    match /subjects/{subjectId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // STUDENTS — scoped per section
+    // Admin: full access to every section.
+    // CR: read-only, and only their own assigned section.
+    match /sections/{sectionId}/students/{studentId} {
+      allow read: if isAdmin() || (isCR() && mySection() == sectionId);
+      allow write: if isAdmin();
+    }
+
+    // ATTENDANCE — scoped per section
+    // Admin: full access to every section.
+    // CR: read/write, but only their own assigned section.
+    match /sections/{sectionId}/attendance/{recordId} {
+      allow read, write: if isAdmin() || (isCR() && mySection() == sectionId);
+    }
+  }
+}
