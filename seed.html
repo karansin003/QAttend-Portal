@@ -2,26 +2,23 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QAttend | Student & Subject Sync</title>
+    <title>QAttend | One-time Data Import</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div style="max-width:650px;margin:60px auto;padding:30px;font-family:Arial,sans-serif;">
-        <h1>QAttend — Student & Subject Sync</h1>
 
+    <div style="max-width:600px;margin:60px auto;padding:30px;font-family:Arial,sans-serif;">
+        <h1>QAttend — One-time Import</h1>
         <p style="color:#757575;margin:15px 0;">
-            This updates the complete student roster section-wise and syncs
-            the 11 requested subjects.
+            This adds the full student roster (539 students across Section 1-8,
+            AIML-1, AIML-2) and the 11 subjects into Firestore. Safe to click
+            more than once — it only adds what's missing, never creates
+            duplicates. Run while logged in as Admin.
         </p>
-
-        <button id="runBtn"
-            style="padding:14px 20px;background:#e91e63;color:white;border:none;border-radius:8px;font-weight:bold;cursor:pointer;">
-            Sync Students & Subjects
+        <button id="runBtn" style="padding:14px 20px;background:#e91e63;color:white;border:none;border-radius:8px;font-weight:bold;cursor:pointer;">
+            Run Import
         </button>
-
-        <p id="status"
-            style="margin-top:20px;white-space:pre-line;line-height:1.6;"></p>
+        <p id="status" style="margin-top:20px;white-space:pre-line;"></p>
     </div>
 
     <script type="module" src="seed.js"></script>

@@ -116,6 +116,15 @@ body {
     background: transparent;
     cursor: pointer;
     font-size: 19px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+.toggle-password img {
+    width: 20px;
+    height: 20px;
 }
 
 .login-btn {
@@ -441,6 +450,7 @@ button {
 }
 
 .view-record-btn,
+.share-record-btn,
 .delete-record-btn {
     padding: 8px 12px;
     border: none;
@@ -450,6 +460,11 @@ button {
 
 .view-record-btn {
     background: var(--black);
+    color: white;
+}
+
+.share-record-btn {
+    background: var(--pink);
     color: white;
 }
 

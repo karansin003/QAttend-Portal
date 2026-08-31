@@ -50,12 +50,34 @@ const SECTIONS = [
     { id: "SECTION-8", label: "Section 8" },
     { id: "AIML-1", label: "AIML - 1" },
     { id: "AIML-2", label: "AIML - 2" },
-    { id: "CSCQ", label: "CSCQ" }
+    { id: "CSCQ", label: "CSCQ" },
+    { id: "DATA-SCIENCE", label: "Data Science" },
+    { id: "FULL-STACK-DEV", label: "Full Stack Development" },
+    { id: "CLOUD-TECH-INFOSEC", label: "Cloud Technology & Information Security" }
 ];
 
 function sectionLabelOf(id) {
     const match = SECTIONS.find(section => section.id === id);
     return match ? match.label : id;
+}
+
+// Compares two names word by word — first name first, then middle name(s),
+// then last name — rather than treating the whole name as one long string.
+// This is the same end result as a plain string compare for most names, but
+// is explicit and predictable regardless of spacing quirks in the data.
+function compareNames(nameA, nameB) {
+    const aWords = nameA.trim().split(/\s+/);
+    const bWords = nameB.trim().split(/\s+/);
+    const wordCount = Math.max(aWords.length, bWords.length);
+
+    for (let i = 0; i < wordCount; i++) {
+        const aWord = aWords[i] || "";
+        const bWord = bWords[i] || "";
+        const comparison = aWord.localeCompare(bWord);
+        if (comparison !== 0) return comparison;
+    }
+
+    return 0;
 }
 
 
@@ -65,6 +87,11 @@ let profile = null;          // { role: "admin" | "cr", section: string|null }
 let activeSection = null;    // section id currently being viewed/managed
 let students = [];           // [{ id, qid, name, status }]
 let subjects = [];           // [{ id, name }]
+let recordsCache = {};       // { recordId: full record data } — used so Share
+                              // can build the file instantly without an extra
+                              // Firestore read, which otherwise delays the
+                              // navigator.share() call past the click and
+                              // makes some browsers reject it (NotAllowedError).
 
 
 // HTML ELEMENTS
@@ -216,6 +243,7 @@ onAuthStateChanged(auth, async function (user) {
         workArea.classList.add("hidden");
         noSectionMessage.classList.remove("hidden");
         sectionLabel.textContent = "-- Not selected --";
+        headerTotalStudents.textContent = "0";
 
         await loadCrList();
         await loadSubjects();
@@ -267,6 +295,12 @@ sectionSelect.addEventListener("change", async function () {
         workArea.classList.add("hidden");
         noSectionMessage.classList.remove("hidden");
         sectionLabel.textContent = "-- Not selected --";
+        headerTotalStudents.textContent = "0";
+        totalStudents.textContent = "0";
+        presentStudents.textContent = "0";
+        absentStudents.textContent = "0";
+        studentList.innerHTML = "";
+        students = [];
         return;
     }
 
@@ -279,6 +313,7 @@ sectionSelect.addEventListener("change", async function () {
     attendanceDate.value = new Date().toISOString().split("T")[0];
 
     await loadStudents();
+    await loadSubjects();
     await loadRecords();
 });
 
@@ -300,7 +335,10 @@ async function loadStudents() {
                     status: null
                 };
             })
-            .sort((a, b) => a.qid.localeCompare(b.qid));
+            .sort(function (a, b) {
+                // Sort by first name, then middle name(s), then last name.
+                return compareNames(a.name, b.name);
+            });
 
         displayStudents();
 
@@ -328,15 +366,16 @@ function displayStudents() {
 
         const row = document.createElement("div");
         row.className = "student";
+        row.dataset.id = student.id;
 
         row.innerHTML = `
             <div class="qid-number">${student.qid}</div>
             <div class="student-name">${student.name}</div>
             <div class="buttons">
-                <button class="present ${student.status === "Present" ? "active-present" : ""}"
-                    data-id="${student.id}" data-status="Present">✓ Present</button>
                 <button class="absent ${student.status === "Absent" ? "active-absent" : ""}"
                     data-id="${student.id}" data-status="Absent">✕ Absent</button>
+                <button class="present ${student.status === "Present" ? "active-present" : ""}"
+                    data-id="${student.id}" data-status="Present">✓ Present</button>
             </div>
             ${isAdmin ? `<button class="delete-student-btn" data-id="${student.id}" title="Delete student">🗑</button>` : ""}
         `;
@@ -344,24 +383,37 @@ function displayStudents() {
         studentList.appendChild(row);
     });
 
-    document.querySelectorAll("[data-status]").forEach(function (button) {
-        button.addEventListener("click", function () {
-            const student = students.find(item => item.id === button.dataset.id);
-            student.status = button.dataset.status;
-            displayStudents();
-        });
-    });
-
-    if (isAdmin) {
-        document.querySelectorAll(".delete-student-btn").forEach(function (button) {
-            button.addEventListener("click", function () {
-                deleteStudent(button.dataset.id);
-            });
-        });
-    }
-
     updateStats();
 }
+
+// Handle Present/Absent/Delete clicks via a single delegated listener
+// attached once to the list container, instead of re-attaching listeners
+// to every button on every render. On Present/Absent, only that row's two
+// buttons are updated directly — the whole list is not re-rendered — which
+// keeps marking attendance fast even on sections with 60-80+ students.
+studentList.addEventListener("click", function (event) {
+    const statusButton = event.target.closest("[data-status]");
+    if (statusButton) {
+        const student = students.find(item => item.id === statusButton.dataset.id);
+        if (!student) return;
+
+        student.status = statusButton.dataset.status;
+
+        const row = statusButton.closest(".student");
+        const absentBtn = row.querySelector(".absent");
+        const presentBtn = row.querySelector(".present");
+        absentBtn.classList.toggle("active-absent", student.status === "Absent");
+        presentBtn.classList.toggle("active-present", student.status === "Present");
+
+        updateStats();
+        return;
+    }
+
+    const deleteButton = event.target.closest(".delete-student-btn");
+    if (deleteButton) {
+        deleteStudent(deleteButton.dataset.id);
+    }
+});
 
 
 // STUDENTS — ADD (admin only, enforced by Firestore rules too)
@@ -442,11 +494,13 @@ markAllAbsentBtn.addEventListener("click", function () {
 });
 
 
-// SUBJECTS — LOAD (shared across all sections)
+// SUBJECTS — LOAD (specific to the currently active section)
 
 async function loadSubjects() {
+    if (!activeSection) return;
+
     try {
-        const q = query(collection(db, "subjects"), orderBy("name"));
+        const q = query(collection(db, "sections", activeSection, "subjects"), orderBy("name"));
         const snapshot = await getDocs(q);
 
         subjects = snapshot.docs.map(docSnap => ({ id: docSnap.id, name: docSnap.data().name }));
@@ -484,16 +538,21 @@ async function loadSubjects() {
 }
 
 
-// SUBJECTS — ADD (admin only)
+// SUBJECTS — ADD (admin only, added to the currently active section only)
 
 addSubjectForm.addEventListener("submit", async function (event) {
     event.preventDefault();
+
+    if (!activeSection) {
+        alert("Pick a section first (dropdown above).");
+        return;
+    }
 
     const name = newSubjectName.value.trim();
     if (!name) return;
 
     try {
-        await addDoc(collection(db, "subjects"), { name });
+        await addDoc(collection(db, "sections", activeSection, "subjects"), { name });
         newSubjectName.value = "";
         await loadSubjects();
     } catch (error) {
@@ -503,14 +562,14 @@ addSubjectForm.addEventListener("submit", async function (event) {
 });
 
 
-// SUBJECTS — DELETE (admin only)
+// SUBJECTS — DELETE (admin only, only from the currently active section)
 
 async function deleteSubject(subjectId) {
-    const confirmDelete = confirm("Delete this subject? Existing saved records will keep the old name.");
+    const confirmDelete = confirm("Delete this subject from this section? Existing saved records will keep the old name.");
     if (!confirmDelete) return;
 
     try {
-        await deleteDoc(doc(db, "subjects", subjectId));
+        await deleteDoc(doc(db, "sections", activeSection, "subjects", subjectId));
         await loadSubjects();
     } catch (error) {
         console.error(error);
@@ -727,6 +786,7 @@ async function loadRecords() {
 
         snapshot.forEach(function (documentSnapshot) {
             const data = documentSnapshot.data();
+            recordsCache[documentSnapshot.id] = data;
 
             const present = data.students.filter(student => student.status === "Present").length;
             const absent = data.students.filter(student => student.status === "Absent").length;
@@ -742,6 +802,7 @@ async function loadRecords() {
                 </div>
                 <div class="record-actions">
                     <button class="view-record-btn" data-id="${documentSnapshot.id}">View</button>
+                    <button class="share-record-btn" data-id="${documentSnapshot.id}">Share</button>
                     <button class="delete-record-btn" data-id="${documentSnapshot.id}">Delete</button>
                 </div>
             `;
@@ -767,11 +828,95 @@ function addRecordButtonEvents() {
         });
     });
 
+    document.querySelectorAll(".share-record-btn").forEach(function (button) {
+        button.addEventListener("click", async function () {
+            await shareRecord(button.dataset.id);
+        });
+    });
+
     document.querySelectorAll(".delete-record-btn").forEach(function (button) {
         button.addEventListener("click", async function () {
             await deleteRecord(button.dataset.id);
         });
     });
+}
+
+
+// SHARE RECORD — builds the XLSX for one saved record and opens the
+// device's native share sheet (WhatsApp, Email, etc.) so Admin/CR can send
+// it directly, without first downloading and then attaching it manually.
+
+async function shareRecord(recordId) {
+    try {
+        const data = recordsCache[recordId];
+
+        if (!data) {
+            alert("Record data not loaded — try refreshing the records list first.");
+            return;
+        }
+
+        const sortedStudents = [...data.students].sort(function (a, b) {
+            if (a.status === "Present" && b.status === "Absent") return -1;
+            if (a.status === "Absent" && b.status === "Present") return 1;
+            return 0;
+        });
+
+        const excelData = [
+            ["QATTEND ATTENDANCE REPORT"],
+            [],
+            ["University", data.university || "Quantum University"],
+            ["Course", data.course || "B.Tech Artificial Intelligence & Machine Learning"],
+            ["Section", data.section],
+            ["Semester", "Semester - 5"],
+            ["Subject", data.subject],
+            ["Date", data.date],
+            [],
+            ["Q.ID", "Name of Student", "Attendance"]
+        ];
+
+        sortedStudents.forEach(function (student) {
+            excelData.push([student.qid, student.name, student.status === "Present" ? 1 : 0]);
+        });
+
+        const worksheet = XLSX.utils.aoa_to_sheet(excelData);
+        worksheet["!cols"] = [{ wch: 18 }, { wch: 50 }, { wch: 15 }];
+
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Attendance");
+
+        const cleanSubject = data.subject.replace(/[^a-zA-Z0-9]/g, "_");
+        const fileName = `QAttend_${data.section}_${cleanSubject}_${data.date}.xlsx`;
+
+        const wbArray = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+        const blob = new Blob([wbArray], {
+            type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        });
+        const file = new File([blob], fileName, { type: blob.type });
+
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            try {
+                await navigator.share({
+                    files: [file],
+                    title: `${data.subject} Attendance`,
+                    text: `Attendance for ${data.subject} on ${data.date} — ${data.section}`
+                });
+                return;
+            } catch (shareError) {
+                if (shareError.name === "AbortError") return; // user closed the share sheet
+                // Some desktop browsers report support (canShare: true) but then
+                // refuse the actual share call — fall through to download instead
+                // of showing an error, since the file is still perfectly usable.
+                console.error(shareError);
+            }
+        }
+
+        XLSX.writeFile(workbook, fileName);
+        alert("Sharing isn't available in this browser — the file was downloaded instead. You can share it manually.");
+
+    } catch (error) {
+        console.error(error);
+        alert(`Error sharing record: ${error.name || ""} — ${error.message || error}`);
+    }
 }
 
 
@@ -857,6 +1002,7 @@ downloadBtn.addEventListener("click", function () {
         ["University", "Quantum University"],
         ["Course", "B.Tech Artificial Intelligence & Machine Learning"],
         ["Section", sectionLabelOf(activeSection)],
+        ["Semester", "Semester - 5"],
         ["Subject", subject],
         ["Date", date],
         [],

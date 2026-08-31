@@ -30,11 +30,11 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
-    // SUBJECTS — shared across all sections
-    // Everyone signed in can read (needed for the dropdown).
-    // Only Admin can add/delete.
-    match /subjects/{subjectId} {
-      allow read: if isSignedIn();
+    // SUBJECTS — scoped per section, same access pattern as students
+    // Admin: full access to every section's subjects.
+    // CR: read-only, and only their own assigned section.
+    match /sections/{sectionId}/subjects/{subjectId} {
+      allow read: if isAdmin() || (isCR() && mySection() == sectionId);
       allow write: if isAdmin();
     }
 
