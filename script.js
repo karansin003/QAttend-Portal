@@ -394,6 +394,11 @@ function displayStudents() {
 studentList.addEventListener("click", function (event) {
     const statusButton = event.target.closest("[data-status]");
     if (statusButton) {
+        if (!subjectSelect.value) {
+            alert("Please select a subject first.");
+            return;
+        }
+
         const student = students.find(item => item.id === statusButton.dataset.id);
         if (!student) return;
 
@@ -484,11 +489,19 @@ searchStudent.addEventListener("input", displayStudents);
 // MARK ALL PRESENT / ABSENT
 
 markAllPresentBtn.addEventListener("click", function () {
+    if (!subjectSelect.value) {
+        alert("Please select a subject first.");
+        return;
+    }
     students.forEach(student => student.status = "Present");
     displayStudents();
 });
 
 markAllAbsentBtn.addEventListener("click", function () {
+    if (!subjectSelect.value) {
+        alert("Please select a subject first.");
+        return;
+    }
     students.forEach(student => student.status = "Absent");
     displayStudents();
 });
@@ -746,7 +759,7 @@ saveBtn.addEventListener("click", async function () {
 
         await setDoc(attendanceRef, {
             university: "Quantum University",
-            course: "B.Tech",
+            course: "B.Tech Artificial Intelligence & Machine Learning",
             section: sectionLabelOf(activeSection),
             subject: subject,
             date: date,
@@ -865,9 +878,9 @@ async function shareRecord(recordId) {
             ["QATTEND ATTENDANCE REPORT"],
             [],
             ["University", data.university || "Quantum University"],
-            ["Course", data.course || "B.Tech"],
+            ["Course", data.course || "B.Tech Artificial Intelligence & Machine Learning"],
             ["Section", data.section],
-            ["Semester", "5"],
+            ["Semester", "Semester - 5"],
             ["Subject", data.subject],
             ["Date", data.date],
             [],
@@ -1000,9 +1013,9 @@ downloadBtn.addEventListener("click", function () {
         ["QATTEND ATTENDANCE REPORT"],
         [],
         ["University", "Quantum University"],
-        ["Course", "B.Tech"],
+        ["Course", "B.Tech Artificial Intelligence & Machine Learning"],
         ["Section", sectionLabelOf(activeSection)],
-        ["Semester", "5"],
+        ["Semester", "Semester - 5"],
         ["Subject", subject],
         ["Date", date],
         [],
