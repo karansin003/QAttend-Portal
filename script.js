@@ -868,6 +868,14 @@ async function shareRecord(recordId) {
             return;
         }
 
+        // Fixed serial = each student's position in the permanent alphabetical
+        // roster (data.students, saved in that order at save time) — this
+        // stays the same across every attendance record, like a roll number.
+        const serialByQid = new Map();
+        data.students.forEach(function (student, index) {
+            serialByQid.set(student.qid, index + 1);
+        });
+
         const sortedStudents = [...data.students].sort(function (a, b) {
             if (a.status === "Present" && b.status === "Absent") return -1;
             if (a.status === "Absent" && b.status === "Present") return 1;
@@ -889,12 +897,13 @@ async function shareRecord(recordId) {
 
         const presentSerials = [];
 
-        sortedStudents.forEach(function (student, index) {
-            const serial = index + 1;
+        sortedStudents.forEach(function (student) {
+            const serial = serialByQid.get(student.qid);
             excelData.push([serial, student.qid, student.name, student.status === "Present" ? 1 : 0]);
             if (student.status === "Present") presentSerials.push(serial);
         });
 
+        presentSerials.sort((a, b) => a - b);
         excelData.push([]);
         excelData.push(["Present (S.No, for shortcut)", presentSerials.join(" ")]);
 
@@ -1010,6 +1019,14 @@ downloadBtn.addEventListener("click", function () {
         return;
     }
 
+    // Fixed serial = each student's position in the current alphabetical
+    // roster (students, already alphabetically sorted by loadStudents) —
+    // stays the same across records as long as the roster doesn't change.
+    const serialByQid = new Map();
+    students.forEach(function (student, index) {
+        serialByQid.set(student.qid, index + 1);
+    });
+
     const sortedStudents = [...students].sort(function (a, b) {
         if (a.status === "Present" && b.status === "Absent") return -1;
         if (a.status === "Absent" && b.status === "Present") return 1;
@@ -1031,12 +1048,13 @@ downloadBtn.addEventListener("click", function () {
 
     const presentSerials = [];
 
-    sortedStudents.forEach(function (student, index) {
-        const serial = index + 1;
+    sortedStudents.forEach(function (student) {
+        const serial = serialByQid.get(student.qid);
         excelData.push([serial, student.qid, student.name, student.status === "Present" ? 1 : 0]);
         if (student.status === "Present") presentSerials.push(serial);
     });
 
+    presentSerials.sort((a, b) => a - b);
     excelData.push([]);
     excelData.push(["Present (S.No, for shortcut)", presentSerials.join(" ")]);
 
