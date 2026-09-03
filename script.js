@@ -884,15 +884,22 @@ async function shareRecord(recordId) {
             ["Subject", data.subject],
             ["Date", data.date],
             [],
-            ["Q.ID", "Name of Student", "Attendance"]
+            ["S.No", "Q.ID", "Name of Student", "Attendance"]
         ];
 
-        sortedStudents.forEach(function (student) {
-            excelData.push([student.qid, student.name, student.status === "Present" ? 1 : 0]);
+        const presentSerials = [];
+
+        sortedStudents.forEach(function (student, index) {
+            const serial = index + 1;
+            excelData.push([serial, student.qid, student.name, student.status === "Present" ? 1 : 0]);
+            if (student.status === "Present") presentSerials.push(serial);
         });
 
+        excelData.push([]);
+        excelData.push(["Present (S.No, for shortcut)", presentSerials.join(" ")]);
+
         const worksheet = XLSX.utils.aoa_to_sheet(excelData);
-        worksheet["!cols"] = [{ wch: 18 }, { wch: 50 }, { wch: 15 }];
+        worksheet["!cols"] = [{ wch: 10 }, { wch: 18 }, { wch: 50 }, { wch: 15 }];
 
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Attendance");
@@ -1019,15 +1026,22 @@ downloadBtn.addEventListener("click", function () {
         ["Subject", subject],
         ["Date", date],
         [],
-        ["Q.ID", "Name of Student", "Attendance"]
+        ["S.No", "Q.ID", "Name of Student", "Attendance"]
     ];
 
-    sortedStudents.forEach(function (student) {
-        excelData.push([student.qid, student.name, student.status === "Present" ? 1 : 0]);
+    const presentSerials = [];
+
+    sortedStudents.forEach(function (student, index) {
+        const serial = index + 1;
+        excelData.push([serial, student.qid, student.name, student.status === "Present" ? 1 : 0]);
+        if (student.status === "Present") presentSerials.push(serial);
     });
 
+    excelData.push([]);
+    excelData.push(["Present (S.No, for shortcut)", presentSerials.join(" ")]);
+
     const worksheet = XLSX.utils.aoa_to_sheet(excelData);
-    worksheet["!cols"] = [{ wch: 18 }, { wch: 50 }, { wch: 15 }];
+    worksheet["!cols"] = [{ wch: 10 }, { wch: 18 }, { wch: 50 }, { wch: 15 }];
 
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Attendance");
