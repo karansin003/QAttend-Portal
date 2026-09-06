@@ -38,6 +38,33 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 
+// LAZY-LOAD SHEETJS (Excel library)
+// Only fetched the first time Save/Download/Share is actually used — not on
+// every page load. This is a large library, and loading it upfront made the
+// login page noticeably slower on weak connections for no benefit, since
+// most visits to the page are just to log in and mark attendance.
+let xlsxLoadPromise = null;
+
+function ensureXLSXLoaded() {
+    if (window.XLSX) return Promise.resolve();
+
+    if (!xlsxLoadPromise) {
+        xlsxLoadPromise = new Promise(function (resolve, reject) {
+            const script = document.createElement("script");
+            script.src = "https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js";
+            script.onload = resolve;
+            script.onerror = function () {
+                xlsxLoadPromise = null; // allow retrying on next attempt
+                reject(new Error("Could not load the Excel library. Check your internet connection."));
+            };
+            document.head.appendChild(script);
+        });
+    }
+
+    return xlsxLoadPromise;
+}
+
+
 // FIXED SECTION LIST — edit here if names change
 const SECTIONS = [
     { id: "SECTION-1", label: "Section 1" },
@@ -868,6 +895,8 @@ async function shareRecord(recordId) {
             return;
         }
 
+        await ensureXLSXLoaded();
+
         // Fixed serial = each student's position in the permanent alphabetical
         // roster (data.students, saved in that order at save time) — this
         // stays the same across every attendance record, like a roll number.
@@ -1004,7 +1033,7 @@ refreshRecordsBtn.addEventListener("click", loadRecords);
 
 // DOWNLOAD XLSX
 
-downloadBtn.addEventListener("click", function () {
+downloadBtn.addEventListener("click", async function () {
     const date = attendanceDate.value;
     const subject = subjectSelect.value;
 
@@ -1016,6 +1045,13 @@ downloadBtn.addEventListener("click", function () {
     const unmarked = students.filter(student => student.status === null);
     if (unmarked.length > 0) {
         alert("Please mark all students before downloading.");
+        return;
+    }
+
+    try {
+        await ensureXLSXLoaded();
+    } catch (error) {
+        alert(error.message);
         return;
     }
 

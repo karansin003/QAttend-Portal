@@ -6,11 +6,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <title>QAttend | Attendance Management System</title>
-    <link rel="icon" type="image/png" href="logo.png">
+
     <link rel="stylesheet" href="style.css">
 
-    <!-- SheetJS -->
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+    <!-- Speed up the first connection to Firebase's servers -->
+    <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://firestore.googleapis.com">
+    <link rel="preconnect" href="https://identitytoolkit.googleapis.com">
+
+    <!-- SheetJS (Excel library) is now loaded on demand from script.js,
+         only when Save/Download/Share is actually used — not on every
+         page load. This is the single biggest speed win for slow networks,
+         since it's a large library nobody needs just to log in and mark attendance. -->
 </head>
 
 <body>

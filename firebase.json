@@ -1,14 +1,24 @@
 {
   "hosting": {
-    "target": "qattend",
     "public": ".",
     "ignore": [
       "firebase.json",
       "**/.*",
       "**/node_modules/**"
+    ],
+    "headers": [
+      {
+        "source": "**/*.@(js|css)",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-cache, max-age=0" }
+        ]
+      },
+      {
+        "source": "**/*.@(svg|png|jpg|jpeg|webp|ico)",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=604800" }
+        ]
+      }
     ]
-  },
-  "firestore": {
-    "rules": "firestore.rules"
   }
 }
