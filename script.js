@@ -4,7 +4,8 @@ import {
     getAuth,
     signInWithEmailAndPassword,
     signOut,
-    onAuthStateChanged
+    onAuthStateChanged,
+    sendPasswordResetEmail
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 
 import {
@@ -132,6 +133,13 @@ const passwordInput = document.getElementById("password");
 const togglePassword = document.getElementById("togglePassword");
 const loginMessage = document.getElementById("loginMessage");
 
+const forgotPasswordLink = document.getElementById("forgotPasswordLink");
+const resetPasswordBox = document.getElementById("resetPasswordBox");
+const resetEmail = document.getElementById("resetEmail");
+const sendResetBtn = document.getElementById("sendResetBtn");
+const resetMessage = document.getElementById("resetMessage");
+const backToLoginLink = document.getElementById("backToLoginLink");
+
 const logoutBtn = document.getElementById("logoutBtn");
 const loggedUser = document.getElementById("loggedUser");
 const roleBadge = document.getElementById("roleBadge");
@@ -215,6 +223,74 @@ loginForm.addEventListener("submit", async function (event) {
 });
 
 
+// FORGOT PASSWORD — show the reset box, hide the login form
+forgotPasswordLink.addEventListener("click", function (event) {
+    event.preventDefault();
+
+    resetEmail.value = emailInput.value.trim(); // carry over whatever they'd typed
+    resetMessage.textContent = "";
+    resetMessage.classList.remove("login-message-success");
+
+    loginForm.classList.add("hidden");
+    forgotPasswordLink.parentElement.classList.add("hidden");
+    loginMessage.classList.add("hidden");
+    resetPasswordBox.classList.remove("hidden");
+});
+
+// Back to the normal login form
+backToLoginLink.addEventListener("click", function (event) {
+    event.preventDefault();
+
+    resetPasswordBox.classList.add("hidden");
+    loginForm.classList.remove("hidden");
+    forgotPasswordLink.parentElement.classList.remove("hidden");
+    loginMessage.classList.remove("hidden");
+    resetMessage.textContent = "";
+});
+
+// SEND RESET LINK — Firebase emails the user a link; clicking it lets them
+// set a brand new password on Firebase's own page. No OTP, no SMTP setup,
+// no third-party service needed — this is a built-in Firebase Auth feature.
+sendResetBtn.addEventListener("click", async function () {
+    const email = resetEmail.value.trim();
+
+    if (!email) {
+        resetMessage.classList.remove("login-message-success");
+        resetMessage.textContent = "Please enter your email.";
+        return;
+    }
+
+    resetMessage.classList.remove("login-message-success");
+    resetMessage.textContent = "Sending...";
+    sendResetBtn.disabled = true;
+
+    try {
+        await sendPasswordResetEmail(auth, email);
+
+        resetMessage.classList.add("login-message-success");
+        resetMessage.textContent =
+            "✅ Reset link sent! Check your inbox (and spam/promotions folder).";
+
+    } catch (error) {
+        console.error(error);
+        resetMessage.classList.remove("login-message-success");
+
+        // Firebase intentionally doesn't reveal whether an email exists,
+        // for privacy — so most errors here are just bad email formatting.
+        if (error.code === "auth/invalid-email") {
+            resetMessage.textContent = "That doesn't look like a valid email.";
+        } else if (error.code === "auth/too-many-requests") {
+            resetMessage.textContent = "Too many attempts. Please try again in a while.";
+        } else {
+            resetMessage.textContent = "Could not send reset email. Try again.";
+        }
+
+    } finally {
+        sendResetBtn.disabled = false;
+    }
+});
+
+
 // AUTH STATE
 onAuthStateChanged(auth, async function (user) {
 
@@ -222,6 +298,13 @@ onAuthStateChanged(auth, async function (user) {
         appPage.classList.add("hidden");
         loginPage.classList.remove("hidden");
         profile = null;
+
+        // Always land back on the normal login form, not a leftover reset box
+        resetPasswordBox.classList.add("hidden");
+        loginForm.classList.remove("hidden");
+        forgotPasswordLink.parentElement.classList.remove("hidden");
+        loginMessage.classList.remove("hidden");
+
         return;
     }
 
