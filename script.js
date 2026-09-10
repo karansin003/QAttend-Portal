@@ -40,34 +40,49 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 
-// LAZY-LOAD SHEETJS
+// LAZY-LOAD SHEETJS (Excel library)
+// Only fetched the first time Save/Download/Share is actually used — not on
+// every page load. This is a large library, and loading it upfront made the
+// login page noticeably slower on weak connections for no benefit, since
+// most visits to the page are just to log in and mark attendance.
 
 let xlsxLoadPromise = null;
 
 function ensureXLSXLoaded() {
-    if (window.XLSX) return Promise.resolve();
+
+    if (window.XLSX) {
+        return Promise.resolve();
+    }
 
     if (!xlsxLoadPromise) {
-        xlsxLoadPromise = new Promise(function (resolve, reject) {
-            const script = document.createElement("script");
 
-            script.src =
-                "https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js";
+        xlsxLoadPromise = new Promise(
+            function (resolve, reject) {
 
-            script.onload = resolve;
+                const script =
+                    document.createElement("script");
 
-            script.onerror = function () {
-                xlsxLoadPromise = null;
+                script.src =
+                    "https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js";
 
-                reject(
-                    new Error(
-                        "Could not load the Excel library. Check your internet connection."
-                    )
-                );
-            };
+                script.onload =
+                    resolve;
 
-            document.head.appendChild(script);
-        });
+                script.onerror =
+                    function () {
+
+                        xlsxLoadPromise = null;
+
+                        reject(
+                            new Error(
+                                "Could not load the Excel library. Check your internet connection."
+                            )
+                        );
+                    };
+
+                document.head.appendChild(script);
+            }
+        );
     }
 
     return xlsxLoadPromise;
@@ -98,11 +113,16 @@ const SECTIONS = [
 
 
 function sectionLabelOf(id) {
-    const match = SECTIONS.find(
-        section => section.id === id
-    );
 
-    return match ? match.label : id;
+    const match =
+        SECTIONS.find(
+            section =>
+                section.id === id
+        );
+
+    return match
+        ? match.label
+        : id;
 }
 
 
@@ -131,7 +151,9 @@ function compareNames(nameA, nameB) {
             bWords[i] || "";
 
         const comparison =
-            aWord.localeCompare(bWord);
+            aWord.localeCompare(
+                bWord
+            );
 
         if (comparison !== 0) {
             return comparison;
@@ -158,164 +180,262 @@ let recordsCache = {};
 // HTML ELEMENTS
 
 const loginPage =
-    document.getElementById("loginPage");
+    document.getElementById(
+        "loginPage"
+    );
 
 const appPage =
-    document.getElementById("appPage");
+    document.getElementById(
+        "appPage"
+    );
 
 
 const loginForm =
-    document.getElementById("loginForm");
+    document.getElementById(
+        "loginForm"
+    );
 
 const emailInput =
-    document.getElementById("email");
+    document.getElementById(
+        "email"
+    );
 
 const passwordInput =
-    document.getElementById("password");
+    document.getElementById(
+        "password"
+    );
 
 const togglePassword =
-    document.getElementById("togglePassword");
+    document.getElementById(
+        "togglePassword"
+    );
 
 const loginMessage =
-    document.getElementById("loginMessage");
+    document.getElementById(
+        "loginMessage"
+    );
 
 
 const forgotPasswordLink =
-    document.getElementById("forgotPasswordLink");
+    document.getElementById(
+        "forgotPasswordLink"
+    );
 
 const resetPasswordBox =
-    document.getElementById("resetPasswordBox");
+    document.getElementById(
+        "resetPasswordBox"
+    );
 
 const resetEmail =
-    document.getElementById("resetEmail");
+    document.getElementById(
+        "resetEmail"
+    );
 
 const sendResetBtn =
-    document.getElementById("sendResetBtn");
+    document.getElementById(
+        "sendResetBtn"
+    );
 
 const resetMessage =
-    document.getElementById("resetMessage");
+    document.getElementById(
+        "resetMessage"
+    );
 
 const backToLoginLink =
-    document.getElementById("backToLoginLink");
+    document.getElementById(
+        "backToLoginLink"
+    );
 
 
 const logoutBtn =
-    document.getElementById("logoutBtn");
+    document.getElementById(
+        "logoutBtn"
+    );
 
 const loggedUser =
-    document.getElementById("loggedUser");
+    document.getElementById(
+        "loggedUser"
+    );
 
 const roleBadge =
-    document.getElementById("roleBadge");
+    document.getElementById(
+        "roleBadge"
+    );
 
 
 const welcomeTitle =
-    document.getElementById("welcomeTitle");
+    document.getElementById(
+        "welcomeTitle"
+    );
 
 const welcomeSubtitle =
-    document.getElementById("welcomeSubtitle");
+    document.getElementById(
+        "welcomeSubtitle"
+    );
 
 const sectionLabel =
-    document.getElementById("sectionLabel");
+    document.getElementById(
+        "sectionLabel"
+    );
 
 
 const sectionSwitchBox =
-    document.getElementById("sectionSwitchBox");
+    document.getElementById(
+        "sectionSwitchBox"
+    );
 
 const sectionSelect =
-    document.getElementById("sectionSelect");
+    document.getElementById(
+        "sectionSelect"
+    );
 
 const workArea =
-    document.getElementById("workArea");
+    document.getElementById(
+        "workArea"
+    );
 
 const noSectionMessage =
-    document.getElementById("noSectionMessage");
+    document.getElementById(
+        "noSectionMessage"
+    );
 
 
 const adminPanel =
-    document.getElementById("adminPanel");
+    document.getElementById(
+        "adminPanel"
+    );
 
 const adminOnlyEls =
-    document.querySelectorAll(".admin-only");
+    document.querySelectorAll(
+        ".admin-only"
+    );
 
 
 const addStudentForm =
-    document.getElementById("addStudentForm");
+    document.getElementById(
+        "addStudentForm"
+    );
 
 const newStudentQid =
-    document.getElementById("newStudentQid");
+    document.getElementById(
+        "newStudentQid"
+    );
 
 const newStudentName =
-    document.getElementById("newStudentName");
+    document.getElementById(
+        "newStudentName"
+    );
 
 
 const addSubjectForm =
-    document.getElementById("addSubjectForm");
+    document.getElementById(
+        "addSubjectForm"
+    );
 
 const newSubjectName =
-    document.getElementById("newSubjectName");
+    document.getElementById(
+        "newSubjectName"
+    );
 
 const subjectManageList =
-    document.getElementById("subjectManageList");
+    document.getElementById(
+        "subjectManageList"
+    );
 
 
 const addCrForm =
-    document.getElementById("addCrForm");
+    document.getElementById(
+        "addCrForm"
+    );
 
 const newCrEmail =
-    document.getElementById("newCrEmail");
+    document.getElementById(
+        "newCrEmail"
+    );
 
 const newCrSection =
-    document.getElementById("newCrSection");
+    document.getElementById(
+        "newCrSection"
+    );
 
 const crManageList =
-    document.getElementById("crManageList");
+    document.getElementById(
+        "crManageList"
+    );
 
 
 const studentList =
-    document.getElementById("studentList");
+    document.getElementById(
+        "studentList"
+    );
 
 const subjectSelect =
-    document.getElementById("subjectSelect");
+    document.getElementById(
+        "subjectSelect"
+    );
 
 const attendanceDate =
-    document.getElementById("attendanceDate");
+    document.getElementById(
+        "attendanceDate"
+    );
 
 const searchStudent =
-    document.getElementById("searchStudent");
+    document.getElementById(
+        "searchStudent"
+    );
 
 
 const totalStudents =
-    document.getElementById("totalStudents");
+    document.getElementById(
+        "totalStudents"
+    );
 
 const headerTotalStudents =
-    document.getElementById("headerTotalStudents");
+    document.getElementById(
+        "headerTotalStudents"
+    );
 
 const presentStudents =
-    document.getElementById("presentStudents");
+    document.getElementById(
+        "presentStudents"
+    );
 
 const absentStudents =
-    document.getElementById("absentStudents");
+    document.getElementById(
+        "absentStudents"
+    );
 
 
 const saveBtn =
-    document.getElementById("saveBtn");
+    document.getElementById(
+        "saveBtn"
+    );
 
 const downloadBtn =
-    document.getElementById("downloadBtn");
+    document.getElementById(
+        "downloadBtn"
+    );
 
 const markAllPresentBtn =
-    document.getElementById("markAllPresentBtn");
+    document.getElementById(
+        "markAllPresentBtn"
+    );
 
 const markAllAbsentBtn =
-    document.getElementById("markAllAbsentBtn");
+    document.getElementById(
+        "markAllAbsentBtn"
+    );
 
 
 const recordsList =
-    document.getElementById("recordsList");
+    document.getElementById(
+        "recordsList"
+    );
 
 const refreshRecordsBtn =
-    document.getElementById("refreshRecordsBtn");
+    document.getElementById(
+        "refreshRecordsBtn"
+    );
 
 
 // TODAY DATE
@@ -363,6 +483,7 @@ loginForm.addEventListener(
 
         event.preventDefault();
 
+
         const email =
             emailInput.value.trim();
 
@@ -404,10 +525,14 @@ forgotPasswordLink.addEventListener(
 
         event.preventDefault();
 
+
         resetEmail.value =
             emailInput.value.trim();
 
-        resetMessage.textContent = "";
+
+        resetMessage.textContent =
+            "";
+
 
         resetMessage.classList.remove(
             "login-message-success"
@@ -418,13 +543,16 @@ forgotPasswordLink.addEventListener(
             "hidden"
         );
 
+
         forgotPasswordLink.parentElement.classList.add(
             "hidden"
         );
 
+
         loginMessage.classList.add(
             "hidden"
         );
+
 
         resetPasswordBox.classList.remove(
             "hidden"
@@ -441,23 +569,29 @@ backToLoginLink.addEventListener(
 
         event.preventDefault();
 
+
         resetPasswordBox.classList.add(
             "hidden"
         );
+
 
         loginForm.classList.remove(
             "hidden"
         );
 
+
         forgotPasswordLink.parentElement.classList.remove(
             "hidden"
         );
+
 
         loginMessage.classList.remove(
             "hidden"
         );
 
-        resetMessage.textContent = "";
+
+        resetMessage.textContent =
+            "";
     }
 );
 
@@ -478,8 +612,10 @@ sendResetBtn.addEventListener(
                 "login-message-success"
             );
 
+
             resetMessage.textContent =
                 "Please enter your email.";
+
 
             return;
         }
@@ -489,10 +625,13 @@ sendResetBtn.addEventListener(
             "login-message-success"
         );
 
+
         resetMessage.textContent =
             "Sending...";
 
-        sendResetBtn.disabled = true;
+
+        sendResetBtn.disabled =
+            true;
 
 
         try {
@@ -516,6 +655,7 @@ sendResetBtn.addEventListener(
 
             console.error(error);
 
+
             resetMessage.classList.remove(
                 "login-message-success"
             );
@@ -529,6 +669,7 @@ sendResetBtn.addEventListener(
                 resetMessage.textContent =
                     "That doesn't look like a valid email.";
 
+
             } else if (
                 error.code ===
                 "auth/too-many-requests"
@@ -536,6 +677,7 @@ sendResetBtn.addEventListener(
 
                 resetMessage.textContent =
                     "Too many attempts. Please try again in a while.";
+
 
             } else {
 
@@ -565,28 +707,40 @@ onAuthStateChanged(
                 "hidden"
             );
 
+
             loginPage.classList.remove(
                 "hidden"
             );
 
+
             profile = null;
+
+
+            document.body.classList.remove(
+                "admin-view",
+                "cr-view"
+            );
 
 
             resetPasswordBox.classList.add(
                 "hidden"
             );
 
+
             loginForm.classList.remove(
                 "hidden"
             );
+
 
             forgotPasswordLink.parentElement.classList.remove(
                 "hidden"
             );
 
+
             loginMessage.classList.remove(
                 "hidden"
             );
+
 
             return;
         }
@@ -604,13 +758,19 @@ onAuthStateChanged(
                 );
 
 
-            if (!profileSnap.exists()) {
+            if (
+                !profileSnap.exists()
+            ) {
 
                 alert(
                     "Your account is not set up yet. Ask the Admin to assign you a role."
                 );
 
-                await signOut(auth);
+
+                await signOut(
+                    auth
+                );
+
 
                 return;
             }
@@ -624,11 +784,16 @@ onAuthStateChanged(
 
             console.error(error);
 
+
             alert(
                 "Could not load your account role. Try logging in again."
             );
 
-            await signOut(auth);
+
+            await signOut(
+                auth
+            );
+
 
             return;
         }
@@ -637,6 +802,7 @@ onAuthStateChanged(
         loginPage.classList.add(
             "hidden"
         );
+
 
         appPage.classList.remove(
             "hidden"
@@ -648,13 +814,29 @@ onAuthStateChanged(
 
 
         roleBadge.textContent =
-            profile.role === "admin"
+            profile.role ===
+            "admin"
                 ? "ADMIN"
                 : "CLASS REPRESENTATIVE";
 
 
         const isAdmin =
             profile.role === "admin";
+
+
+        // ROLE-SPECIFIC BODY CLASS
+
+        document.body.classList.remove(
+            "admin-view",
+            "cr-view"
+        );
+
+
+        document.body.classList.add(
+            isAdmin
+                ? "admin-view"
+                : "cr-view"
+        );
 
 
         adminOnlyEls.forEach(
@@ -673,6 +855,7 @@ onAuthStateChanged(
             welcomeTitle.textContent =
                 "Admin Dashboard";
 
+
             welcomeSubtitle.textContent =
                 "Manage every section, subject and CR from one place.";
 
@@ -680,7 +863,8 @@ onAuthStateChanged(
             populateSectionDropdowns();
 
 
-            activeSection = null;
+            activeSection =
+                null;
 
 
             sectionSelect.value =
@@ -707,18 +891,17 @@ onAuthStateChanged(
 
             await loadCrList();
 
-            // Admin has no active section yet,
-            // so don't load section-specific subjects here.
-            subjectSelect.innerHTML =
-                `<option value="">
-                    -- Select Subject --
-                </option>`;
+
+            await loadSubjects();
 
 
         } else {
 
             welcomeTitle.textContent =
-                `${sectionLabelOf(profile.section)} Attendance Portal`;
+                `${sectionLabelOf(
+                    profile.section
+                )} Attendance Portal`;
+
 
             welcomeSubtitle.textContent =
                 "Mark, save and download attendance for your section.";
@@ -731,6 +914,7 @@ onAuthStateChanged(
             workArea.classList.remove(
                 "hidden"
             );
+
 
             noSectionMessage.classList.add(
                 "hidden"
@@ -787,11 +971,14 @@ function populateSectionDropdowns() {
                     "option"
                 );
 
+
             option1.value =
                 section.id;
 
+
             option1.textContent =
                 section.label;
+
 
             sectionSelect.appendChild(
                 option1
@@ -803,11 +990,14 @@ function populateSectionDropdowns() {
                     "option"
                 );
 
+
             option2.value =
                 section.id;
 
+
             option2.textContent =
                 section.label;
+
 
             newCrSection.appendChild(
                 option2
@@ -816,8 +1006,6 @@ function populateSectionDropdowns() {
     );
 }
 
-
-// SECTION CHANGE
 
 sectionSelect.addEventListener(
     "change",
@@ -834,9 +1022,11 @@ sectionSelect.addEventListener(
                 "hidden"
             );
 
+
             noSectionMessage.classList.remove(
                 "hidden"
             );
+
 
             sectionLabel.textContent =
                 "-- Not selected --";
@@ -865,12 +1055,6 @@ sectionSelect.addEventListener(
             students = [];
 
 
-            subjectSelect.innerHTML =
-                `<option value="">
-                    -- Select Subject --
-                </option>`;
-
-
             return;
         }
 
@@ -878,6 +1062,7 @@ sectionSelect.addEventListener(
         workArea.classList.remove(
             "hidden"
         );
+
 
         noSectionMessage.classList.add(
             "hidden"
@@ -890,7 +1075,9 @@ sectionSelect.addEventListener(
             );
 
 
-        subjectSelect.value = "";
+        subjectSelect.value =
+            "";
+
 
         attendanceDate.value =
             new Date()
@@ -926,7 +1113,6 @@ async function loadStudents() {
 
         students =
             snapshot.docs
-
                 .map(
                     function (docSnap) {
 
@@ -936,19 +1122,16 @@ async function loadStudents() {
                                 docSnap.id,
 
                             qid:
-                                docSnap.data()
-                                    .qid,
+                                docSnap.data().qid,
 
                             name:
-                                docSnap.data()
-                                    .name,
+                                docSnap.data().name,
 
                             status:
                                 null
                         };
                     }
                 )
-
                 .sort(
                     function (a, b) {
 
@@ -1221,6 +1404,7 @@ studentList.addEventListener(
                     "Please select a subject first."
                 );
 
+
                 return;
             }
 
@@ -1414,6 +1598,7 @@ addStudentForm.addEventListener(
                 "Pick a section first (dropdown above)."
             );
 
+
             return;
         }
 
@@ -1428,12 +1613,13 @@ addStudentForm.addEventListener(
                 .toUpperCase();
 
 
-        if (!qid || !name) {
+        if (
+            !qid ||
+            !name
+        ) {
             return;
         }
 
-
-        // Duplicate Q.ID check
 
         const duplicate =
             students.some(
@@ -1452,6 +1638,7 @@ addStudentForm.addEventListener(
             alert(
                 "A student with this Q.ID already exists in this section."
             );
+
 
             return;
         }
@@ -1475,9 +1662,12 @@ addStudentForm.addEventListener(
             );
 
 
-            newStudentQid.value = "";
+            newStudentQid.value =
+                "";
 
-            newStudentName.value = "";
+
+            newStudentName.value =
+                "";
 
 
             await loadStudents();
@@ -1486,6 +1676,7 @@ addStudentForm.addEventListener(
         } catch (error) {
 
             console.error(error);
+
 
             alert(
                 "Error adding student."
@@ -1497,7 +1688,9 @@ addStudentForm.addEventListener(
 
 // EDIT STUDENT
 
-async function editStudent(studentId) {
+async function editStudent(
+    studentId
+) {
 
     if (
         !profile ||
@@ -1521,6 +1714,7 @@ async function editStudent(studentId) {
             "Student not found."
         );
 
+
         return;
     }
 
@@ -1532,7 +1726,9 @@ async function editStudent(studentId) {
         );
 
 
-    if (newQid === null) {
+    if (
+        newQid === null
+    ) {
         return;
     }
 
@@ -1544,7 +1740,9 @@ async function editStudent(studentId) {
         );
 
 
-    if (newName === null) {
+    if (
+        newName === null
+    ) {
         return;
     }
 
@@ -1559,22 +1757,29 @@ async function editStudent(studentId) {
             .toUpperCase();
 
 
-    if (!qid || !name) {
+    if (
+        !qid ||
+        !name
+    ) {
 
         alert(
             "Q.ID and student name cannot be empty."
         );
 
+
         return;
     }
 
+
+    // Prevent duplicate Q.IDs
 
     const duplicate =
         students.some(
             function (item) {
 
                 return (
-                    item.id !== studentId &&
+                    item.id !==
+                        studentId &&
                     item.qid.toLowerCase() ===
                         qid.toLowerCase()
                 );
@@ -1587,6 +1792,7 @@ async function editStudent(studentId) {
         alert(
             "A student with this Q.ID already exists in this section."
         );
+
 
         return;
     }
@@ -1618,6 +1824,7 @@ async function editStudent(studentId) {
 
         console.error(error);
 
+
         alert(
             "Error updating student."
         );
@@ -1627,7 +1834,9 @@ async function editStudent(studentId) {
 
 // DELETE STUDENT
 
-async function deleteStudent(studentId) {
+async function deleteStudent(
+    studentId
+) {
 
     if (
         !profile ||
@@ -1640,7 +1849,8 @@ async function deleteStudent(studentId) {
     const student =
         students.find(
             item =>
-                item.id === studentId
+                item.id ===
+                studentId
         );
 
 
@@ -1679,6 +1889,7 @@ async function deleteStudent(studentId) {
     } catch (error) {
 
         console.error(error);
+
 
         alert(
             "Error deleting student."
@@ -1742,11 +1953,14 @@ markAllPresentBtn.addEventListener(
     "click",
     function () {
 
-        if (!subjectSelect.value) {
+        if (
+            !subjectSelect.value
+        ) {
 
             alert(
                 "Please select a subject first."
             );
+
 
             return;
         }
@@ -1770,11 +1984,14 @@ markAllAbsentBtn.addEventListener(
     "click",
     function () {
 
-        if (!subjectSelect.value) {
+        if (
+            !subjectSelect.value
+        ) {
 
             alert(
                 "Please select a subject first."
             );
+
 
             return;
         }
@@ -1813,7 +2030,9 @@ async function loadSubjects() {
                     "subjects"
                 ),
 
-                orderBy("name")
+                orderBy(
+                    "name"
+                )
 
             );
 
@@ -1830,8 +2049,8 @@ async function loadSubjects() {
                         docSnap.id,
 
                     name:
-                        docSnap.data().name
-
+                        docSnap.data()
+                            .name
                 })
             );
 
@@ -1893,6 +2112,7 @@ async function loadSubjects() {
                         <span>
                             ${subject.name}
                         </span>
+
 
                         <button
                             type="button"
@@ -1963,6 +2183,7 @@ addSubjectForm.addEventListener(
                 "Pick a section first (dropdown above)."
             );
 
+
             return;
         }
 
@@ -2004,6 +2225,7 @@ addSubjectForm.addEventListener(
 
             console.error(error);
 
+
             alert(
                 "Error adding subject."
             );
@@ -2014,7 +2236,9 @@ addSubjectForm.addEventListener(
 
 // DELETE SUBJECT
 
-async function deleteSubject(subjectId) {
+async function deleteSubject(
+    subjectId
+) {
 
     if (
         !profile ||
@@ -2055,6 +2279,7 @@ async function deleteSubject(subjectId) {
     } catch (error) {
 
         console.error(error);
+
 
         alert(
             "Error deleting subject."
@@ -2124,6 +2349,7 @@ async function loadCrList() {
                                 data.section
                             )}
                         </span>
+
 
                         <button
                             type="button"
@@ -2242,6 +2468,7 @@ addCrForm.addEventListener(
 
             console.error(error);
 
+
             alert(
                 "Error assigning CR. Make sure the login was created with the exact same lowercase email."
             );
@@ -2252,7 +2479,9 @@ addCrForm.addEventListener(
 
 // REMOVE CR
 
-async function deleteCr(email) {
+async function deleteCr(
+    email
+) {
 
     if (
         !profile ||
@@ -2291,6 +2520,7 @@ async function deleteCr(email) {
     } catch (error) {
 
         console.error(error);
+
 
         alert(
             "Error removing CR."
@@ -2366,7 +2596,9 @@ async function loadAttendance() {
             );
 
 
-        if (snapshot.exists()) {
+        if (
+            snapshot.exists()
+        ) {
 
             const data =
                 snapshot.data();
@@ -2395,7 +2627,8 @@ async function loadAttendance() {
 
             students.forEach(
                 student =>
-                    student.status = null
+                    student.status =
+                        null
             );
         }
 
@@ -2406,6 +2639,7 @@ async function loadAttendance() {
     } catch (error) {
 
         console.error(error);
+
 
         alert(
             "Error loading attendance."
@@ -2420,14 +2654,18 @@ subjectSelect.addEventListener(
     "change",
     function () {
 
-        if (!attendanceDate.value) {
+        if (
+            !attendanceDate.value
+        ) {
 
             alert(
                 "Please select date first."
             );
 
+
             subjectSelect.value =
                 "";
+
 
             return;
         }
@@ -2444,7 +2682,9 @@ attendanceDate.addEventListener(
     "change",
     function () {
 
-        if (subjectSelect.value) {
+        if (
+            subjectSelect.value
+        ) {
 
             loadAttendance();
         }
@@ -2481,6 +2721,7 @@ saveBtn.addEventListener(
                 "Please select date first."
             );
 
+
             return;
         }
 
@@ -2491,6 +2732,7 @@ saveBtn.addEventListener(
                 "Please select subject."
             );
 
+
             return;
         }
 
@@ -2498,15 +2740,19 @@ saveBtn.addEventListener(
         const unmarked =
             students.filter(
                 student =>
-                    student.status === null
+                    student.status ===
+                    null
             );
 
 
-        if (unmarked.length > 0) {
+        if (
+            unmarked.length > 0
+        ) {
 
             alert(
                 `${unmarked.length} students are not marked.`
             );
+
 
             return;
         }
@@ -2539,6 +2785,7 @@ saveBtn.addEventListener(
                 attendanceRef,
 
                 {
+
                     university:
                         "Quantum University",
 
@@ -2580,6 +2827,7 @@ saveBtn.addEventListener(
         } catch (error) {
 
             console.error(error);
+
 
             alert(
                 "❌ Error saving attendance."
@@ -2647,12 +2895,15 @@ async function loadRecords() {
             "";
 
 
-        if (snapshot.empty) {
+        if (
+            snapshot.empty
+        ) {
 
             recordsList.innerHTML =
                 `<p class="empty-record">
                     No previous attendance records found.
                 </p>`;
+
 
             return;
         }
@@ -2724,7 +2975,6 @@ async function loadRecords() {
                     <div class="record-actions">
 
                         <button
-                            type="button"
                             class="view-record-btn"
                             data-id="${documentSnapshot.id}">
 
@@ -2734,7 +2984,6 @@ async function loadRecords() {
 
 
                         <button
-                            type="button"
                             class="share-record-btn"
                             data-id="${documentSnapshot.id}">
 
@@ -2744,7 +2993,6 @@ async function loadRecords() {
 
 
                         <button
-                            type="button"
                             class="delete-record-btn"
                             data-id="${documentSnapshot.id}">
 
@@ -2798,7 +3046,6 @@ function addRecordButtonEvents() {
                         await viewRecord(
                             button.dataset.id
                         );
-
                     }
                 );
             }
@@ -2819,7 +3066,6 @@ function addRecordButtonEvents() {
                         await shareRecord(
                             button.dataset.id
                         );
-
                     }
                 );
             }
@@ -2840,7 +3086,6 @@ function addRecordButtonEvents() {
                         await deleteRecord(
                             button.dataset.id
                         );
-
                     }
                 );
             }
@@ -2850,12 +3095,16 @@ function addRecordButtonEvents() {
 
 // SHARE RECORD
 
-async function shareRecord(recordId) {
+async function shareRecord(
+    recordId
+) {
 
     try {
 
         const data =
-            recordsCache[recordId];
+            recordsCache[
+                recordId
+            ];
 
 
         if (!data) {
@@ -2863,6 +3112,7 @@ async function shareRecord(recordId) {
             alert(
                 "Record data not loaded — try refreshing the records list first."
             );
+
 
             return;
         }
@@ -2964,7 +3214,6 @@ async function shareRecord(recordId) {
                 "Name of Student",
                 "Attendance"
             ]
-
         ];
 
 
@@ -2981,18 +3230,13 @@ async function shareRecord(recordId) {
 
 
                 excelData.push([
-
                     serial,
-
                     student.qid,
-
                     student.name,
-
                     student.status ===
-                    "Present"
+                        "Present"
                         ? 1
                         : 0
-
                 ]);
 
 
@@ -3019,11 +3263,8 @@ async function shareRecord(recordId) {
 
 
         excelData.push([
-
             "Present (S.No, for shortcut)",
-
             presentSerials.join(" ")
-
         ]);
 
 
@@ -3090,8 +3331,10 @@ async function shareRecord(recordId) {
                 [wbArray],
 
                 {
+
                     type:
                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
                 }
 
             );
@@ -3137,7 +3380,9 @@ async function shareRecord(recordId) {
                 return;
 
 
-            } catch (shareError) {
+            } catch (
+                shareError
+            ) {
 
                 if (
                     shareError.name ===
@@ -3184,7 +3429,9 @@ async function shareRecord(recordId) {
 
 // VIEW RECORD
 
-async function viewRecord(recordId) {
+async function viewRecord(
+    recordId
+) {
 
     try {
 
@@ -3210,11 +3457,14 @@ async function viewRecord(recordId) {
             );
 
 
-        if (!snapshot.exists()) {
+        if (
+            !snapshot.exists()
+        ) {
 
             alert(
                 "Record not found."
             );
+
 
             return;
         }
@@ -3278,7 +3528,9 @@ async function viewRecord(recordId) {
 
 // DELETE RECORD
 
-async function deleteRecord(recordId) {
+async function deleteRecord(
+    recordId
+) {
 
     if (
         !profile ||
@@ -3288,6 +3540,7 @@ async function deleteRecord(recordId) {
         alert(
             "You do not have permission to delete attendance records."
         );
+
 
         return;
     }
@@ -3375,6 +3628,7 @@ downloadBtn.addEventListener(
                 "Select date and subject first."
             );
 
+
             return;
         }
 
@@ -3387,11 +3641,14 @@ downloadBtn.addEventListener(
             );
 
 
-        if (unmarked.length > 0) {
+        if (
+            unmarked.length > 0
+        ) {
 
             alert(
                 "Please mark all students before downloading."
             );
+
 
             return;
         }
@@ -3407,6 +3664,7 @@ downloadBtn.addEventListener(
             alert(
                 error.message
             );
+
 
             return;
         }
@@ -3530,7 +3788,7 @@ downloadBtn.addEventListener(
                     student.name,
 
                     student.status ===
-                    "Present"
+                        "Present"
                         ? 1
                         : 0
 
