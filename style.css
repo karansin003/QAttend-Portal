@@ -608,19 +608,80 @@ button {
 }
 
 .student {
-    grid-template-columns: 140px 1fr 220px 40px;
+    grid-template-columns: 140px minmax(0, 1fr) 220px 44px;
 }
 
 .table-header {
-    grid-template-columns: 140px 1fr 220px 40px;
+    grid-template-columns: 140px minmax(0, 1fr) 220px 44px;
 }
 
-.delete-student-btn {
-    background: transparent;
-    border: none;
-    color: var(--red);
-    font-size: 18px;
+/* STUDENT THREE-DOT MENU */
+
+.student-menu-wrapper {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.student-menu-btn {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: white;
+    color: var(--black);
     cursor: pointer;
+    font-size: 23px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.student-menu-btn:hover {
+    background: var(--light-gray);
+}
+
+.student-menu {
+    position: absolute;
+    top: 42px;
+    right: 0;
+    min-width: 135px;
+    padding: 6px;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+    display: none;
+    flex-direction: column;
+    gap: 2px;
+    z-index: 1000;
+}
+
+.student-menu.show {
+    display: flex;
+}
+
+.student-menu button {
+    width: 100%;
+    padding: 9px 10px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 14px;
+}
+
+.student-menu button:hover {
+    background: var(--light-gray);
+}
+
+.delete-student-menu-btn {
+    color: var(--red) !important;
 }
 
 
@@ -674,11 +735,24 @@ footer {
     }
 
     .student {
+        position: relative;
         grid-template-columns: 1fr;
         gap: 8px;
+        padding-right: 58px;
         border: 1px solid var(--border);
         margin-bottom: 10px;
         border-radius: 8px;
+    }
+
+    .student-menu-wrapper {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+    }
+
+    .student-menu {
+        top: 42px;
+        right: 0;
     }
 
     .buttons {
