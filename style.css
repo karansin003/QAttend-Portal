@@ -22,9 +22,6 @@ body {
     color: var(--black);
 }
 
-
-/* HIDDEN */
-
 .hidden {
     display: none !important;
 }
@@ -397,19 +394,21 @@ button {
     border: 1px solid var(--border);
     padding: 10px;
     border-radius: 8px;
+    min-width: 0;
 }
 
 .search-container input {
     border: none;
     outline: none;
+    max-width: 100%;
 }
 
 .table-header,
 .student {
     display: grid;
-    grid-template-columns: 140px 1fr 220px;
     gap: 15px;
     align-items: center;
+    min-width: 0;
 }
 
 .table-header {
@@ -426,11 +425,14 @@ button {
 
 .student-name {
     font-weight: 500;
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .buttons {
     display: flex;
     gap: 8px;
+    min-width: 0;
 }
 
 .present,
@@ -440,6 +442,7 @@ button {
     cursor: pointer;
     border: 1px solid var(--border);
     background: white;
+    box-sizing: border-box;
 }
 
 .active-present {
@@ -607,31 +610,64 @@ button {
     font-size: 12px;
 }
 
-/* STUDENT LIST LAYOUT
-   CR: no Actions column, so only 3 columns.
-   Admin: fourth column is reserved only for the three-dot menu.
+
+/* =========================================================
+   STUDENT LIST ROLE-BASED LAYOUT
+   ========================================================= */
+
+/* CR DESKTOP
+   Only Q.ID / Name / Attendance.
+   No Actions column and no reserved fourth column.
 */
 
-/* DESKTOP ROLE-SPECIFIC STUDENT LAYOUT */
-
+body.cr-view .table-header,
 body.cr-view .student {
-    grid-template-columns: 140px minmax(0, 1fr) 240px;
+    grid-template-columns:
+        140px
+        minmax(0, 1fr)
+        260px;
 }
 
-body.cr-view .table-header {
-    grid-template-columns: 140px minmax(0, 1fr) 240px;
+body.cr-view .table-header > div:nth-child(4) {
+    display: none;
 }
 
+body.cr-view .table-header > div:nth-child(3) {
+    text-align: center;
+}
+
+body.cr-view .student > * {
+    min-width: 0;
+}
+
+body.cr-view .student > .buttons {
+    width: 100%;
+    min-width: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+}
+
+body.cr-view .student > .buttons button {
+    flex: 0 1 auto;
+    min-width: 105px;
+}
+
+
+/* ADMIN DESKTOP
+   Q.ID / Name / Attendance / Actions
+*/
+
+body.admin-view .table-header,
 body.admin-view .student {
-    grid-template-columns: 140px minmax(0, 1fr) 240px 48px;
+    grid-template-columns:
+        140px
+        minmax(0, 1fr)
+        260px
+        48px;
 }
 
-body.admin-view .table-header {
-    grid-template-columns: 140px minmax(0, 1fr) 240px 48px;
-}
-
-/* Explicit desktop grid placement prevents the Admin three-dot button
-   from ever wrapping into a second row. */
 body.admin-view .student > .qid-number {
     grid-column: 1;
     grid-row: 1;
@@ -646,40 +682,38 @@ body.admin-view .student > .buttons {
     grid-column: 3;
     grid-row: 1;
     width: 100%;
+    min-width: 0;
     display: flex;
     justify-content: center;
     align-items: center;
+    gap: 8px;
+}
+
+body.admin-view .student > .buttons button {
+    flex: 0 1 auto;
+    min-width: 105px;
 }
 
 body.admin-view .student > .student-menu-wrapper {
     grid-column: 4;
     grid-row: 1;
+    justify-self: end;
+    min-width: 0;
 }
 
-/* CR desktop: attendance heading sits exactly above the Absent/Present
-   button group. */
-body.cr-view .table-header > div:nth-child(3) {
-    text-align: center;
+body.admin-view .student > * {
+    min-width: 0;
 }
 
-body.cr-view .student > .buttons {
-    width: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
 
-body.cr-view .student > .buttons button {
-    flex: 0 0 auto;
-}
-
-/* STUDENT THREE-DOT MENU */
+/* THREE DOT MENU */
 
 .student-menu-wrapper {
     position: relative;
     display: flex;
     justify-content: center;
     align-items: center;
+    width: 48px;
 }
 
 .student-menu-btn {
@@ -753,9 +787,22 @@ footer {
 }
 
 
-/* MOBILE */
+/* =========================================================
+   MOBILE
+   ========================================================= */
 
 @media (max-width: 768px) {
+
+    html,
+    body {
+        overflow-x: hidden;
+    }
+
+    #studentList {
+        width: 100%;
+        min-width: 0;
+        overflow: visible;
+    }
 
     .top-header {
         padding: 12px 15px;
@@ -792,30 +839,55 @@ footer {
         display: none;
     }
 
-    /* ADMIN MOBILE
-       No grid column is reserved for Actions. The menu is positioned
-       independently in the top-right corner of each card. */
-    body.admin-view .student {
+
+    /* CR + ADMIN MOBILE
+       Both become a clean single-column card.
+    */
+
+    body.admin-view .student,
+    body.cr-view .student {
         position: relative;
         display: grid;
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
         gap: 8px;
-        padding: 14px;
-        padding-right: 14px;
-        border: 1px solid var(--border);
-        margin-bottom: 10px;
-        border-radius: 8px;
+        width: 100%;
+        min-width: 0;
         min-height: 0;
+        padding: 14px;
+        margin: 0 0 10px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
         box-sizing: border-box;
+        overflow: visible;
     }
+
 
     body.admin-view .student > .qid-number,
     body.admin-view .student > .student-name,
     body.admin-view .student > .buttons,
-    body.admin-view .student > .student-menu-wrapper {
-        grid-column: auto;
+    body.admin-view .student > .student-menu-wrapper,
+    body.cr-view .student > .qid-number,
+    body.cr-view .student > .student-name,
+    body.cr-view .student > .buttons {
+        grid-column: 1;
         grid-row: auto;
+        min-width: 0;
+        max-width: 100%;
     }
+
+
+    /* CR MOBILE
+       No Actions space at all.
+    */
+
+    body.cr-view .student {
+        padding-right: 14px;
+    }
+
+
+    /* ADMIN MOBILE
+       Three-dot button stays at top-right.
+    */
 
     body.admin-view .student-menu-wrapper {
         position: absolute;
@@ -826,53 +898,42 @@ footer {
         z-index: 20;
     }
 
-    body.admin-view .buttons {
-        width: 100%;
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 8px;
-        margin-top: 4px;
+
+    /* Give Admin text a little room so it doesn't collide with ⋮. */
+
+    body.admin-view .student > .qid-number,
+    body.admin-view .student > .student-name {
+        padding-right: 46px;
     }
 
-    body.admin-view .buttons button {
-        width: 100%;
-        min-width: 0;
-        box-sizing: border-box;
-    }
 
-    /* CR MOBILE
-       Still no Actions column and no reserved right-side space. */
-    body.cr-view .student {
-        position: relative;
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 8px;
-        padding: 14px;
-        border: 1px solid var(--border);
-        margin-bottom: 10px;
-        border-radius: 8px;
-        min-height: 0;
-        box-sizing: border-box;
-    }
+    /* ABSENT + PRESENT = EXACTLY 50/50 */
 
+    body.admin-view .buttons,
     body.cr-view .buttons {
         width: 100%;
+        min-width: 0;
+        max-width: 100%;
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns:
+            minmax(0, 1fr)
+            minmax(0, 1fr);
         gap: 8px;
         margin-top: 4px;
+        box-sizing: border-box;
     }
 
+
+    body.admin-view .buttons button,
     body.cr-view .buttons button {
         width: 100%;
         min-width: 0;
+        max-width: 100%;
         box-sizing: border-box;
+        padding: 10px 8px;
+        white-space: nowrap;
     }
 
-    .student-menu {
-        top: 42px;
-        right: 0;
-    }
 
     .attendance-header,
     .records-header {
@@ -881,21 +942,27 @@ footer {
         gap: 15px;
     }
 
+
     .search-container {
         width: 100%;
+        box-sizing: border-box;
     }
 
+
     .search-container input {
-        width: 85%;
+        width: calc(100% - 30px);
+        max-width: 100%;
+        box-sizing: border-box;
     }
+
 
     .record-card {
         flex-direction: column;
         gap: 15px;
     }
 
+
     .admin-grid {
         grid-template-columns: 1fr;
     }
-
 }
