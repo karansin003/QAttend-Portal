@@ -607,12 +607,70 @@ button {
     font-size: 12px;
 }
 
-.student {
-    grid-template-columns: 140px minmax(0, 1fr) 220px 44px;
+/* STUDENT LIST LAYOUT
+   CR: no Actions column, so only 3 columns.
+   Admin: fourth column is reserved only for the three-dot menu.
+*/
+
+/* DESKTOP ROLE-SPECIFIC STUDENT LAYOUT */
+
+body.cr-view .student {
+    grid-template-columns: 140px minmax(0, 1fr) 240px;
 }
 
-.table-header {
-    grid-template-columns: 140px minmax(0, 1fr) 220px 44px;
+body.cr-view .table-header {
+    grid-template-columns: 140px minmax(0, 1fr) 240px;
+}
+
+body.admin-view .student {
+    grid-template-columns: 140px minmax(0, 1fr) 240px 48px;
+}
+
+body.admin-view .table-header {
+    grid-template-columns: 140px minmax(0, 1fr) 240px 48px;
+}
+
+/* Explicit desktop grid placement prevents the Admin three-dot button
+   from ever wrapping into a second row. */
+body.admin-view .student > .qid-number {
+    grid-column: 1;
+    grid-row: 1;
+}
+
+body.admin-view .student > .student-name {
+    grid-column: 2;
+    grid-row: 1;
+}
+
+body.admin-view .student > .buttons {
+    grid-column: 3;
+    grid-row: 1;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+body.admin-view .student > .student-menu-wrapper {
+    grid-column: 4;
+    grid-row: 1;
+}
+
+/* CR desktop: attendance heading sits exactly above the Absent/Present
+   button group. */
+body.cr-view .table-header > div:nth-child(3) {
+    text-align: center;
+}
+
+body.cr-view .student > .buttons {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+body.cr-view .student > .buttons button {
+    flex: 0 0 auto;
 }
 
 /* STUDENT THREE-DOT MENU */
@@ -734,33 +792,86 @@ footer {
         display: none;
     }
 
-    .student {
+    /* ADMIN MOBILE
+       No grid column is reserved for Actions. The menu is positioned
+       independently in the top-right corner of each card. */
+    body.admin-view .student {
         position: relative;
+        display: grid;
         grid-template-columns: 1fr;
         gap: 8px;
-        padding-right: 58px;
+        padding: 14px;
+        padding-right: 14px;
         border: 1px solid var(--border);
         margin-bottom: 10px;
         border-radius: 8px;
+        min-height: 0;
+        box-sizing: border-box;
     }
 
-    .student-menu-wrapper {
+    body.admin-view .student > .qid-number,
+    body.admin-view .student > .student-name,
+    body.admin-view .student > .buttons,
+    body.admin-view .student > .student-menu-wrapper {
+        grid-column: auto;
+        grid-row: auto;
+    }
+
+    body.admin-view .student-menu-wrapper {
         position: absolute;
         top: 12px;
         right: 12px;
+        width: 36px;
+        height: 36px;
+        z-index: 20;
+    }
+
+    body.admin-view .buttons {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-top: 4px;
+    }
+
+    body.admin-view .buttons button {
+        width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+    }
+
+    /* CR MOBILE
+       Still no Actions column and no reserved right-side space. */
+    body.cr-view .student {
+        position: relative;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 8px;
+        padding: 14px;
+        border: 1px solid var(--border);
+        margin-bottom: 10px;
+        border-radius: 8px;
+        min-height: 0;
+        box-sizing: border-box;
+    }
+
+    body.cr-view .buttons {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-top: 4px;
+    }
+
+    body.cr-view .buttons button {
+        width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
     }
 
     .student-menu {
         top: 42px;
         right: 0;
-    }
-
-    .buttons {
-        width: 100%;
-    }
-
-    .buttons button {
-        flex: 1;
     }
 
     .attendance-header,
@@ -787,118 +898,4 @@ footer {
         grid-template-columns: 1fr;
     }
 
-}
-
-/* =========================================================
-   STUDENT ATTENDANCE LAYOUT - FINAL ROLE-SPECIFIC VERSION
-   Admin: Q.ID | Name | Attendance | Actions
-   CR:    Q.ID | Name | Attendance
-   ========================================================= */
-
-/* Keep the attendance columns tight. CR never gets an empty Actions column. */
-.table-header,
-.student {
-    display: grid;
-    gap: 15px;
-    align-items: center;
-}
-
-.table-header {
-    grid-template-columns: 140px minmax(0, 1fr) 220px;
-}
-
-.student {
-    grid-template-columns: 140px minmax(0, 1fr) 220px;
-    padding: 12px 14px;
-}
-
-.admin-table-header,
-.admin-student {
-    grid-template-columns: 140px minmax(0, 1fr) minmax(250px, 280px) 44px;
-}
-
-/* Present and Absent always split the attendance area equally. */
-.student .buttons {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 8px;
-    width: 100%;
-}
-
-.student .buttons button {
-    width: 100%;
-    min-width: 0;
-    white-space: nowrap;
-}
-
-.student-menu-wrapper {
-    position: relative;
-    width: 44px;
-    min-width: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.student-menu-btn {
-    width: 36px;
-    height: 36px;
-}
-
-/* Do not let the popup change the row's width. */
-.student-menu {
-    top: 40px;
-    right: 0;
-}
-
-/* CR has no action controls at all. */
-.cr-student .student-menu-wrapper {
-    display: none !important;
-}
-
-/* Slightly tighter desktop attendance rows. */
-@media (min-width: 769px) {
-    .attendance-section {
-        overflow: visible;
-    }
-
-    .student {
-        min-height: 58px;
-    }
-}
-
-@media (max-width: 768px) {
-    .table-header {
-        display: none;
-    }
-
-    .student,
-    .admin-student,
-    .cr-student {
-        position: relative;
-        grid-template-columns: 1fr;
-        gap: 8px;
-        padding: 12px 58px 12px 12px;
-        margin-bottom: 10px;
-        border: 1px solid var(--border);
-        border-radius: 8px;
-    }
-
-    .student .buttons {
-        grid-template-columns: 1fr 1fr;
-        width: 100%;
-    }
-
-    .student-menu-wrapper {
-        position: absolute;
-        top: 10px;
-        right: 10px;
-        width: 36px;
-        min-width: 36px;
-    }
-
-    .student-menu {
-        top: 40px;
-        right: 0;
-    }
 }
