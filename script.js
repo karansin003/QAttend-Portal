@@ -40,11 +40,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 
-// LAZY-LOAD SHEETJS (Excel library)
-// Only fetched the first time Save/Download/Share is actually used — not on
-// every page load. This is a large library, and loading it upfront made the
-// login page noticeably slower on weak connections for no benefit, since
-// most visits to the page are just to log in and mark attendance.
+// LAZY-LOAD SHEETJS
 
 let xlsxLoadPromise = null;
 
@@ -483,17 +479,14 @@ loginForm.addEventListener(
 
         event.preventDefault();
 
-
         const email =
             emailInput.value.trim();
 
         const password =
             passwordInput.value;
 
-
         loginMessage.textContent =
             "Logging in...";
-
 
         try {
 
@@ -525,34 +518,27 @@ forgotPasswordLink.addEventListener(
 
         event.preventDefault();
 
-
         resetEmail.value =
             emailInput.value.trim();
 
-
         resetMessage.textContent =
             "";
-
 
         resetMessage.classList.remove(
             "login-message-success"
         );
 
-
         loginForm.classList.add(
             "hidden"
         );
-
 
         forgotPasswordLink.parentElement.classList.add(
             "hidden"
         );
 
-
         loginMessage.classList.add(
             "hidden"
         );
-
 
         resetPasswordBox.classList.remove(
             "hidden"
@@ -569,26 +555,21 @@ backToLoginLink.addEventListener(
 
         event.preventDefault();
 
-
         resetPasswordBox.classList.add(
             "hidden"
         );
-
 
         loginForm.classList.remove(
             "hidden"
         );
 
-
         forgotPasswordLink.parentElement.classList.remove(
             "hidden"
         );
 
-
         loginMessage.classList.remove(
             "hidden"
         );
-
 
         resetMessage.textContent =
             "";
@@ -612,10 +593,8 @@ sendResetBtn.addEventListener(
                 "login-message-success"
             );
 
-
             resetMessage.textContent =
                 "Please enter your email.";
-
 
             return;
         }
@@ -707,14 +686,11 @@ onAuthStateChanged(
                 "hidden"
             );
 
-
             loginPage.classList.remove(
                 "hidden"
             );
 
-
             profile = null;
-
 
             document.body.classList.remove(
                 "admin-view",
@@ -726,21 +702,17 @@ onAuthStateChanged(
                 "hidden"
             );
 
-
             loginForm.classList.remove(
                 "hidden"
             );
-
 
             forgotPasswordLink.parentElement.classList.remove(
                 "hidden"
             );
 
-
             loginMessage.classList.remove(
                 "hidden"
             );
-
 
             return;
         }
@@ -766,11 +738,9 @@ onAuthStateChanged(
                     "Your account is not set up yet. Ask the Admin to assign you a role."
                 );
 
-
                 await signOut(
                     auth
                 );
-
 
                 return;
             }
@@ -784,16 +754,13 @@ onAuthStateChanged(
 
             console.error(error);
 
-
             alert(
                 "Could not load your account role. Try logging in again."
             );
 
-
             await signOut(
                 auth
             );
-
 
             return;
         }
@@ -802,7 +769,6 @@ onAuthStateChanged(
         loginPage.classList.add(
             "hidden"
         );
-
 
         appPage.classList.remove(
             "hidden"
@@ -814,8 +780,7 @@ onAuthStateChanged(
 
 
         roleBadge.textContent =
-            profile.role ===
-            "admin"
+            profile.role === "admin"
                 ? "ADMIN"
                 : "CLASS REPRESENTATIVE";
 
@@ -824,13 +789,13 @@ onAuthStateChanged(
             profile.role === "admin";
 
 
-        // ROLE-SPECIFIC BODY CLASS
+        // Role-specific layout classes.
+        // Admin and CR have different responsive layouts.
 
         document.body.classList.remove(
             "admin-view",
             "cr-view"
         );
-
 
         document.body.classList.add(
             isAdmin
@@ -890,7 +855,6 @@ onAuthStateChanged(
 
 
             await loadCrList();
-
 
             await loadSubjects();
 
@@ -1007,6 +971,8 @@ function populateSectionDropdowns() {
 }
 
 
+// SECTION CHANGE
+
 sectionSelect.addEventListener(
     "change",
     async function () {
@@ -1022,38 +988,29 @@ sectionSelect.addEventListener(
                 "hidden"
             );
 
-
             noSectionMessage.classList.remove(
                 "hidden"
             );
 
-
             sectionLabel.textContent =
                 "-- Not selected --";
-
 
             headerTotalStudents.textContent =
                 "0";
 
-
             totalStudents.textContent =
                 "0";
-
 
             presentStudents.textContent =
                 "0";
 
-
             absentStudents.textContent =
                 "0";
-
 
             studentList.innerHTML =
                 "";
 
-
             students = [];
-
 
             return;
         }
@@ -1113,6 +1070,7 @@ async function loadStudents() {
 
         students =
             snapshot.docs
+
                 .map(
                     function (docSnap) {
 
@@ -1122,16 +1080,19 @@ async function loadStudents() {
                                 docSnap.id,
 
                             qid:
-                                docSnap.data().qid,
+                                docSnap.data()
+                                    .qid,
 
                             name:
-                                docSnap.data().name,
+                                docSnap.data()
+                                    .name,
 
                             status:
                                 null
                         };
                     }
                 )
+
                 .sort(
                     function (a, b) {
 
@@ -1170,8 +1131,8 @@ function displayStudents() {
 
 
     const isAdmin =
-        profile &&
-        profile.role === "admin";
+        profile.role ===
+        "admin";
 
 
     studentList.innerHTML =
@@ -1343,8 +1304,10 @@ studentList.addEventListener(
 
             if (
                 !profile ||
-                profile.role !== "admin"
+                profile.role !==
+                    "admin"
             ) {
+
                 return;
             }
 
@@ -1366,7 +1329,10 @@ studentList.addEventListener(
                 .forEach(
                     function (item) {
 
-                        if (item !== menu) {
+                        if (
+                            item !==
+                            menu
+                        ) {
 
                             item.classList.remove(
                                 "show"
@@ -1398,12 +1364,13 @@ studentList.addEventListener(
 
         if (statusButton) {
 
-            if (!subjectSelect.value) {
+            if (
+                !subjectSelect.value
+            ) {
 
                 alert(
                     "Please select a subject first."
                 );
-
 
                 return;
             }
@@ -1477,8 +1444,10 @@ studentList.addEventListener(
 
             if (
                 !profile ||
-                profile.role !== "admin"
+                profile.role !==
+                    "admin"
             ) {
+
                 return;
             }
 
@@ -1518,8 +1487,10 @@ studentList.addEventListener(
 
             if (
                 !profile ||
-                profile.role !== "admin"
+                profile.role !==
+                    "admin"
             ) {
+
                 return;
             }
 
@@ -1546,7 +1517,7 @@ studentList.addEventListener(
 );
 
 
-// CLOSE STUDENT MENU
+// CLOSE THREE-DOT MENU
 
 document.addEventListener(
     "click",
@@ -1585,14 +1556,8 @@ addStudentForm.addEventListener(
 
 
         if (
-            !profile ||
-            profile.role !== "admin"
+            !activeSection
         ) {
-            return;
-        }
-
-
-        if (!activeSection) {
 
             alert(
                 "Pick a section first (dropdown above)."
@@ -1617,29 +1582,6 @@ addStudentForm.addEventListener(
             !qid ||
             !name
         ) {
-            return;
-        }
-
-
-        const duplicate =
-            students.some(
-                function (student) {
-
-                    return (
-                        student.qid.toLowerCase() ===
-                        qid.toLowerCase()
-                    );
-                }
-            );
-
-
-        if (duplicate) {
-
-            alert(
-                "A student with this Q.ID already exists in this section."
-            );
-
-
             return;
         }
 
@@ -1694,8 +1636,10 @@ async function editStudent(
 
     if (
         !profile ||
-        profile.role !== "admin"
+        profile.role !==
+            "admin"
     ) {
+
         return;
     }
 
@@ -1714,7 +1658,6 @@ async function editStudent(
             "Student not found."
         );
 
-
         return;
     }
 
@@ -1729,6 +1672,7 @@ async function editStudent(
     if (
         newQid === null
     ) {
+
         return;
     }
 
@@ -1743,6 +1687,7 @@ async function editStudent(
     if (
         newName === null
     ) {
+
         return;
     }
 
@@ -1766,12 +1711,9 @@ async function editStudent(
             "Q.ID and student name cannot be empty."
         );
 
-
         return;
     }
 
-
-    // Prevent duplicate Q.IDs
 
     const duplicate =
         students.some(
@@ -1793,7 +1735,6 @@ async function editStudent(
             "A student with this Q.ID already exists in this section."
         );
 
-
         return;
     }
 
@@ -1811,8 +1752,11 @@ async function editStudent(
             ),
 
             {
-                qid: qid,
-                name: name
+                qid:
+                    qid,
+
+                name:
+                    name
             }
         );
 
@@ -1840,8 +1784,10 @@ async function deleteStudent(
 
     if (
         !profile ||
-        profile.role !== "admin"
+        profile.role !==
+            "admin"
     ) {
+
         return;
     }
 
@@ -1961,7 +1907,6 @@ markAllPresentBtn.addEventListener(
                 "Please select a subject first."
             );
 
-
             return;
         }
 
@@ -1992,7 +1937,6 @@ markAllAbsentBtn.addEventListener(
                 "Please select a subject first."
             );
 
-
             return;
         }
 
@@ -2009,7 +1953,7 @@ markAllAbsentBtn.addEventListener(
 );
 
 
-// SUBJECTS - LOAD
+// LOAD SUBJECTS
 
 async function loadSubjects() {
 
@@ -2033,7 +1977,6 @@ async function loadSubjects() {
                 orderBy(
                     "name"
                 )
-
             );
 
 
@@ -2086,8 +2029,8 @@ async function loadSubjects() {
 
 
         if (
-            profile &&
-            profile.role === "admin"
+            profile.role ===
+            "admin"
         ) {
 
             subjectManageList.innerHTML =
@@ -2170,19 +2113,12 @@ addSubjectForm.addEventListener(
 
 
         if (
-            !profile ||
-            profile.role !== "admin"
+            !activeSection
         ) {
-            return;
-        }
-
-
-        if (!activeSection) {
 
             alert(
                 "Pick a section first (dropdown above)."
             );
-
 
             return;
         }
@@ -2240,21 +2176,15 @@ async function deleteSubject(
     subjectId
 ) {
 
-    if (
-        !profile ||
-        profile.role !== "admin"
-    ) {
-        return;
-    }
-
-
     const confirmDelete =
         confirm(
             "Delete this subject from this section? Existing saved records will keep the old name."
         );
 
 
-    if (!confirmDelete) {
+    if (
+        !confirmDelete
+    ) {
         return;
     }
 
@@ -2288,13 +2218,14 @@ async function deleteSubject(
 }
 
 
-// CR MANAGEMENT - LOAD
+// LOAD CR LIST
 
 async function loadCrList() {
 
     if (
         !profile ||
-        profile.role !== "admin"
+        profile.role !==
+            "admin"
     ) {
         return;
     }
@@ -2319,7 +2250,8 @@ async function loadCrList() {
 
             .filter(
                 docSnap =>
-                    docSnap.data().role ===
+                    docSnap.data()
+                        .role ===
                     "cr"
             )
 
@@ -2407,7 +2339,8 @@ addCrForm.addEventListener(
 
         if (
             !profile ||
-            profile.role !== "admin"
+            profile.role !==
+                "admin"
         ) {
             return;
         }
@@ -2442,8 +2375,12 @@ addCrForm.addEventListener(
                 ),
 
                 {
-                    role: "cr",
-                    section: section,
+                    role:
+                        "cr",
+
+                    section:
+                        section,
+
                     createdAt:
                         new Date()
                             .toISOString()
@@ -2485,7 +2422,8 @@ async function deleteCr(
 
     if (
         !profile ||
-        profile.role !== "admin"
+        profile.role !==
+            "admin"
     ) {
         return;
     }
@@ -2497,7 +2435,9 @@ async function deleteCr(
         );
 
 
-    if (!confirmDelete) {
+    if (
+        !confirmDelete
+    ) {
         return;
     }
 
@@ -2721,7 +2661,6 @@ saveBtn.addEventListener(
                 "Please select date first."
             );
 
-
             return;
         }
 
@@ -2731,7 +2670,6 @@ saveBtn.addEventListener(
             alert(
                 "Please select subject."
             );
-
 
             return;
         }
@@ -2752,7 +2690,6 @@ saveBtn.addEventListener(
             alert(
                 `${unmarked.length} students are not marked.`
             );
-
 
             return;
         }
@@ -2785,7 +2722,6 @@ saveBtn.addEventListener(
                 attendanceRef,
 
                 {
-
                     university:
                         "Quantum University",
 
@@ -3230,13 +3166,18 @@ async function shareRecord(
 
 
                 excelData.push([
+
                     serial,
+
                     student.qid,
+
                     student.name,
+
                     student.status ===
                         "Present"
                         ? 1
                         : 0
+
                 ]);
 
 
@@ -3263,8 +3204,11 @@ async function shareRecord(
 
 
         excelData.push([
+
             "Present (S.No, for shortcut)",
+
             presentSerials.join(" ")
+
         ]);
 
 
@@ -3292,9 +3236,13 @@ async function shareRecord(
 
 
         XLSX.utils.book_append_sheet(
+
             workbook,
+
             worksheet,
+
             "Attendance"
+
         );
 
 
@@ -3331,10 +3279,8 @@ async function shareRecord(
                 [wbArray],
 
                 {
-
                     type:
                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-
                 }
 
             );
@@ -3528,23 +3474,14 @@ async function viewRecord(
 
 // DELETE RECORD
 
+// NOTE:
+// This is intentionally NOT admin-only.
+// CRs can delete attendance records from their assigned section,
+// provided Firestore rules allow that write.
+
 async function deleteRecord(
     recordId
 ) {
-
-    if (
-        !profile ||
-        profile.role !== "admin"
-    ) {
-
-        alert(
-            "You do not have permission to delete attendance records."
-        );
-
-
-        return;
-    }
-
 
     const confirmDelete =
         confirm(
@@ -3552,7 +3489,9 @@ async function deleteRecord(
         );
 
 
-    if (!confirmDelete) {
+    if (
+        !confirmDelete
+    ) {
         return;
     }
 
@@ -3763,7 +3702,6 @@ downloadBtn.addEventListener(
                 "Name of Student",
                 "Attendance"
             ]
-
         ];
 
 
@@ -3850,9 +3788,13 @@ downloadBtn.addEventListener(
 
 
         XLSX.utils.book_append_sheet(
+
             workbook,
+
             worksheet,
+
             "Attendance"
+
         );
 
 
