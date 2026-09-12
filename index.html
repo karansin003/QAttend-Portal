@@ -73,8 +73,13 @@
           <button class="nav-btn active" data-view="attendanceView">▣ <span>Mark Attendance</span></button>
           <button class="nav-btn" data-view="adminToolsView" data-admin-only>♙ <span>Manage System</span></button>
           <button class="nav-btn" data-view="recordsView">▤ <span>Previous Records</span></button>
-          <button class="nav-btn" data-view="requestsView">▥ <span id="requestsNavText">Requests</span><span id="pendingBadge" class="nav-badge hidden">0</span></button>
-          <button class="nav-btn" data-view="supportView">ⓘ <span>Help & Support</span></button>
+          <div class="more-menu-wrap">
+            <button class="nav-btn more-menu-btn" id="moreMenuBtn" type="button" aria-expanded="false">☰ <span>More</span></button>
+            <div id="moreMenu" class="more-menu hidden">
+              <button class="more-menu-item" data-view="requestsView">▥ <span id="requestsNavText">Requests</span><span id="pendingBadge" class="nav-badge hidden">0</span></button>
+              <button class="more-menu-item" data-view="supportView">ⓘ <span>Help &amp; Support</span></button>
+            </div>
+          </div>
         </nav>
         <div class="sidebar-footer">
           <span>v2.0</span>

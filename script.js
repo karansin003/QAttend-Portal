@@ -127,14 +127,29 @@ function showView(viewId) {
     populateSectionDropdowns(); loadSubjects(); loadCrList();
   }
 }
-document.querySelectorAll(".nav-btn, .quick-action, .text-btn").forEach(btn => {
+document.querySelectorAll(".nav-btn, .quick-action, .text-btn, .more-menu-item").forEach(btn => {
   btn.addEventListener("click", () => {
     const view = btn.dataset.view;
     if (!view) return;
     showView(view);
     const target = btn.dataset.scrollTarget;
     if (target) setTimeout(() => $(target)?.scrollIntoView({behavior:"smooth", block:"start"}), 40);
+    closeMoreMenu();
   });
+});
+
+function closeMoreMenu(){
+  $("moreMenu")?.classList.add("hidden");
+  $("moreMenuBtn")?.setAttribute("aria-expanded","false");
+}
+$("moreMenuBtn")?.addEventListener("click", e => {
+  e.stopPropagation();
+  const menu = $("moreMenu");
+  menu.classList.toggle("hidden");
+  $("moreMenuBtn").setAttribute("aria-expanded", String(!menu.classList.contains("hidden")));
+});
+document.addEventListener("click", e => {
+  if (!e.target.closest(".more-menu-wrap")) closeMoreMenu();
 });
 
 function populateSectionDropdowns() {
@@ -158,12 +173,10 @@ $("sectionSelect").addEventListener("change", async () => {
 
 async function loadSectionData() {
   $("headerTotalStudents").textContent = "Loading...";
-  await Promise.all([loadStudents(), loadSubjects(), loadRecords()]);
+  await Promise.all([loadStudents(), loadSubjects()]);
   $("headerTotalStudents").textContent = students.length;
-  if (profile?.role === "cr") {
-    $("subjectSelect").value = subjects[0]?.name || "";
-    if (subjects[0]) await loadAttendance();
-  }
+  // Never auto-select a subject. The user chooses the subject explicitly.
+  $("subjectSelect").value = "";
 }
 
 async function loadStudents() {
@@ -269,7 +282,8 @@ async function loadSubjects() {
     subjects = snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>String(a.name).localeCompare(String(b.name)));
     $("subjectSelect").innerHTML = `<option value="">-- Select Subject --</option>`;
     subjects.forEach(s => $("subjectSelect").insertAdjacentHTML("beforeend", `<option value="${escapeHtml(s.name)}">${escapeHtml(s.name)}</option>`));
-    if (profile?.role === "cr" && subjects[0]) $("subjectSelect").value = subjects[0].name;
+    // Keep the subject selector blank until the user selects one.
+    $("subjectSelect").value = "";
     renderSubjectManageList();
   } catch (e) { console.error(e); }
 }
