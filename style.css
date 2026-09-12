@@ -44,7 +44,7 @@ button{cursor:pointer}
 .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px}.stat-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:17px}.stat-card p{font-size:12px;color:var(--gray)}.stat-card h3{font-size:26px;margin-top:6px}.present-stat{border-left:4px solid var(--green)}.absent-stat{border-left:4px solid var(--red)}
 .top-actions,.action-buttons{display:flex;gap:10px;margin-bottom:14px}.top-actions button,.action-buttons button{border:1px solid var(--border);padding:10px 14px;border-radius:9px;font-weight:800}.mark-present-btn{background:#effaf4;color:var(--green);border-color:#c9e8d6!important}.mark-absent-btn{background:#fff0f1;color:var(--red);border-color:#f3c7cd!important}.download-btn{background:var(--black);color:#fff}.secondary-btn{border:1px solid var(--border);background:#fff;color:var(--ink);padding:11px 15px;border-radius:9px;font-weight:800}
 .attendance-section{padding:18px}.attendance-header{display:flex;justify-content:space-between;align-items:center;gap:15px;margin-bottom:14px}.attendance-header h2{margin-top:5px;font-size:20px}.search-container{display:flex;align-items:center;gap:8px;border:1px solid var(--border);padding:9px 11px;border-radius:9px;min-width:260px}.search-container input{border:0;outline:0;width:100%}
-.table-header,.student{display:grid;grid-template-columns:140px minmax(0,1fr) 260px 42px;gap:12px;align-items:center}.table-header{background:var(--black);color:#fff;padding:12px;border-radius:9px;font-size:12px;font-weight:800}.student{background:#fff;padding:12px;border-bottom:1px solid var(--border);min-height:58px}.student-name{font-weight:700;font-size:13px;overflow-wrap:anywhere}.qid-number{font-size:12px;color:#444}
+.table-header,.student{display:grid;grid-template-columns:minmax(155px,.9fr) minmax(320px,2fr) minmax(220px,1.35fr) 46px;gap:12px;align-items:center}.table-header{background:var(--black);color:#fff;padding:12px;border-radius:9px;font-size:12px;font-weight:800}.student{background:#fff;padding:12px;border-bottom:1px solid var(--border);min-height:58px}.student-name{font-weight:700;font-size:13px;line-height:1.35;min-width:0;white-space:normal;overflow-wrap:anywhere;word-break:normal}.qid-number{font-size:12px;color:#444;white-space:nowrap}
 .buttons{display:flex;justify-content:center;gap:8px;min-width:0}.buttons button{flex:1;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:#fff;font-size:12px;font-weight:800}.active-present{background:var(--green)!important;color:#fff;border-color:var(--green)!important}.active-absent{background:var(--red)!important;color:#fff;border-color:var(--red)!important}
 .student-menu-wrapper{position:relative;display:flex;justify-content:flex-end}.student-menu-btn{width:34px;height:34px;border:1px solid var(--border);background:#fff;border-radius:8px;font-size:18px}.student-menu{display:none;position:absolute;right:0;top:40px;background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow);padding:5px;z-index:50;width:145px}.student-menu.show{display:block}.student-menu button{display:block;width:100%;background:#fff;border:0;text-align:left;padding:9px;border-radius:7px;font-size:12px}.student-menu button:hover{background:var(--light)}
 
@@ -72,6 +72,15 @@ footer{text-align:center;padding:18px;color:#8b929d;font-size:11px}
 /* MORE MENU */
 .more-menu-wrap{position:relative}.more-menu-btn{position:relative}.more-menu{position:absolute;left:0;top:calc(100% + 6px);min-width:190px;background:#fff;border:1px solid var(--border);border-radius:10px;padding:6px;box-shadow:0 12px 30px rgba(16,24,32,.14);z-index:80}.more-menu-item{width:100%;display:flex;align-items:center;gap:9px;border:0;background:#fff;color:var(--black);padding:10px 11px;border-radius:7px;text-align:left;font-size:12px;font-weight:800;cursor:pointer}.more-menu-item:hover{background:var(--light)}.more-menu-item .nav-badge{margin-left:auto}.admin-view .more-menu-item[data-view="requestsView"] .nav-badge{display:inline-flex}
 
+/* STUDENT TABLE WIDTH FIX
+   Keep Q.ID and student name readable on desktop/tablet instead of compressing them. */
+@media(max-width:1050px) and (min-width:701px){
+  .table-header,.student{grid-template-columns:minmax(145px,.8fr) minmax(250px,1.7fr) minmax(205px,1.25fr) 44px;gap:10px}
+  body.cr-view .student,
+  body.cr-view .table-header{grid-template-columns:minmax(145px,.8fr) minmax(250px,1.7fr) minmax(205px,1.25fr);gap:10px}
+  .student-name{font-size:12.5px}.qid-number{font-size:11.5px}.buttons{gap:6px}.buttons button{padding:8px 7px}
+}
+
 /* MOBILE */
 @media(max-width:900px){
   .sidebar{width:190px}.content{padding:20px}.class-details{grid-template-columns:repeat(2,1fr)}.dashboard-stats{grid-template-columns:repeat(2,1fr)}.quick-grid{grid-template-columns:repeat(2,1fr)}.tool-grid{grid-template-columns:1fr}.dashboard-panels{grid-template-columns:1fr}
@@ -86,7 +95,7 @@ footer{text-align:center;padding:18px;color:#8b929d;font-size:11px}
   .attendance-header{align-items:stretch;flex-direction:column}.search-container{min-width:0}
   .table-header{display:none}
   .student{position:relative;display:grid;grid-template-columns:1fr;padding:14px;margin-bottom:9px;border:1px solid var(--border);border-radius:11px;gap:7px;min-height:0}
-  .student .qid-number,.student .student-name{padding-right:42px}.student .buttons{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:3px}.student .buttons button{width:100%;padding:10px 6px}
+  .student .qid-number{padding-right:42px;white-space:nowrap}.student .student-name{padding-right:42px;min-width:0;line-height:1.35;white-space:normal;overflow-wrap:anywhere}.student .buttons{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:3px}.student .buttons button{width:100%;padding:10px 6px}
   .student-menu-wrapper{position:absolute;right:10px;top:10px}.student-menu{top:37px}
   .dashboard-stats{grid-template-columns:1fr 1fr}.quick-grid{grid-template-columns:1fr 1fr}
   .record-card{align-items:flex-start;flex-direction:column}.record-actions{width:100%}.record-actions button{flex:1}
@@ -103,8 +112,8 @@ footer{text-align:center;padding:18px;color:#8b929d;font-size:11px}
 body.cr-view #sectionSwitchBox{display:none!important}
 body.cr-view .selectors{grid-template-columns:1fr 1fr}
 @media(max-width:700px){body.cr-view .selectors{grid-template-columns:1fr}}
-body.cr-view .student{grid-template-columns:140px minmax(0,1fr) 260px}
+body.cr-view .student{grid-template-columns:minmax(155px,.9fr) minmax(320px,2fr) minmax(220px,1.35fr)}
 body.cr-view .student-menu-wrapper{display:none!important}
 body.cr-view .admin-actions-header{display:none}
-body.cr-view .table-header{grid-template-columns:140px minmax(0,1fr) 260px}
+body.cr-view .table-header{grid-template-columns:minmax(155px,.9fr) minmax(320px,2fr) minmax(220px,1.35fr)}
 @media(max-width:700px){body.cr-view .student{grid-template-columns:1fr}}
