@@ -752,8 +752,8 @@ onAuthStateChanged(
             profile =
                 profileSnap.data();
 
-            // Record successful login. Admin waits for this one small write so the dashboard can show it immediately.
-            void writeActivityLog("LOGIN", "User signed in to QAttend.");
+            // Record the successful login. Logging failures must never block the app.
+            await writeActivityLog("LOGIN", "User signed in to QAttend.");
 
 
         } catch (error) {
@@ -840,9 +840,8 @@ onAuthStateChanged(
 
         if (isAdmin) {
 
-            // Keep the successful login quick. The Admin lands on Mark Attendance;
-            // the dashboard is opened explicitly from the hamburger menu.
-
+            // Admin lands on the Admin Dashboard after login.
+            // Mark Attendance is opened explicitly from the hamburger menu.
             populateSectionDropdowns();
 
             activeSection = null;
@@ -851,15 +850,7 @@ onAuthStateChanged(
             sectionSelect.value = "";
             if (manageSectionSelect) manageSectionSelect.value = "";
 
-            welcomeTitle.textContent = "Mark Attendance";
-            welcomeSubtitle.textContent = "Select a section, date and subject to begin attendance.";
-
-            showAttendanceView();
-
-            workArea.classList.add("hidden");
-            noSectionMessage.classList.remove("hidden");
-            sectionLabel.textContent = "-- Not selected --";
-            headerTotalStudents.textContent = "0";
+            showAdminDashboard();
 
         } else {
 
@@ -2239,113 +2230,150 @@ async function deleteSubject(
 }
 
 
-// LOAD CR LIST
-
+// LOAD ALL CR PROFILES (used as a fallback / global list)
 async function loadCrList() {
+    if (!profile || profile.role !== "admin") return;
 
-    if (
-        !profile ||
-        profile.role !==
-            "admin"
-    ) {
+    const container = document.getElementById("crManageList");
+    if (!container) return;
+
+    try {
+        const snapshot = await getDocs(collection(db, "users"));
+        const crs = snapshot.docs
+            .filter(d => d.data()?.role === "cr")
+            .map(d => ({
+                email: String(d.id || "").toLowerCase(),
+                section: String(d.data()?.section || "")
+            }))
+            .sort((a,b) => a.email.localeCompare(b.email));
+
+        container.innerHTML = "";
+        if (!crs.length) {
+            container.innerHTML = `<p class="empty-record">No CRs assigned yet.</p>`;
+            return;
+        }
+
+        crs.forEach(cr => {
+            const row = document.createElement("div");
+            row.className = "chip-row";
+            row.innerHTML = `
+                <span>${escapeHtml(cr.email)} — ${escapeHtml(sectionLabelOf(cr.section))}</span>
+                <button type="button" data-email="${escapeHtml(cr.email)}">Remove</button>
+            `;
+            container.appendChild(row);
+        });
+        bindCrRemoveButtons(container);
+    } catch (error) {
+        console.error("Could not load CR list:", error);
+        container.innerHTML = `<p class="empty-record">Could not load CRs.</p>`;
+    }
+}
+
+function bindCrRemoveButtons(container) {
+    container.querySelectorAll("button[data-email]").forEach(button => {
+        button.addEventListener("click", () => deleteCr(button.dataset.email));
+    });
+}
+
+async function loadCrListForManagementSection() {
+    const container = document.getElementById("crManageList");
+    if (!container || profile?.role !== "admin") return;
+
+    const section = managementSection || document.getElementById("manageSectionSelect")?.value || "";
+    if (!section) {
+        container.innerHTML = "";
         return;
     }
 
+    container.innerHTML = `<p class="empty-record">Loading CRs...</p>`;
 
     try {
+        const snapshot = await getDocs(collection(db, "users"));
+        const crs = snapshot.docs
+            .filter(d => {
+                const data = d.data() || {};
+                return data.role === "cr" && String(data.section || "") === String(section);
+            })
+            .sort((a,b) => String(a.id || "").localeCompare(String(b.id || "")));
 
-        const snapshot =
-            await getDocs(
-                collection(
-                    db,
-                    "users"
-                )
-            );
+        container.innerHTML = "";
+        if (!crs.length) {
+            container.innerHTML = `<p class="empty-record">No CR is assigned to ${escapeHtml(sectionLabelOf(section))}.</p>`;
+            return;
+        }
 
-
-        crManageList.innerHTML =
-            "";
-
-
-        snapshot.docs
-
-            .filter(
-                docSnap =>
-                    docSnap.data()
-                        .role ===
-                    "cr"
-            )
-
-            .forEach(
-                function (docSnap) {
-
-                    const data =
-                        docSnap.data();
-
-
-                    const row =
-                        document.createElement(
-                            "div"
-                        );
-
-
-                    row.className =
-                        "chip-row";
-
-
-                    row.innerHTML = `
-
-                        <span>
-                            ${docSnap.id}
-                            —
-                            ${sectionLabelOf(
-                                data.section
-                            )}
-                        </span>
-
-
-                        <button
-                            type="button"
-                            data-email="${docSnap.id}">
-
-                            Remove
-
-                        </button>
-
-                    `;
-
-
-                    crManageList.appendChild(
-                        row
-                    );
-                }
-            );
-
-
-        document
-            .querySelectorAll(
-                "#crManageList button"
-            )
-            .forEach(
-                function (button) {
-
-                    button.addEventListener(
-                        "click",
-                        function () {
-
-                            deleteCr(
-                                button.dataset.email
-                            );
-                        }
-                    );
-                }
-            );
-
-
+        crs.forEach(d => {
+            const data = d.data() || {};
+            const row = document.createElement("div");
+            row.className = "chip-row";
+            row.innerHTML = `
+                <span>${escapeHtml(d.id)} — ${escapeHtml(sectionLabelOf(data.section))}</span>
+                <button type="button" data-email="${escapeHtml(d.id)}">Remove</button>
+            `;
+            container.appendChild(row);
+        });
+        bindCrRemoveButtons(container);
     } catch (error) {
-
-        console.error(error);
+        console.error("Could not load CRs for management section:", error);
+        container.innerHTML = `<p class="empty-record">Could not load CRs for this section.</p>`;
     }
+}
+
+async function loadManagementSubjects(section) {
+    const container = document.getElementById("subjectManageList");
+    if (!container || !section) return;
+
+    try {
+        const snapshot = await getDocs(
+            query(collection(db, "sections", section, "subjects"), orderBy("name"))
+        );
+
+        container.innerHTML = "";
+        if (!snapshot.docs.length) {
+            container.innerHTML = `<p class="empty-record">No subjects in this section.</p>`;
+            return;
+        }
+
+        snapshot.docs.forEach(d => {
+            const row = document.createElement("div");
+            row.className = "chip-row";
+            row.innerHTML = `
+                <span>${escapeHtml(d.data()?.name || "")}</span>
+                <button type="button" data-subject-id="${escapeHtml(d.id)}">Delete</button>
+            `;
+            container.appendChild(row);
+        });
+
+        container.querySelectorAll("button[data-subject-id]").forEach(button => {
+            button.addEventListener("click", () => deleteSubject(button.dataset.subjectId));
+        });
+    } catch (error) {
+        console.error("Could not load management subjects:", error);
+        container.innerHTML = `<p class="empty-record">Could not load subjects.</p>`;
+    }
+}
+
+async function refreshManageData() {
+    const section = managementSection || document.getElementById("manageSectionSelect")?.value || "";
+    const message = document.getElementById("manageSectionMessage");
+    const subjectContainer = document.getElementById("subjectManageList");
+    const crContainer = document.getElementById("crManageList");
+
+    if (!section) {
+        if (message) message.textContent = "Please select a section to manage its data.";
+        if (subjectContainer) subjectContainer.innerHTML = "";
+        if (crContainer) crContainer.innerHTML = "";
+        return;
+    }
+
+    managementSection = section;
+    if (message) message.textContent = `Managing ${sectionLabelOf(section)}.`;
+    if (subjectContainer) subjectContainer.innerHTML = `<p class="empty-record">Loading subjects...</p>`;
+
+    await Promise.all([
+        loadManagementSubjects(section),
+        loadCrListForManagementSection()
+    ]);
 }
 
 
@@ -2417,7 +2445,11 @@ addCrForm.addEventListener(
 
             managementSection = section;
             await loadCrListForManagementSection();
-            void writeActivityLog("ASSIGN_CR",`${email} · ${sectionLabelOf(section)}`);
+            await writeActivityLog(
+                "ASSIGN_CR",
+                `${email} · ${sectionLabelOf(section)}`,
+                {section}
+            );
 
 
             alert(
@@ -2479,8 +2511,16 @@ async function deleteCr(
         );
 
 
-        void writeActivityLog("REMOVE_CR",email);
-        await loadCrList();
+        await writeActivityLog(
+            "REMOVE_CR",
+            email,
+            {section: managementSection || ""}
+        );
+        if (managementSection) {
+            await loadCrListForManagementSection();
+        } else {
+            await loadCrList();
+        }
 
 
     } catch (error) {
@@ -3994,8 +4034,10 @@ async function loadAdminDashboardData(){
             document.getElementById("dashTotalSubjects").textContent = totalSubjectsCount;
         }
 
-        await loadAdminActivityLogs();
-        await loadAdminRequestPreview();
+        await Promise.allSettled([
+            loadAdminActivityLogs(),
+            loadAdminRequestPreview()
+        ]);
     }catch(e){
         console.error("Dashboard data failed:", e);
     }
@@ -4059,10 +4101,13 @@ function openSupport(){
     supportModal?.classList.remove("hidden");
 }
 
-function logoutFromApp(){
-    return writeActivityLog("LOGOUT","User signed out of QAttend.")
-        .catch(() => {})
-        .then(() => signOut(auth));
+async function logoutFromApp(){
+    try {
+        await writeActivityLog("LOGOUT", "User signed out of QAttend.");
+    } catch (e) {
+        console.warn("Logout log failed:", e);
+    }
+    await signOut(auth);
 }
 
 
@@ -4385,6 +4430,7 @@ document.getElementById("requestForm")?.addEventListener("submit",async e=>{
         sectionLabel:sectionLabelOf(activeSection),
         requestedBy:String(auth.currentUser.email||"").trim(),
         status:"pending",
+        requestedByRole:"cr",
         createdAt:new Date().toISOString()
     };
 
