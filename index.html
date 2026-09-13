@@ -130,37 +130,37 @@
             <div class="feature-drawer-list">
                 <button type="button" class="drawer-item admin-drawer-only" data-feature="dashboard">
                     <span class="drawer-icon">⌂</span>
-                    <span><b>Admin Dashboard</b><small>Overview and complete activity history</small></span>
+                    <span><b>Admin Dashboard</b><small>CR logins, system changes and requests</small></span>
                     <span class="drawer-arrow">›</span>
                 </button>
 
                 <button type="button" class="drawer-item" data-feature="attendance">
                     <span class="drawer-icon">✓</span>
-                    <span><b>Mark Attendance</b><small>Return to the attendance screen</small></span>
+                    <span><b>Mark Attendance</b><small>Open the attendance screen</small></span>
                     <span class="drawer-arrow">›</span>
                 </button>
 
                 <button type="button" class="drawer-item" data-feature="requests">
                     <span class="drawer-icon">↗</span>
-                    <span><b>Requests</b><small id="drawerRequestsText">Student &amp; subject change requests</small></span>
+                    <span><b id="drawerRequestsTitle">Requests</b><small id="drawerRequestsText">View all CR student and subject requests</small></span>
                     <span class="drawer-arrow">›</span>
                 </button>
 
-                <button type="button" class="drawer-item" data-feature="excel">
+                <button type="button" class="drawer-item cr-drawer-only" data-feature="records">
                     <span class="drawer-icon">▤</span>
-                    <span><b>Excel Shortcut</b><small>Serial No. + Present shortcut in report</small></span>
-                    <span class="drawer-arrow">›</span>
-                </button>
-
-                <button type="button" class="drawer-item admin-drawer-only" data-feature="logs">
-                    <span class="drawer-icon">◷</span>
-                    <span><b>Activity Logs</b><small>Login and system change history</small></span>
+                    <span><b>Previous Records</b><small>View saved attendance records</small></span>
                     <span class="drawer-arrow">›</span>
                 </button>
 
                 <button type="button" class="drawer-item" data-feature="support">
                     <span class="drawer-icon">?</span>
                     <span><b>Help &amp; Support</b><small>Quick guidance for using QAttend</small></span>
+                    <span class="drawer-arrow">›</span>
+                </button>
+
+                <button type="button" class="drawer-item drawer-logout" data-feature="logout">
+                    <span class="drawer-icon">↪</span>
+                    <span><b>Logout</b><small>Sign out of QAttend</small></span>
                     <span class="drawer-arrow">›</span>
                 </button>
             </div>
@@ -176,7 +176,7 @@
                         <h2>Admin Dashboard</h2>
                         <p>Monitor CR activity, logins, attendance and system changes.</p>
                     </div>
-                    <button id="openLogsBtn" class="secondary-btn" type="button">View Full Logs</button>
+                    <button id="openLogsBtn" class="secondary-btn" type="button">Refresh Logs</button>
                 </div>
 
                 <div class="dashboard-stats">
@@ -189,7 +189,7 @@
                 <div class="dashboard-panels">
                     <section class="dashboard-panel-card">
                         <div class="dashboard-panel-head">
-                            <div><p class="section-small-title">LIVE HISTORY</p><h3>Recent Activity</h3></div>
+                            <div><p class="section-small-title">ACTIVITY HISTORY</p><h3>Activity Logs</h3></div>
                             <button id="refreshLogsBtn" class="text-btn" type="button">Refresh</button>
                         </div>
                         <div id="activityLogList" class="activity-log-list">

@@ -789,6 +789,23 @@ onAuthStateChanged(
                 ? "ADMIN"
                 : "CLASS REPRESENTATIVE";
 
+        const drawerRequestsTitle =
+            document.getElementById("drawerRequestsTitle");
+        const drawerRequestsText =
+            document.getElementById("drawerRequestsText");
+
+        if (drawerRequestsTitle) {
+            drawerRequestsTitle.textContent =
+                profile.role === "admin" ? "Requests" : "Send Request";
+        }
+
+        if (drawerRequestsText) {
+            drawerRequestsText.textContent =
+                profile.role === "admin"
+                    ? "View all CR student and subject requests"
+                    : "Send student or subject change request to Admin";
+        }
+
 
         const isAdmin =
             profile.role === "admin";
@@ -903,8 +920,6 @@ onAuthStateChanged(
             await loadSubjects();
 
             await loadStudents();
-
-            await loadRecords();
         }
     }
 );
@@ -3889,6 +3904,15 @@ function showRequestsPanel(){
     loadRequestCenter();
 }
 
+function showPreviousRecords(){
+    if(profile?.role !== "cr") return;
+    showAttendanceView();
+    const recordsSection = document.querySelector(".records-section");
+    if(recordsSection){
+        setTimeout(() => recordsSection.scrollIntoView({behavior:"smooth", block:"start"}), 40);
+    }
+}
+
 function openSupport(){
     supportModal?.classList.remove("hidden");
 }
@@ -3900,9 +3924,12 @@ document.querySelectorAll(".drawer-item").forEach(btn => {
         if(feature === "dashboard" && profile?.role === "admin") showAdminDashboard();
         if(feature === "attendance") showAttendanceView();
         if(feature === "requests") showRequestsPanel();
-        if(feature === "excel") alert("Excel export keeps S.No. order, adds filter support, and places Present (S.No, for shortcut) below the table.");
-        if(feature === "logs") showAdminDashboard();
+        if(feature === "records" && profile?.role === "cr") showPreviousRecords();
         if(feature === "support") openSupport();
+        if(feature === "logout") {
+            void writeActivityLog("LOGOUT", "User signed out of QAttend.");
+            void signOut(auth);
+        }
     });
 });
 
