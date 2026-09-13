@@ -172,6 +172,7 @@ let students = [];
 let subjects = [];
 
 let recordsCache = {};
+let requestFilter = "all";
 
 
 // HTML ELEMENTS
@@ -307,36 +308,6 @@ const adminOnlyEls =
         ".admin-only"
     );
 
-const activityMenuBtn =
-    document.getElementById(
-        "activityMenuBtn"
-    );
-
-const activitySidebar =
-    document.getElementById(
-        "activitySidebar"
-    );
-
-const activitySidebarOverlay =
-    document.getElementById(
-        "activitySidebarOverlay"
-    );
-
-const closeActivitySidebarBtn =
-    document.getElementById(
-        "closeActivitySidebarBtn"
-    );
-
-const refreshActivityBtn =
-    document.getElementById(
-        "refreshActivityBtn"
-    );
-
-const activityLogList =
-    document.getElementById(
-        "activityLogList"
-    );
-
 
 const addStudentForm =
     document.getElementById(
@@ -463,134 +434,6 @@ const refreshRecordsBtn =
     document.getElementById(
         "refreshRecordsBtn"
     );
-
-
-// ACTIVITY LOG
-// Every meaningful action (login, add/delete student, add/delete subject,
-// assign/remove CR, save/delete attendance) writes one entry here. Admin-only
-// to read (enforced in firestore.rules too, not just hidden in the UI).
-
-const ACTION_LABELS = {
-    login: { label: "Logged in", badge: "login" },
-    add_student: { label: "Added student", badge: "add" },
-    delete_student: { label: "Deleted student", badge: "delete" },
-    edit_student: { label: "Edited student", badge: "add" },
-    add_subject: { label: "Added subject", badge: "add" },
-    delete_subject: { label: "Deleted subject", badge: "delete" },
-    assign_cr: { label: "Assigned CR", badge: "cr" },
-    remove_cr: { label: "Removed CR", badge: "delete" },
-    save_attendance: { label: "Saved attendance", badge: "save" },
-    delete_attendance: { label: "Deleted attendance record", badge: "delete" }
-};
-
-async function logActivity(action, details, sectionOverride) {
-    try {
-        const user = auth.currentUser;
-        if (!user || !profile) return;
-
-        await addDoc(collection(db, "activityLogs"), {
-            action: action,
-            details: details || "",
-            performedBy: user.email,
-            role: profile.role,
-            section: sectionOverride !== undefined ? sectionOverride : (activeSection || null),
-            timestamp: new Date().toISOString()
-        });
-    } catch (error) {
-        // Never let a logging failure break the actual feature the person
-        // is using — just note it in the console.
-        console.error("Activity log error:", error);
-    }
-}
-
-function formatLogTime(isoString) {
-    try {
-        const date = new Date(isoString);
-        return date.toLocaleString(undefined, {
-            day: "2-digit",
-            month: "short",
-            hour: "2-digit",
-            minute: "2-digit"
-        });
-    } catch (error) {
-        return isoString;
-    }
-}
-
-async function loadActivityLog() {
-    activityLogList.innerHTML = `<p class="empty-record">Loading activity...</p>`;
-
-    try {
-        const q = query(
-            collection(db, "activityLogs"),
-            orderBy("timestamp", "desc"),
-            limit(150)
-        );
-        const snapshot = await getDocs(q);
-
-        if (snapshot.empty) {
-            activityLogList.innerHTML = `<p class="empty-record">No activity yet.</p>`;
-            return;
-        }
-
-        activityLogList.innerHTML = "";
-
-        snapshot.forEach(function (docSnap) {
-            const entry = docSnap.data();
-            const meta = ACTION_LABELS[entry.action] || { label: entry.action, badge: "add" };
-
-            const item = document.createElement("div");
-            item.className = "activity-log-item";
-            item.innerHTML = `
-                <div class="activity-top-row">
-                    <span class="activity-badge ${meta.badge}">${meta.label}</span>
-                    <span class="activity-time">${formatLogTime(entry.timestamp)}</span>
-                </div>
-                ${entry.details ? `<div class="activity-detail">${entry.details}</div>` : ""}
-                <div class="activity-by">
-                    ${entry.performedBy} (${entry.role === "admin" ? "Admin" : "CR"})
-                    ${entry.section ? " — " + sectionLabelOf(entry.section) : ""}
-                </div>
-            `;
-            activityLogList.appendChild(item);
-        });
-
-    } catch (error) {
-        console.error(error);
-        activityLogList.innerHTML = `<p class="empty-record">Error loading activity log.</p>`;
-    }
-}
-
-function openActivitySidebar() {
-    activitySidebar.classList.add("open");
-    activitySidebarOverlay.classList.remove("hidden");
-    requestAnimationFrame(function () {
-        activitySidebarOverlay.classList.add("show");
-    });
-    activityMenuBtn.classList.add("open");
-    loadActivityLog();
-}
-
-function closeActivitySidebar() {
-    activitySidebar.classList.remove("open");
-    activitySidebarOverlay.classList.remove("show");
-    activityMenuBtn.classList.remove("open");
-    setTimeout(function () {
-        activitySidebarOverlay.classList.add("hidden");
-    }, 300);
-}
-
-activityMenuBtn.addEventListener("click", function () {
-    if (activitySidebar.classList.contains("open")) {
-        closeActivitySidebar();
-    } else {
-        openActivitySidebar();
-    }
-});
-
-closeActivitySidebarBtn.addEventListener("click", closeActivitySidebar);
-activitySidebarOverlay.addEventListener("click", closeActivitySidebar);
-refreshActivityBtn.addEventListener("click", loadActivityLog);
 
 
 // TODAY DATE
@@ -908,6 +751,9 @@ onAuthStateChanged(
             profile =
                 profileSnap.data();
 
+            // Record a successful login without delaying the UI.
+            void writeActivityLog("LOGIN", "User signed in to QAttend.");
+
 
         } catch (error) {
 
@@ -948,12 +794,6 @@ onAuthStateChanged(
             profile.role === "admin";
 
 
-        if (!sessionStorage.getItem("qattendLoggedThisSession")) {
-            sessionStorage.setItem("qattendLoggedThisSession", "1");
-            logActivity("login", `${user.email} logged in as ${profile.role}`);
-        }
-
-
         // Role-specific layout classes.
         // Admin and CR have different responsive layouts.
 
@@ -981,6 +821,8 @@ onAuthStateChanged(
 
 
         if (isAdmin) {
+
+            showAdminDashboard();
 
             welcomeTitle.textContent =
                 "Admin Dashboard";
@@ -1025,6 +867,8 @@ onAuthStateChanged(
 
 
         } else {
+
+            showAttendanceView();
 
             welcomeTitle.textContent =
                 `${sectionLabelOf(
@@ -1072,7 +916,7 @@ logoutBtn.addEventListener(
     "click",
     async function () {
 
-        sessionStorage.removeItem("qattendLoggedThisSession");
+        void writeActivityLog("LOGOUT", "User signed out of QAttend.");
         await signOut(auth);
 
     }
@@ -1779,9 +1623,7 @@ addStudentForm.addEventListener(
 
 
             await loadStudents();
-
-            logActivity("add_student", `${name} (${qid}) added to ${sectionLabelOf(activeSection)}`);
-
+            void writeActivityLog("ADD_STUDENT",`${qid} · ${name}`,{section:activeSection});
 
         } catch (error) {
 
@@ -1929,9 +1771,8 @@ async function editStudent(
         );
 
 
+        void writeActivityLog("EDIT_STUDENT",`${qid} · ${name}`,{section:activeSection});
         await loadStudents();
-
-        logActivity("edit_student", `${student.name} → ${name} (${qid}) in ${sectionLabelOf(activeSection)}`);
 
 
     } catch (error) {
@@ -1999,9 +1840,8 @@ async function deleteStudent(
         );
 
 
+        void writeActivityLog("DELETE_STUDENT",`${student.qid} · ${student.name}`,{section:activeSection});
         await loadStudents();
-
-        logActivity("delete_student", `${student ? student.name + " (" + student.qid + ")" : studentId} deleted from ${sectionLabelOf(activeSection)}`);
 
 
     } catch (error) {
@@ -2327,9 +2167,7 @@ addSubjectForm.addEventListener(
 
 
             await loadSubjects();
-
-            logActivity("add_subject", `"${name}" added to ${sectionLabelOf(activeSection)}`);
-
+            void writeActivityLog("ADD_SUBJECT",name,{section:activeSection});
 
         } catch (error) {
 
@@ -2363,13 +2201,9 @@ async function deleteSubject(
     }
 
 
-    const subjectToDelete =
-        subjects.find(
-            item => item.id === subjectId
-        );
-
-
     try {
+
+        const deletedSubject = subjects.find(item => item.id === subjectId);
 
         await deleteDoc(
 
@@ -2383,9 +2217,8 @@ async function deleteSubject(
         );
 
 
+        void writeActivityLog("DELETE_SUBJECT",deletedSubject?.name || "",{section:activeSection});
         await loadSubjects();
-
-        logActivity("delete_subject", `"${subjectToDelete ? subjectToDelete.name : subjectId}" deleted from ${sectionLabelOf(activeSection)}`);
 
 
     } catch (error) {
@@ -2575,8 +2408,7 @@ addCrForm.addEventListener(
 
 
             await loadCrList();
-
-            logActivity("assign_cr", `${email} assigned as CR for ${sectionLabelOf(section)}`, section);
+            void writeActivityLog("ASSIGN_CR",`${email} · ${sectionLabelOf(section)}`);
 
 
             alert(
@@ -2628,16 +2460,6 @@ async function deleteCr(
 
     try {
 
-        const crProfileSnap =
-            await getDoc(
-                doc(db, "users", email)
-            );
-
-        const crSection =
-            crProfileSnap.exists()
-                ? crProfileSnap.data().section
-                : null;
-
         await deleteDoc(
 
             doc(
@@ -2648,9 +2470,8 @@ async function deleteCr(
         );
 
 
+        void writeActivityLog("REMOVE_CR",email);
         await loadCrList();
-
-        logActivity("remove_cr", `${email} removed as CR${crSection ? " of " + sectionLabelOf(crSection) : ""}`, crSection);
 
 
     } catch (error) {
@@ -2948,14 +2769,14 @@ saveBtn.addEventListener(
             );
 
 
+            void writeActivityLog("SAVE_ATTENDANCE",`${sectionLabelOf(activeSection)} · ${subject} · ${date}`);
+
             alert(
                 "✅ Attendance saved successfully!"
             );
 
 
             await loadRecords();
-
-            logActivity("save_attendance", `${subject} — ${date} — ${sectionLabelOf(activeSection)}`);
 
 
         } catch (error) {
@@ -3255,8 +3076,7 @@ async function shareRecord(
         await ensureXLSXLoaded();
 
 
-        const serialByQid =
-            new Map();
+        const serialByStudent = new Map();
 
 
         data.students.forEach(
@@ -3265,10 +3085,7 @@ async function shareRecord(
                 index
             ) {
 
-                serialByQid.set(
-                    student.qid,
-                    index + 1
-                );
+                serialByStudent.set(student, index + 1);
             }
         );
 
@@ -3358,9 +3175,7 @@ async function shareRecord(
             function (student) {
 
                 const serial =
-                    serialByQid.get(
-                        student.qid
-                    );
+                    serialByStudent.get(student);
 
 
                 excelData.push([
@@ -3427,6 +3242,8 @@ async function shareRecord(
             { wch: 15 }
 
         ];
+
+        worksheet["!autofilter"] = { ref: `A10:D${10 + data.students.length}` };
 
 
         const workbook =
@@ -3694,8 +3511,6 @@ async function deleteRecord(
     }
 
 
-    const recordInfo = recordsCache[recordId];
-
     try {
 
         await deleteDoc(
@@ -3721,12 +3536,8 @@ async function deleteRecord(
         );
 
 
+        void writeActivityLog("DELETE_ATTENDANCE",recordId,{section:activeSection});
         await loadRecords();
-
-        logActivity(
-            "delete_attendance",
-            recordInfo ? `${recordInfo.subject} — ${recordInfo.date} — ${sectionLabelOf(activeSection)}` : recordId
-        );
 
 
     } catch (error) {
@@ -3814,8 +3625,7 @@ downloadBtn.addEventListener(
         }
 
 
-        const serialByQid =
-            new Map();
+        const serialByStudent = new Map();
 
 
         students.forEach(
@@ -3824,10 +3634,7 @@ downloadBtn.addEventListener(
                 index
             ) {
 
-                serialByQid.set(
-                    student.qid,
-                    index + 1
-                );
+                serialByStudent.set(student, index + 1);
             }
         );
 
@@ -3917,9 +3724,7 @@ downloadBtn.addEventListener(
             function (student) {
 
                 const serial =
-                    serialByQid.get(
-                        student.qid
-                    );
+                    serialByStudent.get(student);
 
 
                 excelData.push([
@@ -3987,6 +3792,8 @@ downloadBtn.addEventListener(
 
         ];
 
+        worksheet["!autofilter"] = { ref: `A10:D${10 + students.length}` };
+
 
         const workbook =
             XLSX.utils.book_new();
@@ -4021,3 +3828,294 @@ downloadBtn.addEventListener(
         );
     }
 );
+
+
+/* =========================================================
+   MORE DRAWER / REQUEST CENTER / ADMIN ACTIVITY LOGS
+   ========================================================= */
+
+const moreMenuBtn = document.getElementById("moreMenuBtn");
+const featureDrawer = document.getElementById("featureDrawer");
+const featureBackdrop = document.getElementById("featureBackdrop");
+const closeFeatureDrawer = document.getElementById("closeFeatureDrawer");
+const requestsPanel = document.getElementById("requestsPanel");
+const adminDashboard = document.getElementById("adminDashboard");
+const requestList = document.getElementById("requestList");
+const activityLogList = document.getElementById("activityLogList");
+const dashboardRequestList = document.getElementById("dashboardRequestList");
+const requestModal = document.getElementById("requestModal");
+const supportModal = document.getElementById("supportModal");
+
+function openFeatureDrawer(){
+    featureDrawer?.classList.add("open");
+    featureBackdrop?.classList.remove("hidden");
+    featureDrawer?.setAttribute("aria-hidden","false");
+    moreMenuBtn?.setAttribute("aria-expanded","true");
+}
+function closeFeatureDrawerFn(){
+    featureDrawer?.classList.remove("open");
+    featureBackdrop?.classList.add("hidden");
+    featureDrawer?.setAttribute("aria-hidden","true");
+    moreMenuBtn?.setAttribute("aria-expanded","false");
+}
+moreMenuBtn?.addEventListener("click", e => { e.stopPropagation(); openFeatureDrawer(); });
+closeFeatureDrawer?.addEventListener("click", closeFeatureDrawerFn);
+featureBackdrop?.addEventListener("click", closeFeatureDrawerFn);
+document.addEventListener("keydown", e => { if(e.key === "Escape"){ closeFeatureDrawerFn(); requestModal?.classList.add("hidden"); supportModal?.classList.add("hidden"); }});
+
+function showAttendanceView(){
+    requestsPanel?.classList.add("hidden");
+    adminDashboard?.classList.add("hidden");
+    document.querySelectorAll(".welcome-section,.control-section,#adminPanel").forEach(el=>el?.classList.remove("hidden"));
+    if(profile?.role === "admin" && !activeSection){
+        document.getElementById("workArea")?.classList.add("hidden");
+        document.getElementById("noSectionMessage")?.classList.remove("hidden");
+    }else{
+        document.getElementById("workArea")?.classList.remove("hidden");
+        document.getElementById("noSectionMessage")?.classList.add("hidden");
+    }
+}
+function showAdminDashboard(){
+    document.querySelectorAll(".welcome-section,.control-section,#adminPanel,#noSectionMessage,#workArea").forEach(el=>el?.classList.add("hidden"));
+    requestsPanel?.classList.add("hidden");
+    adminDashboard?.classList.remove("hidden");
+    loadAdminActivityLogs();
+    loadAdminRequestPreview();
+}
+function showRequestsPanel(){
+    document.querySelectorAll(".welcome-section,.control-section,#adminPanel,#noSectionMessage,#workArea").forEach(el=>el?.classList.add("hidden"));
+    adminDashboard?.classList.add("hidden");
+    requestsPanel?.classList.remove("hidden");
+    loadRequestCenter();
+}
+
+function openSupport(){
+    supportModal?.classList.remove("hidden");
+}
+
+document.querySelectorAll(".drawer-item").forEach(btn => {
+    btn.addEventListener("click", () => {
+        const feature = btn.dataset.feature;
+        closeFeatureDrawerFn();
+        if(feature === "dashboard" && profile?.role === "admin") showAdminDashboard();
+        if(feature === "attendance") showAttendanceView();
+        if(feature === "requests") showRequestsPanel();
+        if(feature === "excel") alert("Excel export keeps S.No. order, adds filter support, and places Present (S.No, for shortcut) below the table.");
+        if(feature === "logs") showAdminDashboard();
+        if(feature === "support") openSupport();
+    });
+});
+
+document.getElementById("closeSupportModal")?.addEventListener("click",()=>supportModal?.classList.add("hidden"));
+supportModal?.addEventListener("click",e=>{ if(e.target===supportModal) supportModal.classList.add("hidden"); });
+
+function friendlyLogAction(action){
+    return {
+        LOGIN:"Logged in",
+        LOGOUT:"Logged out",
+        ADD_STUDENT:"Student added",
+        EDIT_STUDENT:"Student edited",
+        DELETE_STUDENT:"Student deleted",
+        ADD_SUBJECT:"Subject added",
+        DELETE_SUBJECT:"Subject deleted",
+        ASSIGN_CR:"CR assigned",
+        REMOVE_CR:"CR removed",
+        SAVE_ATTENDANCE:"Attendance saved",
+        DELETE_ATTENDANCE:"Attendance record deleted",
+        REQUEST_SUBMITTED:"Request submitted",
+        REQUEST_APPROVED:"Request approved",
+        REQUEST_REJECTED:"Request rejected"
+    }[action] || action;
+}
+function logBadgeClass(action){
+    if(action.includes("DELETE") || action.includes("REJECT")) return "danger";
+    if(action.includes("REQUEST") || action.includes("ASSIGN")) return "warning";
+    if(action === "LOGIN" || action.includes("SAVE") || action.includes("ADD") || action.includes("APPROVED")) return "success";
+    return "";
+}
+async function writeActivityLog(action, details = "", extra = {}){
+    const user = auth.currentUser;
+    if(!user) return;
+    try{
+        await addDoc(collection(db,"activityLogs"),{
+            action,
+            details,
+            userEmail:user.email,
+            userRole:profile?.role || "unknown",
+            createdAt:new Date().toISOString(),
+            ...extra
+        });
+    }catch(e){
+        console.warn("Activity log failed:",e);
+    }
+}
+
+async function loadAdminActivityLogs(){
+    if(profile?.role !== "admin" || !activityLogList) return;
+    activityLogList.innerHTML = `<p class="empty-record">Loading activity...</p>`;
+    try{
+        const snap = await getDocs(query(collection(db,"activityLogs"),orderBy("createdAt","desc"),limit(100)));
+        activityLogList.innerHTML = "";
+        if(snap.empty){
+            activityLogList.innerHTML = `<p class="empty-record">No activity logs yet.</p>`;
+            return;
+        }
+        snap.docs.forEach(d=>{
+            const x=d.data();
+            const item=document.createElement("div");
+            item.className="activity-item";
+            const date=x.createdAt?new Date(x.createdAt).toLocaleString():"";
+            item.innerHTML = `<span class="activity-icon">◷</span><div><b>${escapeHtml(friendlyLogAction(x.action))}<span class="log-badge ${logBadgeClass(x.action)}">${escapeHtml(x.userRole||"")}</span></b><small>${escapeHtml(x.userEmail||"")} · ${escapeHtml(date)}</small><small>${escapeHtml(x.details||"")}</small></div>`;
+            activityLogList.appendChild(item);
+        });
+    }catch(e){
+        console.error(e);
+        activityLogList.innerHTML = `<p class="empty-record">Could not load activity logs.</p>`;
+    }
+}
+
+async function loadAdminRequestPreview(){
+    if(profile?.role !== "admin" || !dashboardRequestList) return;
+    try{
+        const snap=await getDocs(collection(db,"requests"));
+        const rows=snap.docs.map(d=>({id:d.id,...d.data()})).filter(x=>x.status==="pending").sort((a,b)=>String(b.createdAt||"").localeCompare(String(a.createdAt||""))).slice(0,5);
+        dashboardRequestList.innerHTML="";
+        if(!rows.length){dashboardRequestList.innerHTML=`<p class="empty-record">No pending requests.</p>`;return;}
+        rows.forEach(r=>{
+            const el=document.createElement("div");
+            el.className="activity-item";
+            const title=r.type?.includes("student")?(r.type==="add_student"?"Add Student":"Delete Student"):(r.type==="add_subject"?"Add Subject":"Delete Subject");
+            el.innerHTML=`<span class="activity-icon">↗</span><div><b>${escapeHtml(title||"Request")}</b><small>${escapeHtml(r.requestedBy||"")} · ${escapeHtml(r.sectionLabel||sectionLabelOf(r.section||""))}</small><small>${escapeHtml(r.reason||"")}</small></div>`;
+            dashboardRequestList.appendChild(el);
+        });
+    }catch(e){console.error(e);}
+}
+
+document.getElementById("refreshLogsBtn")?.addEventListener("click",loadAdminActivityLogs);
+document.getElementById("openLogsBtn")?.addEventListener("click",loadAdminActivityLogs);
+document.getElementById("openRequestsFromDashboard")?.addEventListener("click",showRequestsPanel);
+document.getElementById("backFromRequestsBtn")?.addEventListener("click",()=> profile?.role === "admin" ? showAdminDashboard() : showAttendanceView());
+
+async function loadRequestCenter(){
+    if(!requestList || !profile) return;
+    if(profile.role !== "admin"){
+        requestList.innerHTML = `<div class="request-card"><div class="request-top"><div class="request-main"><b>Send a change request to Admin</b><small>Your request will be reviewed by an Admin. You do not receive Admin access.</small></div><span class="status-pill status-pending">REQUEST</span></div></div>`;
+        return;
+    }
+    requestList.innerHTML=`<p class="empty-record">Loading requests...</p>`;
+    try{
+        const snap=await getDocs(collection(db,"requests"));
+        const rows=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>String(b.createdAt||"").localeCompare(String(a.createdAt||"")));
+        const filtered=rows.filter(r=>{
+            if(requestFilter==="pending")return r.status==="pending";
+            if(requestFilter==="student")return String(r.type||"").includes("student");
+            if(requestFilter==="subject")return String(r.type||"").includes("subject");
+            return true;
+        });
+        requestList.innerHTML="";
+        if(!filtered.length){requestList.innerHTML=`<p class="empty-record">No requests found.</p>`;return;}
+        filtered.forEach(r=>{
+            const card=document.createElement("div");card.className="request-card";
+            const title = r.type === "add_student" ? "Add Student" : r.type === "delete_student" ? "Delete Student" : r.type === "add_subject" ? "Add Subject" : "Delete Subject";
+            const subjectOrStudent = r.type.includes("student") ? `${r.qid||""}${r.name?` · ${r.name}`:""}` : (r.subject||"");
+            card.innerHTML=`<div class="request-top"><div class="request-main"><b>${escapeHtml(title)}${subjectOrStudent?` · ${escapeHtml(subjectOrStudent)}`:""}</b><small>CR: ${escapeHtml(r.requestedBy||"")} · ${escapeHtml(r.sectionLabel||sectionLabelOf(r.section||""))}</small><small>${escapeHtml(r.reason||"")}</small><small>${escapeHtml(r.createdAt?new Date(r.createdAt).toLocaleString():"")}</small></div><span class="status-pill status-${escapeHtml(r.status||"pending")}">${escapeHtml(String(r.status||"pending").toUpperCase())}</span></div>`;
+            if(r.status==="pending"){
+                const actions=document.createElement("div");actions.className="request-actions";
+                const approve=document.createElement("button");approve.className="approve-btn";approve.textContent="Approve";
+                const reject=document.createElement("button");reject.className="reject-btn";reject.textContent="Reject";
+                approve.onclick=()=>processChangeRequest(r,true);
+                reject.onclick=()=>processChangeRequest(r,false);
+                actions.append(approve,reject);card.appendChild(actions);
+            }
+            requestList.appendChild(card);
+        });
+    }catch(e){console.error(e);requestList.innerHTML=`<p class="empty-record">Could not load requests.</p>`;}
+    await loadAdminRequestPreview();
+}
+
+document.querySelectorAll(".request-tab").forEach(tab=>tab.addEventListener("click",()=>{
+    document.querySelectorAll(".request-tab").forEach(x=>x.classList.remove("active"));
+    tab.classList.add("active");
+    requestFilter=tab.dataset.requestFilter||"all";
+    loadRequestCenter();
+}));
+
+function openRequestModal(type){
+    requestModal?.classList.remove("hidden");
+    const t=document.getElementById("requestType");
+    if(t) t.value=type==="student"?"add_student":"add_subject";
+    syncRequestForm();
+}
+function syncRequestForm(){
+    const type=document.getElementById("requestType")?.value||"add_student";
+    const student=type.includes("student");
+    document.getElementById("requestStudentFields")?.classList.toggle("hidden",!student);
+    document.getElementById("requestSubjectFields")?.classList.toggle("hidden",student);
+    const nameGroup=document.getElementById("requestStudentNameGroup");
+    if(nameGroup) nameGroup.style.display=type==="add_student"?"block":"none";
+}
+document.getElementById("requestType")?.addEventListener("change",syncRequestForm);
+document.querySelectorAll("[data-request-open]").forEach(btn=>btn.addEventListener("click",()=>openRequestModal(btn.dataset.requestOpen)));
+document.getElementById("closeRequestModal")?.addEventListener("click",()=>requestModal?.classList.add("hidden"));
+document.getElementById("cancelRequestBtn")?.addEventListener("click",()=>requestModal?.classList.add("hidden"));
+requestModal?.addEventListener("click",e=>{if(e.target===requestModal)requestModal.classList.add("hidden")});
+
+document.getElementById("requestForm")?.addEventListener("submit",async e=>{
+    e.preventDefault();
+    if(profile?.role!=="cr" || !activeSection) return;
+    const type=document.getElementById("requestType").value;
+    const reason=document.getElementById("requestReason").value.trim();
+    const data={type,reason,section:activeSection,sectionLabel:sectionLabelOf(activeSection),requestedBy:auth.currentUser.email,status:"pending",createdAt:new Date().toISOString()};
+    if(type.includes("student")){
+        data.qid=document.getElementById("requestQid").value.trim();
+        data.name=document.getElementById("requestStudentName").value.trim().toUpperCase();
+        if(!data.qid || (type==="add_student"&&!data.name)) return alert("Enter the required student details.");
+    }else{
+        data.subject=document.getElementById("requestSubjectName").value.trim();
+        if(!data.subject) return alert("Enter subject name.");
+    }
+    try{
+        await addDoc(collection(db,"requests"),data);
+        void writeActivityLog("REQUEST_SUBMITTED",`${friendlyRequestType(type)} · ${data.qid||data.subject||""}`,{requestType:type});
+        requestModal.classList.add("hidden");
+        e.target.reset();
+        alert("✅ Request sent to Admin.");
+    }catch(err){console.error(err);alert("Could not send request. Publish the updated Firestore Rules first.");}
+});
+
+function friendlyRequestType(type){
+    return ({add_student:"Add Student",delete_student:"Delete Student",add_subject:"Add Subject",delete_subject:"Delete Subject"})[type]||type;
+}
+async function findStudentByQid(section,qid){
+    const snap=await getDocs(collection(db,"sections",section,"students"));
+    return snap.docs.find(d=>String(d.data().qid||"").toLowerCase()===String(qid||"").toLowerCase());
+}
+async function findSubjectByName(section,name){
+    const snap=await getDocs(collection(db,"sections",section,"subjects"));
+    return snap.docs.find(d=>String(d.data().name||"").toLowerCase()===String(name||"").toLowerCase());
+}
+async function processChangeRequest(request,approve){
+    if(profile?.role!=="admin") return;
+    try{
+        if(approve){
+            if(request.type==="add_student") await addDoc(collection(db,"sections",request.section,"students"),{qid:request.qid,name:String(request.name||"").toUpperCase()});
+            if(request.type==="delete_student"){const d=await findStudentByQid(request.section,request.qid);if(!d)throw new Error("Student not found");await deleteDoc(d.ref);}
+            if(request.type==="add_subject") await addDoc(collection(db,"sections",request.section,"subjects"),{name:request.subject});
+            if(request.type==="delete_subject"){const d=await findSubjectByName(request.section,request.subject);if(!d)throw new Error("Subject not found");await deleteDoc(d.ref);}
+        }
+        await updateDoc(doc(db,"requests",request.id),{status:approve?"approved":"rejected",reviewedBy:auth.currentUser.email,reviewedAt:new Date().toISOString()});
+        void writeActivityLog(approve?"REQUEST_APPROVED":"REQUEST_REJECTED",`${friendlyRequestType(request.type)} · ${request.qid||request.subject||""}`,{requestId:request.id});
+        if(approve){
+            if(request.type.includes("student")){ void writeActivityLog(request.type==="add_student"?"ADD_STUDENT":"DELETE_STUDENT",`${request.qid||""} ${request.name||""}`,{section:request.section}); }
+            if(request.type.includes("subject")){ void writeActivityLog(request.type==="add_subject"?"ADD_SUBJECT":"DELETE_SUBJECT",request.subject||"",{section:request.section}); }
+        }
+        await loadRequestCenter();
+        alert(approve?"✅ Request approved and change applied.":"Request rejected.");
+    }catch(e){console.error(e);alert(`Could not ${approve?"approve":"reject"} request: ${e.message||e}`);}
+}
+
+// Keep the existing admin and CR screens exactly as the current design, but
+// use a lightweight view switch for the dashboard and new-feature drawer.
+
+// Patch successful login/session handling with activity logging.
+const originalProfileGetter = () => profile;

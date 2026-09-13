@@ -53,15 +53,23 @@ service cloud.firestore {
       allow read, write: if isAdmin() || (isCR() && mySection() == sectionId);
     }
 
-    // ACTIVITY LOG — records every login and change made in the app.
-    // Only Admin can read the log (that's the whole point of an audit trail).
-    // Any signed-in user (Admin or CR) can create an entry for their own
-    // actions, but nobody can edit or delete existing entries — logs are
-    // append-only, so they can't be altered after the fact.
+    // CR CHANGE REQUESTS
+    match /requests/{requestId} {
+      allow create: if isCR()
+        && request.resource.data.requestedBy == request.auth.token.email
+        && request.resource.data.section == mySection()
+        && request.resource.data.status == "pending";
+      allow read: if isAdmin() || (isCR() && resource.data.requestedBy == request.auth.token.email);
+      allow update, delete: if isAdmin();
+    }
+
+    // ADMIN ACTIVITY LOGS
+    // Signed-in users may append their own activity; only Admin can read the history.
     match /activityLogs/{logId} {
+      allow create: if isSignedIn()
+        && request.resource.data.userEmail == request.auth.token.email;
       allow read: if isAdmin();
-      allow create: if isSignedIn() && request.resource.data.performedBy == request.auth.token.email;
-      allow update, delete: if false;
+      allow update, delete: if isAdmin();
     }
   }
 }

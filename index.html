@@ -108,36 +108,140 @@
             </div>
 
             <div class="header-right">
-                <button id="activityMenuBtn" class="hamburger-btn admin-only hidden" aria-label="Open activity log">
-                    <span></span><span></span><span></span>
-                </button>
                 <span id="roleBadge" class="role-badge"></span>
                 <span id="loggedUser"></span>
+                <button id="moreMenuBtn" class="more-menu-btn" type="button" aria-label="Open features menu" aria-expanded="false">☰</button>
                 <button id="logoutBtn" class="logout-btn">Logout</button>
             </div>
 
         </header>
 
-        <!-- ACTIVITY LOG SIDEBAR (Admin only) -->
-        <div id="activitySidebarOverlay" class="sidebar-overlay hidden"></div>
-        <aside id="activitySidebar" class="activity-sidebar">
-            <div class="activity-sidebar-header">
+        <div id="featureBackdrop" class="feature-backdrop hidden"></div>
+        <aside id="featureDrawer" class="feature-drawer" aria-hidden="true">
+            <div class="feature-drawer-header">
                 <div>
-                    <p class="section-small-title">ADMIN DASHBOARD</p>
-                    <h3>Activity Log</h3>
+                    <p class="section-small-title">QATTEND</p>
+                    <h3 id="drawerTitle">More</h3>
+                    <p id="drawerSubtitle">Quick access to new features.</p>
                 </div>
-                <button id="closeActivitySidebarBtn" class="close-sidebar-btn" aria-label="Close">✕</button>
+                <button id="closeFeatureDrawer" class="drawer-close" type="button" aria-label="Close menu">×</button>
             </div>
-            <div class="activity-sidebar-body">
-                <button id="refreshActivityBtn" class="refresh-btn activity-refresh-btn">🔄 Refresh</button>
-                <div id="activityLogList" class="activity-log-list">
-                    <p class="empty-record">Loading activity...</p>
-                </div>
+
+            <div class="feature-drawer-list">
+                <button type="button" class="drawer-item admin-drawer-only" data-feature="dashboard">
+                    <span class="drawer-icon">⌂</span>
+                    <span><b>Admin Dashboard</b><small>Overview and complete activity history</small></span>
+                    <span class="drawer-arrow">›</span>
+                </button>
+
+                <button type="button" class="drawer-item" data-feature="attendance">
+                    <span class="drawer-icon">✓</span>
+                    <span><b>Mark Attendance</b><small>Return to the attendance screen</small></span>
+                    <span class="drawer-arrow">›</span>
+                </button>
+
+                <button type="button" class="drawer-item" data-feature="requests">
+                    <span class="drawer-icon">↗</span>
+                    <span><b>Requests</b><small id="drawerRequestsText">Student &amp; subject change requests</small></span>
+                    <span class="drawer-arrow">›</span>
+                </button>
+
+                <button type="button" class="drawer-item" data-feature="excel">
+                    <span class="drawer-icon">▤</span>
+                    <span><b>Excel Shortcut</b><small>Serial No. + Present shortcut in report</small></span>
+                    <span class="drawer-arrow">›</span>
+                </button>
+
+                <button type="button" class="drawer-item admin-drawer-only" data-feature="logs">
+                    <span class="drawer-icon">◷</span>
+                    <span><b>Activity Logs</b><small>Login and system change history</small></span>
+                    <span class="drawer-arrow">›</span>
+                </button>
+
+                <button type="button" class="drawer-item" data-feature="support">
+                    <span class="drawer-icon">?</span>
+                    <span><b>Help &amp; Support</b><small>Quick guidance for using QAttend</small></span>
+                    <span class="drawer-arrow">›</span>
+                </button>
             </div>
         </aside>
 
-
         <main class="container">
+
+            <!-- ADMIN DASHBOARD -->
+            <section id="adminDashboard" class="admin-dashboard admin-only hidden">
+                <div class="dashboard-heading">
+                    <div>
+                        <p class="section-small-title">ADMIN PORTAL</p>
+                        <h2>Admin Dashboard</h2>
+                        <p>Monitor CR activity, logins, attendance and system changes.</p>
+                    </div>
+                    <button id="openLogsBtn" class="secondary-btn" type="button">View Full Logs</button>
+                </div>
+
+                <div class="dashboard-stats">
+                    <div class="dashboard-stat"><span>Total Students</span><strong id="dashTotalStudents">0</strong></div>
+                    <div class="dashboard-stat"><span>Active CRs</span><strong id="dashTotalCRs">0</strong></div>
+                    <div class="dashboard-stat"><span>Total Subjects</span><strong id="dashTotalSubjects">0</strong></div>
+                    <div class="dashboard-stat request-stat"><span>Pending Requests</span><strong id="dashPendingRequests">0</strong></div>
+                </div>
+
+                <div class="dashboard-panels">
+                    <section class="dashboard-panel-card">
+                        <div class="dashboard-panel-head">
+                            <div><p class="section-small-title">LIVE HISTORY</p><h3>Recent Activity</h3></div>
+                            <button id="refreshLogsBtn" class="text-btn" type="button">Refresh</button>
+                        </div>
+                        <div id="activityLogList" class="activity-log-list">
+                            <p class="empty-record">Loading activity...</p>
+                        </div>
+                    </section>
+
+                    <section class="dashboard-panel-card">
+                        <div class="dashboard-panel-head">
+                            <div><p class="section-small-title">REQUEST CENTER</p><h3>Pending Requests</h3></div>
+                            <button id="openRequestsFromDashboard" class="text-btn" type="button">View All</button>
+                        </div>
+                        <div id="dashboardRequestList" class="activity-log-list">
+                            <p class="empty-record">Loading requests...</p>
+                        </div>
+                    </section>
+                </div>
+            </section>
+
+            <!-- REQUEST CENTER -->
+            <section id="requestsPanel" class="requests-panel hidden">
+                <div class="dashboard-heading">
+                    <div>
+                        <p class="section-small-title">REQUEST CENTER</p>
+                        <h2 id="requestsHeading">Student &amp; Subject Requests</h2>
+                        <p id="requestsHeadingText">CR requests are reviewed by Admin.</p>
+                    </div>
+                    <button id="backFromRequestsBtn" class="secondary-btn" type="button">Back</button>
+                </div>
+
+                <div id="crRequestButtons" class="request-quick-actions cr-only">
+                    <button class="request-feature-btn" type="button" data-request-open="student">
+                        <b>＋ Student Request</b>
+                        <span>Add or delete a student</span>
+                    </button>
+                    <button class="request-feature-btn" type="button" data-request-open="subject">
+                        <b>＋ Subject Request</b>
+                        <span>Add or delete a subject</span>
+                    </button>
+                </div>
+
+                <div class="request-tabs admin-only hidden" id="adminRequestTabs">
+                    <button type="button" class="request-tab active" data-request-filter="all">All</button>
+                    <button type="button" class="request-tab" data-request-filter="pending">Pending</button>
+                    <button type="button" class="request-tab" data-request-filter="student">Students</button>
+                    <button type="button" class="request-tab" data-request-filter="subject">Subjects</button>
+                </div>
+
+                <div id="requestList" class="request-list">
+                    <p class="empty-record">No requests yet.</p>
+                </div>
+            </section>
 
             <!-- WELCOME -->
             <section class="welcome-section">
@@ -333,6 +437,52 @@
 
         </main>
 
+
+        <div id="requestModal" class="modal-backdrop hidden">
+            <div class="request-modal" role="dialog" aria-modal="true" aria-labelledby="requestModalTitle">
+                <div class="modal-head">
+                    <div>
+                        <p class="section-small-title">REQUEST TO ADMIN</p>
+                        <h3 id="requestModalTitle">Create Request</h3>
+                    </div>
+                    <button id="closeRequestModal" class="drawer-close" type="button">×</button>
+                </div>
+                <form id="requestForm">
+                    <div class="input-group">
+                        <label for="requestType">Request Type</label>
+                        <select id="requestType" class="request-input">
+                            <option value="add_student">Add Student</option>
+                            <option value="delete_student">Delete Student</option>
+                            <option value="add_subject">Add Subject</option>
+                            <option value="delete_subject">Delete Subject</option>
+                        </select>
+                    </div>
+                    <div id="requestStudentFields" class="request-fields">
+                        <div class="input-group"><label for="requestQid">Q.ID</label><input id="requestQid" class="request-input" placeholder="2403...." required></div>
+                        <div class="input-group" id="requestStudentNameGroup"><label for="requestStudentName">Student Name</label><input id="requestStudentName" class="request-input" placeholder="Full Name"></div>
+                    </div>
+                    <div id="requestSubjectFields" class="request-fields hidden">
+                        <div class="input-group"><label for="requestSubjectName">Subject Name</label><input id="requestSubjectName" class="request-input" placeholder="Subject name"></div>
+                    </div>
+                    <div class="input-group"><label for="requestReason">Reason</label><textarea id="requestReason" class="request-input" rows="4" placeholder="Why is this change needed?" required></textarea></div>
+                    <div class="modal-actions"><button id="cancelRequestBtn" type="button" class="secondary-btn">Cancel</button><button type="submit" class="save-btn">Submit Request</button></div>
+                </form>
+            </div>
+        </div>
+
+        <div id="supportModal" class="modal-backdrop hidden">
+            <div class="support-modal" role="dialog" aria-modal="true">
+                <div class="modal-head">
+                    <div><p class="section-small-title">HELP</p><h3>QAttend Quick Guide</h3></div>
+                    <button id="closeSupportModal" class="drawer-close" type="button">×</button>
+                </div>
+                <div class="support-list">
+                    <p><b>CR:</b> Login opens your assigned section. Select a subject, mark attendance, then save.</p>
+                    <p><b>Student/Subject changes:</b> Open More → Requests and send the request to Admin.</p>
+                    <p><b>Excel:</b> Downloaded reports contain S.No., a filterable table, and a Present S.No. shortcut row at the bottom.</p>
+                </div>
+            </div>
+        </div>
 
         <footer>
             © 2026 QAttend | Quantum University
