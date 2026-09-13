@@ -1,322 +1,347 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>QAttend | Attendance Management System</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
-  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
-  <link rel="preconnect" href="https://firestore.googleapis.com">
-  <link rel="preconnect" href="https://identitytoolkit.googleapis.com">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>QAttend | Attendance Management System</title>
+
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Speed up the first connection to Firebase's servers -->
+    <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://firestore.googleapis.com">
+    <link rel="preconnect" href="https://identitytoolkit.googleapis.com">
+
+    <!-- SheetJS (Excel library) is now loaded on demand from script.js,
+         only when Save/Download/Share is actually used — not on every
+         page load. This is the single biggest speed win for slow networks,
+         since it's a large library nobody needs just to log in and mark attendance. -->
 </head>
+
 <body>
-  <!-- LOGIN -->
-  <div id="loginPage" class="login-page">
-    <div class="login-card">
-      <div class="login-logo"><img src="logo.png" alt="QAttend Logo"></div>
-      <p class="login-small">QUANTUM UNIVERSITY</p>
-      <h1>Welcome Back</h1>
-      <p class="login-description">Sign in to access your attendance portal.</p>
-      <form id="loginForm">
-        <div class="input-group">
-          <label for="email">Email</label>
-          <input type="email" id="email" placeholder="Enter your email" autocomplete="username" required>
+
+    <!-- LOGIN PAGE -->
+    <div id="loginPage" class="login-page">
+
+        <div class="login-card">
+
+            <div class="login-logo">
+                <img src="logo.png" alt="QAttend Logo">
+            </div>
+
+            <p class="login-small">QUANTUM UNIVERSITY</p>
+
+            <h1>Welcome Back</h1>
+
+            <p class="login-description">
+                Sign in to access your attendance portal.
+            </p>
+
+            <form id="loginForm">
+
+                <div class="input-group">
+                    <label>Email</label>
+                    <input type="email" id="email" placeholder="Enter your email" required>
+                </div>
+
+                <div class="input-group">
+                    <label>Password</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="password" placeholder="Enter your password" required>
+                        <button type="button" id="togglePassword" class="toggle-password" aria-label="Show password">👁</button>
+                    </div>
+                </div>
+
+                <button type="submit" class="login-btn">Login</button>
+
+            </form>
+
+            <p id="loginMessage" class="login-message"></p>
+
+            <p class="forgot-password-row">
+                <a href="#" id="forgotPasswordLink">Forgot password?</a>
+            </p>
+
+            <!-- FORGOT PASSWORD (hidden until "Forgot password?" is clicked) -->
+            <div id="resetPasswordBox" class="hidden">
+
+                <p class="login-description">
+                    Enter your email and we'll send you a link to reset your password.
+                </p>
+
+                <div class="input-group">
+                    <label>Email</label>
+                    <input type="email" id="resetEmail" placeholder="Enter your email" required>
+                </div>
+
+                <button type="button" id="sendResetBtn" class="login-btn">Send Reset Link</button>
+
+                <p id="resetMessage" class="login-message"></p>
+
+                <p class="forgot-password-row">
+                    <a href="#" id="backToLoginLink">Back to login</a>
+                </p>
+
+            </div>
+
         </div>
-        <div class="input-group">
-          <label for="password">Password</label>
-          <div class="password-wrapper">
-            <input type="password" id="password" placeholder="Enter your password" autocomplete="current-password" required>
-            <button type="button" id="togglePassword" class="toggle-password" aria-label="Show password">👁</button>
-          </div>
-        </div>
-        <button type="submit" class="login-btn">Login</button>
-      </form>
-      <p id="loginMessage" class="login-message"></p>
-      <p class="forgot-password-row"><a href="#" id="forgotPasswordLink">Forgot password?</a></p>
 
-      <div id="resetPasswordBox" class="hidden">
-        <p class="login-description">Enter your email and we'll send you a link to reset your password.</p>
-        <div class="input-group">
-          <label for="resetEmail">Email</label>
-          <input type="email" id="resetEmail" placeholder="Enter your email" autocomplete="email">
-        </div>
-        <button type="button" id="sendResetBtn" class="login-btn">Send Reset Link</button>
-        <p id="resetMessage" class="login-message"></p>
-        <p class="forgot-password-row"><a href="#" id="backToLoginLink">Back to login</a></p>
-      </div>
-    </div>
-  </div>
-
-  <!-- APP -->
-  <div id="appPage" class="app-page hidden">
-    <header class="top-header">
-      <div class="brand">
-        <div class="header-logo"><img src="logo.png" alt="QAttend Logo"></div>
-        <div>
-          <h1>QAttend</h1>
-          <p>Attendance Management System</p>
-        </div>
-      </div>
-      <div class="header-right">
-        <div class="user-meta">
-          <span id="loggedUser"></span>
-          <span id="roleBadge" class="role-badge"></span>
-        </div>
-        <button id="logoutBtn" class="logout-btn">Logout</button>
-      </div>
-    </header>
-
-    <div class="app-shell">
-      <aside id="sidebar" class="sidebar">
-        <nav>
-          <button class="nav-btn" data-view="dashboardView" data-admin-only>⌂ <span>Dashboard</span></button>
-          <button class="nav-btn active" data-view="attendanceView">▣ <span>Mark Attendance</span></button>
-          <button class="nav-btn" data-view="adminToolsView" data-admin-only>♙ <span>Manage System</span></button>
-          <button class="nav-btn" data-view="recordsView">▤ <span>Previous Records</span></button>
-          <div class="more-menu-wrap">
-            <button class="nav-btn more-menu-btn" id="moreMenuBtn" type="button" aria-expanded="false">☰ <span>More</span></button>
-            <div id="moreMenu" class="more-menu hidden">
-              <button class="more-menu-item" data-view="requestsView">▥ <span id="requestsNavText">Requests</span><span id="pendingBadge" class="nav-badge hidden">0</span></button>
-              <button class="more-menu-item" data-view="supportView">ⓘ <span>Help &amp; Support</span></button>
-            </div>
-          </div>
-        </nav>
-        <div class="sidebar-footer">
-          <span>v2.0</span>
-          <span>Quantum University</span>
-        </div>
-      </aside>
-
-      <main class="content">
-        <!-- ADMIN DASHBOARD -->
-        <section id="dashboardView" class="view hidden">
-          <div class="page-heading">
-            <div>
-              <p class="section-small-title">ADMIN PORTAL</p>
-              <h2>Admin Dashboard</h2>
-              <p>Manage students, subjects, CRs and attendance from one place.</p>
-            </div>
-          </div>
-
-          <div class="dashboard-stats">
-            <div class="dash-card"><span>👨‍🎓 Total Students</span><strong id="dashTotalStudents">0</strong></div>
-            <div class="dash-card"><span>📚 Total Subjects</span><strong id="dashTotalSubjects">0</strong></div>
-            <div class="dash-card"><span>👨‍🏫 Active CRs</span><strong id="dashTotalCRs">0</strong></div>
-            <div class="dash-card request-card"><span>📋 Pending Requests</span><strong id="dashPendingRequests">0</strong></div>
-          </div>
-
-          <div class="quick-actions">
-            <h3>Quick Actions</h3>
-            <div class="quick-grid">
-              <button class="quick-action" data-view="adminToolsView" data-scroll-target="studentsTools">👤<b>Add Student</b><small>Add a new student</small></button>
-              <button class="quick-action" data-view="adminToolsView" data-scroll-target="subjectsTools">📚<b>Add Subject</b><small>Add a subject</small></button>
-              <button class="quick-action" data-view="adminToolsView" data-scroll-target="crTools">👨‍🏫<b>Assign CR</b><small>Assign a CR to a section</small></button>
-              <button class="quick-action" data-view="requestsView">📋<b>View Requests</b><small>Review pending requests</small></button>
-            </div>
-          </div>
-
-          <div class="dashboard-panels">
-            <div class="panel-card">
-              <div class="panel-title"><h3>Recent Activity</h3></div>
-              <div id="recentActivity" class="activity-list"><p class="empty-record">Loading...</p></div>
-            </div>
-            <div class="panel-card">
-              <div class="panel-title"><h3>Pending Requests</h3><button class="text-btn" data-view="requestsView">View All</button></div>
-              <div id="dashboardPendingList" class="activity-list"><p class="empty-record">Loading...</p></div>
-            </div>
-          </div>
-
-          <div class="welcome-banner">
-            <img src="logo.png" alt="">
-            <div><b>Welcome to QAttend Admin Portal</b><span>Keep your university attendance system organized and up to date.</span></div>
-          </div>
-        </section>
-
-        <!-- ATTENDANCE -->
-        <section id="attendanceView" class="view">
-          <div class="page-heading">
-            <div>
-              <p class="section-small-title" id="portalLabel">ATTENDANCE</p>
-              <h2 id="welcomeTitle">Mark Attendance</h2>
-              <p id="welcomeSubtitle">Select a section, date and subject to start.</p>
-            </div>
-          </div>
-
-          <section class="control-section">
-            <div class="class-details">
-              <div class="detail-item"><span>University</span><strong>Quantum University</strong></div>
-              <div class="detail-item"><span>Course</span><strong>B.Tech AI &amp; ML</strong></div>
-              <div class="detail-item"><span>Section</span><strong id="sectionLabel">--</strong></div>
-              <div class="detail-item"><span>Total Students</span><strong id="headerTotalStudents">0</strong></div>
-            </div>
-            <div class="selectors">
-              <div class="select-box admin-only hidden" id="sectionSwitchBox">
-                <label for="sectionSelect">🏫 Manage Section</label>
-                <select id="sectionSelect"><option value="">-- Select Section --</option></select>
-              </div>
-              <div class="select-box">
-                <label for="attendanceDate">📅 Date</label>
-                <input type="date" id="attendanceDate">
-              </div>
-              <div class="select-box">
-                <label for="subjectSelect">📚 Subject</label>
-                <select id="subjectSelect"><option value="">-- Select Subject --</option></select>
-              </div>
-            </div>
-          </section>
-
-          <div id="noSectionMessage" class="empty-section hidden">
-            <b>Select a section from “Manage Section” to start attendance.</b>
-          </div>
-
-          <div id="attendanceWorkArea">
-            <section class="stats">
-              <div class="stat-card"><p>Total Students</p><h3 id="totalStudents">0</h3></div>
-              <div class="stat-card present-stat"><p>Present</p><h3 id="presentStudents">0</h3></div>
-              <div class="stat-card absent-stat"><p>Absent</p><h3 id="absentStudents">0</h3></div>
-            </section>
-
-            <section class="top-actions">
-              <button id="markAllPresentBtn" class="mark-present-btn">✓ Mark All Present</button>
-              <button id="markAllAbsentBtn" class="mark-absent-btn">✕ Mark All Absent</button>
-            </section>
-
-            <section class="attendance-section">
-              <div class="attendance-header">
-                <div><p class="section-small-title">STUDENT LIST</p><h2>Student Attendance</h2></div>
-                <div class="search-container">🔍<input type="text" id="searchStudent" placeholder="Search by Q.ID or Name..."></div>
-              </div>
-
-              <div class="table-header" id="attendanceTableHeader">
-                <div>Q.ID</div>
-                <div>Name of Student</div>
-                <div>Attendance</div>
-                <div class="admin-actions-header">Actions</div>
-              </div>
-              <div id="studentList"></div>
-            </section>
-
-            <section class="action-buttons">
-              <button id="saveBtn" class="save-btn">💾 Save Attendance</button>
-              <button id="downloadBtn" class="download-btn">📊 Download XLSX</button>
-              <button id="shareCurrentBtn" class="secondary-btn">📤 Share</button>
-            </section>
-          </div>
-        </section>
-
-        <!-- ADMIN TOOLS -->
-        <section id="adminToolsView" class="view hidden">
-          <div class="page-heading">
-            <div><p class="section-small-title">ADMIN CONTROLS</p><h2>Manage Students, Subjects &amp; CRs</h2><p>All management actions stay on the Admin side.</p></div>
-          </div>
-
-          <div class="tool-grid">
-            <div class="tool-card" id="studentsTools">
-              <div class="tool-head"><h3>👤 Add Student</h3><span>Admin only</span></div>
-              <form id="addStudentForm" class="stack-form">
-                <input type="text" id="newStudentQid" placeholder="Q.ID" required>
-                <input type="text" id="newStudentName" placeholder="Full Name" required>
-                <button type="submit" class="primary-btn">+ Add Student</button>
-              </form>
-              <p class="admin-hint">Student will be added to the section selected in attendance.</p>
-            </div>
-
-            <div class="tool-card" id="subjectsTools">
-              <div class="tool-head"><h3>📚 Add Subject</h3><span>Admin only</span></div>
-              <form id="addSubjectForm" class="stack-form">
-                <input type="text" id="newSubjectName" placeholder="Subject name" required>
-                <button type="submit" class="primary-btn">+ Add Subject</button>
-              </form>
-              <div id="subjectManageList" class="manage-list"></div>
-            </div>
-
-            <div class="tool-card" id="crTools">
-              <div class="tool-head"><h3>👨‍🏫 Assign CR</h3><span>Admin only</span></div>
-              <form id="addCrForm" class="stack-form">
-                <input type="email" id="newCrEmail" placeholder="CR's login email" required>
-                <select id="newCrSection"></select>
-                <button type="submit" class="primary-btn">+ Assign CR</button>
-              </form>
-              <p class="admin-hint">The Firebase Authentication account should already exist with the same lowercase email.</p>
-              <div id="crManageList" class="manage-list"></div>
-            </div>
-          </div>
-        </section>
-
-        <!-- RECORDS -->
-        <section id="recordsView" class="view hidden">
-          <div class="page-heading">
-            <div><p class="section-small-title">SAVED RECORDS</p><h2>Previous Attendance</h2><p>Open, download, share or delete saved attendance records.</p></div>
-            <button id="refreshRecordsBtn" class="refresh-btn">🔄 Refresh</button>
-          </div>
-          <div id="recordsList" class="records-list"><p class="empty-record">Loading records...</p></div>
-        </section>
-
-        <!-- REQUESTS -->
-        <section id="requestsView" class="view hidden">
-          <div class="page-heading">
-            <div><p class="section-small-title">REQUEST WORKFLOW</p><h2 id="requestsTitle">Requests</h2><p id="requestsSubtitle">CRs can request student or subject changes. Admin approves them.</p></div>
-            <button id="newRequestBtn" class="primary-btn cr-request-btn">+ Request Change</button>
-          </div>
-          <div id="adminRequestTabs" class="request-tabs hidden">
-            <button class="request-tab active" data-request-filter="all">All</button>
-            <button class="request-tab" data-request-filter="pending">Pending</button>
-            <button class="request-tab" data-request-filter="student">Student</button>
-            <button class="request-tab" data-request-filter="subject">Subject</button>
-          </div>
-          <div id="requestList" class="request-list"><p class="empty-record">Loading requests...</p></div>
-        </section>
-
-        <!-- SUPPORT -->
-        <section id="supportView" class="view hidden">
-          <div class="page-heading"><div><p class="section-small-title">HELP</p><h2>Help &amp; Support</h2><p>Quick notes for using QAttend.</p></div></div>
-          <div class="panel-card support-card">
-            <h3>CR workflow</h3>
-            <p>After login, a CR is taken directly to the assigned section attendance screen. The section is read-only and cannot be switched.</p>
-            <h3>Student / subject changes</h3>
-            <p>Use <b>Requests</b> to send a change to Admin. CR never receives Admin access.</p>
-            <h3>Attendance</h3>
-            <p>Select date and subject, mark all students, then save. Excel tools load only when used so normal login stays light.</p>
-          </div>
-        </section>
-      </main>
     </div>
 
-    <!-- REQUEST MODAL -->
-    <div id="requestModal" class="modal-backdrop hidden">
-      <div class="modal-card">
-        <div class="modal-head"><div><p class="section-small-title">SEND TO ADMIN</p><h3>Request Change</h3></div><button id="closeRequestModal" class="icon-close">×</button></div>
-        <form id="requestForm" class="stack-form">
-          <label>Request Type
-            <select id="requestType" required>
-              <option value="add_student">Add Student</option>
-              <option value="edit_student">Edit Student</option>
-              <option value="delete_student">Delete Student</option>
-              <option value="add_subject">Add Subject</option>
-              <option value="delete_subject">Delete Subject</option>
-            </select>
-          </label>
-          <div id="requestStudentFields" class="request-fields">
-            <div class="form-row">
-              <label>Q.ID<input type="text" id="requestQid" placeholder="2403...."></label>
-              <label>Student Name<input type="text" id="requestStudentName" placeholder="Full name"></label>
+
+    <!-- MAIN APP -->
+    <div id="appPage" class="app-page hidden">
+
+        <!-- HEADER -->
+        <header class="top-header">
+
+            <div class="brand">
+                <div class="header-logo">
+                    <img src="logo.png" alt="QAttend Logo">
+                </div>
+                <div>
+                    <h1>QAttend</h1>
+                    <p>Attendance Management System</p>
+                </div>
             </div>
-          </div>
-          <div id="requestSubjectFields" class="request-fields hidden">
-            <label>Subject Name<input type="text" id="requestSubjectName" placeholder="Subject name"></label>
-          </div>
-          <label>Reason<textarea id="requestReason" rows="3" placeholder="Why is this change needed?" required></textarea></label>
-          <div class="modal-actions"><button type="button" id="cancelRequestBtn" class="secondary-btn">Cancel</button><button type="submit" class="primary-btn">Submit Request</button></div>
-        </form>
-      </div>
+
+            <div class="header-right">
+                <button id="activityMenuBtn" class="hamburger-btn admin-only hidden" aria-label="Open activity log">
+                    <span></span><span></span><span></span>
+                </button>
+                <span id="roleBadge" class="role-badge"></span>
+                <span id="loggedUser"></span>
+                <button id="logoutBtn" class="logout-btn">Logout</button>
+            </div>
+
+        </header>
+
+        <!-- ACTIVITY LOG SIDEBAR (Admin only) -->
+        <div id="activitySidebarOverlay" class="sidebar-overlay hidden"></div>
+        <aside id="activitySidebar" class="activity-sidebar">
+            <div class="activity-sidebar-header">
+                <div>
+                    <p class="section-small-title">ADMIN DASHBOARD</p>
+                    <h3>Activity Log</h3>
+                </div>
+                <button id="closeActivitySidebarBtn" class="close-sidebar-btn" aria-label="Close">✕</button>
+            </div>
+            <div class="activity-sidebar-body">
+                <button id="refreshActivityBtn" class="refresh-btn activity-refresh-btn">🔄 Refresh</button>
+                <div id="activityLogList" class="activity-log-list">
+                    <p class="empty-record">Loading activity...</p>
+                </div>
+            </div>
+        </aside>
+
+
+        <main class="container">
+
+            <!-- WELCOME -->
+            <section class="welcome-section">
+                <div>
+                    <p class="welcome-small">QUANTUM UNIVERSITY</p>
+                    <h2 id="welcomeTitle">Attendance Portal</h2>
+                    <p id="welcomeSubtitle">Manage student attendance quickly and securely.</p>
+                </div>
+            </section>
+
+
+            <!-- CLASS DETAILS -->
+            <section class="control-section">
+
+                <div class="class-details">
+                    <div class="detail-item">
+                        <span>University</span>
+                        <strong>Quantum University</strong>
+                    </div>
+                    <div class="detail-item">
+                        <span>Course</span>
+                        <strong>B.Tech AI &amp; ML</strong>
+                    </div>
+                    <div class="detail-item">
+                        <span>Section</span>
+                        <strong id="sectionLabel">--</strong>
+                    </div>
+                    <div class="detail-item">
+                        <span>Total Students</span>
+                        <strong id="headerTotalStudents">0</strong>
+                    </div>
+                </div>
+
+                <div class="selectors">
+
+                    <!-- ADMIN ONLY: switch which section is being managed -->
+                    <div class="select-box admin-only hidden" id="sectionSwitchBox">
+                        <label>🏫 Manage Section</label>
+                        <select id="sectionSelect">
+                            <option value="">-- Select Section --</option>
+                        </select>
+                    </div>
+
+                    <div class="select-box">
+                        <label>📅 Select Date</label>
+                        <input type="date" id="attendanceDate">
+                    </div>
+
+                    <div class="select-box">
+                        <label>📚 Select Subject</label>
+                        <select id="subjectSelect">
+                            <option value="">-- Select Subject --</option>
+                        </select>
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- ADMIN PANEL -->
+            <section class="admin-panel admin-only hidden" id="adminPanel">
+
+                <p class="section-small-title">ADMIN CONTROLS</p>
+                <h2>Manage Students, Subjects &amp; CRs</h2>
+
+                <div class="admin-grid">
+
+                    <!-- ADD STUDENT -->
+                    <div class="admin-card">
+                        <h3>Add Student</h3>
+                        <form id="addStudentForm">
+                            <input type="text" id="newStudentQid" placeholder="Q.ID" required>
+                            <input type="text" id="newStudentName" placeholder="Full Name" required>
+                            <button type="submit">+ Add Student</button>
+                        </form>
+                        <p class="admin-hint">Adds to the section selected above.</p>
+                    </div>
+
+                    <!-- ADD SUBJECT -->
+                    <div class="admin-card">
+                        <h3>Add Subject</h3>
+                        <form id="addSubjectForm">
+                            <input type="text" id="newSubjectName" placeholder="Subject name" required>
+                            <button type="submit">+ Add Subject</button>
+                        </form>
+                        <p class="admin-hint">Adds to the section selected above. Other sections aren't affected.</p>
+                        <div id="subjectManageList" class="chip-list"></div>
+                    </div>
+
+                    <!-- ASSIGN CR -->
+                    <div class="admin-card">
+                        <h3>Assign CR</h3>
+                        <form id="addCrForm">
+                            <input type="email" id="newCrEmail" placeholder="CR's login email" required>
+                            <select id="newCrSection"></select>
+                            <button type="submit">+ Assign CR</button>
+                        </form>
+                        <p class="admin-hint">
+                            Create the login in Firebase Console first (Authentication tab),
+                            then assign it here so it can access its section.
+                        </p>
+                        <div id="crManageList" class="cr-list"></div>
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- Shown to Admin only, before a section is picked -->
+            <p id="noSectionMessage" class="empty-record hidden">
+                👆 Pick a section above to view and manage its students and attendance.
+            </p>
+
+            <div id="workArea">
+
+                <!-- STATS -->
+                <section class="stats">
+                    <div class="stat-card">
+                        <p>Total Students</p>
+                        <h3 id="totalStudents">0</h3>
+                    </div>
+                    <div class="stat-card present-stat">
+                        <p>Present</p>
+                        <h3 id="presentStudents">0</h3>
+                    </div>
+                    <div class="stat-card absent-stat">
+                        <p>Absent</p>
+                        <h3 id="absentStudents">0</h3>
+                    </div>
+                </section>
+
+
+                <!-- ACTIONS TOP -->
+                <section class="top-actions">
+                    <button id="markAllPresentBtn" class="mark-present-btn">✓ Mark All Present</button>
+                    <button id="markAllAbsentBtn" class="mark-absent-btn">✕ Mark All Absent</button>
+                </section>
+
+
+                <!-- ATTENDANCE -->
+                <section class="attendance-section">
+
+                    <div class="attendance-header">
+                        <div>
+                            <p class="section-small-title">STUDENT LIST</p>
+                            <h2>Student Attendance</h2>
+                        </div>
+                        <div class="search-container">
+                            🔍
+                            <input type="text" id="searchStudent" placeholder="Search by Q.ID or Name...">
+                        </div>
+                    </div>
+
+                    <div class="table-header admin-table-header">
+                        <div>Q.ID</div>
+                        <div>Name of Student</div>
+                        <div>Attendance</div>
+                        <div class="admin-only hidden admin-actions-header">Actions</div>
+                    </div>
+
+                    <div id="studentList"></div>
+
+                </section>
+
+
+                <!-- SAVE ACTIONS -->
+                <section class="action-buttons">
+                    <button id="saveBtn" class="save-btn">💾 Save Attendance</button>
+                    <button id="downloadBtn" class="download-btn">📊 Download XLSX</button>
+                </section>
+
+
+                <!-- RECORDS -->
+                <section class="records-section">
+
+                    <div class="records-header">
+                        <div>
+                            <p class="section-small-title">SAVED RECORDS</p>
+                            <h2>Previous Attendance</h2>
+                        </div>
+                        <button id="refreshRecordsBtn" class="refresh-btn">🔄 Refresh</button>
+                    </div>
+
+                    <div id="recordsList" class="records-list">
+                        <p class="empty-record">Loading records...</p>
+                    </div>
+
+                </section>
+
+            </div>
+
+        </main>
+
+
+        <footer>
+            © 2026 QAttend | Quantum University
+        </footer>
+
     </div>
 
-    <footer>© 2026 QAttend | Quantum University</footer>
-  </div>
 
-  <script type="module" src="script.js"></script>
+    <script type="module" src="script.js"></script>
+
 </body>
 </html>

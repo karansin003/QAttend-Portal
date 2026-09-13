@@ -22,36 +22,46 @@ service cloud.firestore {
       return myProfile().section;
     }
 
+    // ROLE ASSIGNMENTS
+    // A user can read their own profile (to know their own role/section).
+    // Only Admin can create/edit/delete role assignments.
     match /users/{email} {
       allow read: if isSignedIn() && request.auth.token.email == email;
       allow read, write: if isAdmin();
     }
 
+    // SUBJECTS — scoped per section, same access pattern as students
+    // Admin: full access to every section's subjects.
+    // CR: read-only, and only their own assigned section.
     match /sections/{sectionId}/subjects/{subjectId} {
       allow read: if isAdmin() || (isCR() && mySection() == sectionId);
       allow write: if isAdmin();
     }
 
+    // STUDENTS — scoped per section
+    // Admin: full access to every section.
+    // CR: read-only, and only their own assigned section.
     match /sections/{sectionId}/students/{studentId} {
       allow read: if isAdmin() || (isCR() && mySection() == sectionId);
       allow write: if isAdmin();
     }
 
+    // ATTENDANCE — scoped per section
+    // Admin: full access to every section.
+    // CR: read/write, but only their own assigned section.
     match /sections/{sectionId}/attendance/{recordId} {
       allow read, write: if isAdmin() || (isCR() && mySection() == sectionId);
     }
 
-    // CR can submit a request only for their assigned section.
-    // Admin can review/update/delete requests.
-    match /requests/{requestId} {
-      allow create: if isCR()
-        && request.resource.data.requestedBy == request.auth.token.email
-        && request.resource.data.section == mySection();
-
-      allow read: if isAdmin()
-        || (isCR() && resource.data.requestedBy == request.auth.token.email);
-
-      allow update, delete: if isAdmin();
+    // ACTIVITY LOG — records every login and change made in the app.
+    // Only Admin can read the log (that's the whole point of an audit trail).
+    // Any signed-in user (Admin or CR) can create an entry for their own
+    // actions, but nobody can edit or delete existing entries — logs are
+    // append-only, so they can't be altered after the fact.
+    match /activityLogs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isSignedIn() && request.resource.data.performedBy == request.auth.token.email;
+      allow update, delete: if false;
     }
   }
 }
