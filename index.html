@@ -239,6 +239,18 @@
                     <button type="button" class="request-tab" data-request-filter="subject">Subjects</button>
                 </div>
 
+                <div id="bulkRequestToolbar" class="bulk-request-toolbar admin-only hidden">
+                    <label class="bulk-select-label">
+                        <input type="checkbox" id="selectAllRequests">
+                        <span>Select pending requests</span>
+                    </label>
+                    <span id="selectedRequestsCount" class="selected-requests-count">0 selected</span>
+                    <div class="bulk-request-actions">
+                        <button type="button" id="bulkApproveRequestsBtn" class="approve-btn" disabled>✓ Accept Selected</button>
+                        <button type="button" id="bulkRejectRequestsBtn" class="reject-btn" disabled>✕ Reject Selected</button>
+                    </div>
+                </div>
+
                 <div id="requestList" class="request-list">
                     <p class="empty-record">No requests yet.</p>
                 </div>

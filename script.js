@@ -186,6 +186,7 @@ let subjects = [];
 
 let recordsCache = {};
 let requestFilter = "all";
+let selectedRequestIds = new Set();
 
 
 // HTML ELEMENTS
@@ -3904,6 +3905,11 @@ const closeFeatureDrawer = document.getElementById("closeFeatureDrawer");
 const requestsPanel = document.getElementById("requestsPanel");
 const adminDashboard = document.getElementById("adminDashboard");
 const requestList = document.getElementById("requestList");
+const bulkRequestToolbar = document.getElementById("bulkRequestToolbar");
+const selectAllRequests = document.getElementById("selectAllRequests");
+const selectedRequestsCount = document.getElementById("selectedRequestsCount");
+const bulkApproveRequestsBtn = document.getElementById("bulkApproveRequestsBtn");
+const bulkRejectRequestsBtn = document.getElementById("bulkRejectRequestsBtn");
 const activityLogList = document.getElementById("activityLogList");
 const dashboardRequestList = document.getElementById("dashboardRequestList");
 const requestModal = document.getElementById("requestModal");
@@ -4289,6 +4295,7 @@ async function loadRequestCenter(){
             snap = await getDocs(collection(db,"requests"));
         }
         const rows=snap.docs.map(d=>({id:d.id,...d.data()}));
+        window.__qattendRequestCache = Object.fromEntries(rows.map(r=>[r.id,r]));
 
         rows.sort((a,b)=>String(b.createdAt||"").localeCompare(String(a.createdAt||"")));
 
@@ -4300,6 +4307,9 @@ async function loadRequestCenter(){
             return true;
         });
 
+        const visiblePendingIds = new Set(filtered.filter(r=>profile.role === "admin" && r.status === "pending").map(r=>r.id));
+        selectedRequestIds = new Set([...selectedRequestIds].filter(id=>visiblePendingIds.has(id)));
+        updateBulkRequestToolbar(filtered);
         requestList.innerHTML="";
 
         if(profile.role === "cr"){
@@ -4320,9 +4330,17 @@ async function loadRequestCenter(){
                 card.className="request-card";
                 const title = r.type === "add_student" ? "Add Student" : r.type === "delete_student" ? "Delete Student" : r.type === "add_subject" ? "Add Subject" : "Delete Subject";
                 const subjectOrStudent = r.type.includes("student") ? `${r.qid||""}${r.name?` · ${r.name}`:""}` : (r.subject||"");
-                card.innerHTML=`<div class="request-top"><div class="request-main"><b>${escapeHtml(title)}${subjectOrStudent?` · ${escapeHtml(subjectOrStudent)}`:""}</b><small>${profile.role === "admin" ? `CR: ${escapeHtml(r.requestedBy||"")} · ` : ""}${escapeHtml(r.sectionLabel||sectionLabelOf(r.section||""))}</small><small>${escapeHtml(r.reason||"")}</small><small>${escapeHtml(r.createdAt?new Date(r.createdAt).toLocaleString():"")}</small></div><span class="status-pill status-${escapeHtml(r.status||"pending")}">${escapeHtml(String(r.status||"pending").toUpperCase())}</span></div>`;
+                const selectedCheckbox = (profile.role === "admin" && r.status === "pending") ? `<label class="request-select-box" title="Select this request"><input type="checkbox" class="request-checkbox" data-request-id="${escapeHtml(r.id)}" ${selectedRequestIds.has(r.id)?"checked":""} aria-label="Select request"></label>` : "";
+                card.innerHTML=`<div class="request-card-row">${selectedCheckbox}<div class="request-top"><div class="request-main"><b>${escapeHtml(title)}${subjectOrStudent?` · ${escapeHtml(subjectOrStudent)}`:""}</b><small>${profile.role === "admin" ? `CR: ${escapeHtml(r.requestedBy||"")} · ` : ""}${escapeHtml(r.sectionLabel||sectionLabelOf(r.section||""))}</small><small>${escapeHtml(r.reason||"")}</small><small>${escapeHtml(r.createdAt?new Date(r.createdAt).toLocaleString():"")}</small></div><span class="status-pill status-${escapeHtml(r.status||"pending")}">${escapeHtml(String(r.status||"pending").toUpperCase())}</span></div></div>`;
 
                 if(profile.role === "admin" && r.status === "pending"){
+                    const checkbox=card.querySelector(".request-checkbox");
+                    checkbox?.addEventListener("change",()=>{
+                        if(checkbox.checked) selectedRequestIds.add(r.id);
+                        else selectedRequestIds.delete(r.id);
+                        updateBulkRequestToolbar(filtered);
+                    });
+
                     const actions=document.createElement("div");
                     actions.className="request-actions";
                     const approve=document.createElement("button");
@@ -4347,6 +4365,71 @@ async function loadRequestCenter(){
 
     if(profile.role === "admin") await loadAdminRequestPreview();
 }
+
+function updateBulkRequestToolbar(filteredRows=[]){
+    if(!bulkRequestToolbar || profile?.role !== "admin") return;
+    bulkRequestToolbar.classList.remove("hidden");
+    const pendingRows = filteredRows.filter(r=>r.status === "pending");
+    const pendingIds = pendingRows.map(r=>r.id);
+    const selectedCount = pendingIds.filter(id=>selectedRequestIds.has(id)).length;
+    if(selectedRequestsCount) selectedRequestsCount.textContent = `${selectedCount} selected`;
+    const hasSelection = selectedCount > 0;
+    if(bulkApproveRequestsBtn) bulkApproveRequestsBtn.disabled = !hasSelection;
+    if(bulkRejectRequestsBtn) bulkRejectRequestsBtn.disabled = !hasSelection;
+    if(selectAllRequests){
+        selectAllRequests.disabled = pendingIds.length === 0;
+        selectAllRequests.checked = pendingIds.length > 0 && selectedCount === pendingIds.length;
+        selectAllRequests.indeterminate = selectedCount > 0 && selectedCount < pendingIds.length;
+    }
+}
+
+selectAllRequests?.addEventListener("change",()=>{
+    const checkboxes=[...document.querySelectorAll(".request-checkbox")];
+    if(selectAllRequests.checked){
+        checkboxes.forEach(cb=>{ selectedRequestIds.add(cb.dataset.requestId); cb.checked=true; });
+    }else{
+        checkboxes.forEach(cb=>{ selectedRequestIds.delete(cb.dataset.requestId); cb.checked=false; });
+    }
+    updateBulkRequestToolbar(checkboxes.map(cb=>({id:cb.dataset.requestId,status:"pending"})));
+});
+
+async function processBulkRequests(approve){
+    if(profile?.role !== "admin") return;
+    const ids=[...selectedRequestIds];
+    if(!ids.length) return;
+    const actionText=approve ? "accept" : "reject";
+    if(!confirm(`Are you sure you want to ${actionText} ${ids.length} selected request${ids.length>1?"s":""}?`)) return;
+
+    const approveBtnState=bulkApproveRequestsBtn?.disabled;
+    const rejectBtnState=bulkRejectRequestsBtn?.disabled;
+    if(bulkApproveRequestsBtn) bulkApproveRequestsBtn.disabled=true;
+    if(bulkRejectRequestsBtn) bulkRejectRequestsBtn.disabled=true;
+
+    let success=0, failed=0;
+    try{
+        for(const id of ids){
+            const request = (window.__qattendRequestCache || {})[id];
+            if(!request) { failed++; continue; }
+            try{
+                await processChangeRequest(request,approve,{silent:true});
+                success++;
+                selectedRequestIds.delete(id);
+            }catch(error){
+                console.error(`Bulk ${actionText} failed for ${id}:`,error);
+                failed++;
+            }
+        }
+        await loadRequestCenter();
+        await loadAdminDashboardData();
+        alert(`${approve?"✅ Accepted":"✅ Rejected"} ${success} request${success===1?"":"s"}${failed?` · ${failed} failed`:""}.`);
+    }finally{
+        if(bulkApproveRequestsBtn && approveBtnState===false) bulkApproveRequestsBtn.disabled=false;
+        if(bulkRejectRequestsBtn && rejectBtnState===false) bulkRejectRequestsBtn.disabled=false;
+    }
+}
+
+bulkApproveRequestsBtn?.addEventListener("click",()=>processBulkRequests(true));
+bulkRejectRequestsBtn?.addEventListener("click",()=>processBulkRequests(false));
 
 document.querySelectorAll(".request-tab").forEach(tab=>tab.addEventListener("click",()=>{
     document.querySelectorAll(".request-tab").forEach(x=>x.classList.remove("active"));
@@ -4509,7 +4592,8 @@ async function findSubjectByName(section,name){
     return snap.docs.find(d=>String(d.data()?.name||"").toLowerCase()===String(name||"").toLowerCase());
 }
 
-async function processChangeRequest(request,approve){
+async function processChangeRequest(request,approve,options={}){
+    const silent=options.silent===true;
     if(profile?.role!=="admin") return;
 
     try{
@@ -4572,9 +4656,11 @@ async function processChangeRequest(request,approve){
             }
         }
 
-        await loadRequestCenter();
-        await loadAdminDashboardData();
-        alert(approve ? "✅ Request approved and change applied." : "Request rejected.");
+        if(!silent){
+            await loadRequestCenter();
+            await loadAdminDashboardData();
+            alert(approve ? "✅ Request approved and change applied." : "Request rejected.");
+        }
     }catch(e){
         console.error(e);
         alert(`Could not ${approve ? "approve" : "reject"} request: ${e.message || e}`);

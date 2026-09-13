@@ -1264,3 +1264,17 @@ body{min-height:100vh;}
 .app-page{min-height:100vh;display:flex;flex-direction:column;}
 .app-page > main{flex:1 0 auto;}
 .app-page > footer{margin-top:auto;flex-shrink:0;}
+
+
+/* Bulk request selection */
+.bulk-request-toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 14px;padding:11px 13px;background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-sm)}
+.bulk-select-label{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:#333;cursor:pointer}
+.bulk-select-label input,.request-select-box input{width:16px;height:16px;accent-color:var(--pink);cursor:pointer}
+.selected-requests-count{font-size:11.5px;font-weight:700;color:var(--gray);margin-right:auto}
+.bulk-request-actions{display:flex;gap:8px;flex-wrap:wrap}
+.bulk-request-actions button{border:0;border-radius:9px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer}
+.bulk-request-actions button:disabled{opacity:.45;cursor:not-allowed}
+.request-card-row{display:flex;align-items:flex-start;gap:10px}
+.request-select-box{display:flex;align-items:flex-start;padding-top:4px;cursor:pointer}
+.request-card-row .request-top{flex:1;min-width:0}
+@media(max-width:600px){.bulk-request-toolbar{align-items:flex-start}.bulk-request-actions{width:100%}.bulk-request-actions button{flex:1}.selected-requests-count{margin-right:0}}
