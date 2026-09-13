@@ -111,7 +111,6 @@
                 <span id="roleBadge" class="role-badge"></span>
                 <span id="loggedUser"></span>
                 <button id="moreMenuBtn" class="more-menu-btn" type="button" aria-label="Open features menu" aria-expanded="false">☰</button>
-                <button id="logoutBtn" class="logout-btn">Logout</button>
             </div>
 
         </header>
@@ -140,9 +139,21 @@
                     <span class="drawer-arrow">›</span>
                 </button>
 
+                <button type="button" class="drawer-item admin-drawer-only" data-feature="manage">
+                    <span class="drawer-icon">✎</span>
+                    <span><b>Update / Manage Data</b><small>Select a section to add, edit or manage data</small></span>
+                    <span class="drawer-arrow">›</span>
+                </button>
+
                 <button type="button" class="drawer-item" data-feature="requests">
                     <span class="drawer-icon">↗</span>
                     <span><b id="drawerRequestsTitle">Requests</b><small id="drawerRequestsText">View all CR student and subject requests</small></span>
+                    <span class="drawer-arrow">›</span>
+                </button>
+
+                <button type="button" class="drawer-item admin-drawer-only" data-feature="records">
+                    <span class="drawer-icon">▤</span>
+                    <span><b>Previous Records</b><small>View saved attendance records</small></span>
                     <span class="drawer-arrow">›</span>
                 </button>
 
@@ -215,19 +226,15 @@
                     <div>
                         <p class="section-small-title">REQUEST CENTER</p>
                         <h2 id="requestsHeading">Student &amp; Subject Requests</h2>
-                        <p id="requestsHeadingText">CR requests are reviewed by Admin.</p>
+                        <p id="requestsHeadingText">Send a student or subject change request to Admin.</p>
                     </div>
                     <button id="backFromRequestsBtn" class="secondary-btn" type="button">Back</button>
                 </div>
 
                 <div id="crRequestButtons" class="request-quick-actions cr-only">
-                    <button class="request-feature-btn" type="button" data-request-open="student">
-                        <b>＋ Student Request</b>
-                        <span>Add or delete a student</span>
-                    </button>
-                    <button class="request-feature-btn" type="button" data-request-open="subject">
-                        <b>＋ Subject Request</b>
-                        <span>Add or delete a subject</span>
+                    <button id="crSendRequestBtn" class="request-feature-btn request-feature-btn-single" type="button" data-request-open="request">
+                        <b>＋ Send Request</b>
+                        <span>Request a student or subject change from Admin</span>
                     </button>
                 </div>
 
@@ -305,10 +312,34 @@
             <!-- ADMIN PANEL -->
             <section class="admin-panel admin-only hidden" id="adminPanel">
 
-                <p class="section-small-title">ADMIN CONTROLS</p>
-                <h2>Manage Students, Subjects &amp; CRs</h2>
+                <p class="section-small-title">ADMIN TOOLS</p>
+                <h2>Update / Manage Data</h2>
+                <p class="admin-hint manage-page-subtitle">Select a section first. The selected section is used for student, subject and CR changes.</p>
+
+                <div class="manage-section-selector">
+                    <div class="select-box">
+                        <label>🏫 Select Section</label>
+                        <select id="manageSectionSelect">
+                            <option value="">-- Select Section --</option>
+                        </select>
+                    </div>
+                    <div id="manageSectionMessage" class="manage-section-message">Please select a section to manage its data.</div>
+                </div>
 
                 <div class="admin-grid">
+
+                    <!-- MANAGE STUDENT -->
+                    <div class="admin-card">
+                        <h3>Manage Student</h3>
+                        <select id="manageStudentSelect">
+                            <option value="">-- Select Student --</option>
+                        </select>
+                        <div class="manage-inline-actions">
+                            <button type="button" id="manageEditStudentBtn" class="secondary-manage-btn">Edit Student</button>
+                            <button type="button" id="manageDeleteStudentBtn" class="manage-delete-btn">Delete Student</button>
+                        </div>
+                        <p class="admin-hint">Student list comes from the selected section.</p>
+                    </div>
 
                     <!-- ADD STUDENT -->
                     <div class="admin-card">
@@ -356,6 +387,8 @@
             <p id="noSectionMessage" class="empty-record hidden">
                 👆 Pick a section above to view and manage its students and attendance.
             </p>
+
+            <p id="attendanceGateMessage" class="attendance-gate-message hidden">Select a subject to open the student attendance list.</p>
 
             <div id="workArea">
 
@@ -458,11 +491,23 @@
                         </select>
                     </div>
                     <div id="requestStudentFields" class="request-fields">
-                        <div class="input-group"><label for="requestQid">Q.ID</label><input id="requestQid" class="request-input" placeholder="2403...." required></div>
+                        <div class="input-group" id="requestQidGroup"><label for="requestQid">Q.ID</label><input id="requestQid" class="request-input" placeholder="2403...."></div>
                         <div class="input-group" id="requestStudentNameGroup"><label for="requestStudentName">Student Name</label><input id="requestStudentName" class="request-input" placeholder="Full Name"></div>
+                        <div class="input-group hidden" id="requestStudentSelectGroup">
+                            <label for="requestStudentSelect">Select Student</label>
+                            <select id="requestStudentSelect" class="request-input">
+                                <option value="">-- Select Student --</option>
+                            </select>
+                        </div>
                     </div>
                     <div id="requestSubjectFields" class="request-fields hidden">
-                        <div class="input-group"><label for="requestSubjectName">Subject Name</label><input id="requestSubjectName" class="request-input" placeholder="Subject name"></div>
+                        <div class="input-group" id="requestSubjectNameGroup"><label for="requestSubjectName">Subject Name</label><input id="requestSubjectName" class="request-input" placeholder="Subject name"></div>
+                        <div class="input-group hidden" id="requestSubjectSelectGroup">
+                            <label for="requestSubjectSelect">Select Subject</label>
+                            <select id="requestSubjectSelect" class="request-input">
+                                <option value="">-- Select Subject --</option>
+                            </select>
+                        </div>
                     </div>
                     <div class="input-group"><label for="requestReason">Reason</label><textarea id="requestReason" class="request-input" rows="4" placeholder="Why is this change needed?" required></textarea></div>
                     <div class="modal-actions"><button id="cancelRequestBtn" type="button" class="secondary-btn">Cancel</button><button type="submit" class="save-btn">Submit Request</button></div>

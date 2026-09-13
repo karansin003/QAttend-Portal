@@ -1100,3 +1100,112 @@ body.admin-view .cr-only{display:none!important}
     .top-header #logoutBtn{display:none}
     .feature-drawer{width:min(360px,94vw)}
 }
+
+/* FINAL ROLE / LAYOUT FIXES */
+.app-page{
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+}
+.app-page > main{
+    flex:1;
+}
+.app-page > footer{
+    margin-top:auto;
+}
+
+/* Header logout lives only in the drawer now. */
+#logoutBtn{display:none !important;}
+
+/* Admin management screen */
+.manage-section-selector{
+    display:grid;
+    grid-template-columns:minmax(260px,420px) 1fr;
+    gap:16px;
+    align-items:end;
+    margin:16px 0 4px;
+}
+.manage-section-selector .select-box{
+    margin:0;
+}
+.manage-section-message{
+    padding:13px 15px;
+    border:1px dashed var(--pink-soft-border);
+    border-radius:10px;
+    background:#fff8fb;
+    color:var(--gray);
+    font-size:12px;
+    min-height:44px;
+    display:flex;
+    align-items:center;
+}
+.manage-page-subtitle{
+    margin:6px 0 0;
+}
+.manage-inline-actions{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+    margin-top:8px;
+}
+.secondary-manage-btn{
+    background:var(--black) !important;
+    color:#fff !important;
+}
+.manage-delete-btn{
+    background:var(--red) !important;
+    color:#fff !important;
+}
+.manage-inline-actions button:disabled{
+    opacity:.45;
+    cursor:not-allowed;
+}
+
+/* Requests: one CR entry point */
+.request-feature-btn-single{
+    width:100%;
+    min-height:74px;
+}
+
+/* Attendance opening gate */
+.attendance-gate-message{
+    border:1px dashed var(--border);
+    border-radius:12px;
+    padding:20px;
+    text-align:center;
+    color:var(--gray);
+    background:#fafafa;
+    margin-bottom:20px;
+}
+
+/* Record-only mode for CR Previous Records */
+.records-only-view .records-section{
+    margin-bottom:0;
+}
+.records-only-view #workArea > .stats,
+.records-only-view #workArea > .top-actions,
+.records-only-view #workArea > .attendance-section,
+.records-only-view #workArea > .action-buttons{
+    display:none !important;
+}
+
+@media (max-width:768px){
+    .manage-section-selector{
+        grid-template-columns:1fr;
+        gap:10px;
+    }
+    .manage-section-message{
+        min-height:42px;
+    }
+    .manage-inline-actions{
+        grid-template-columns:1fr 1fr;
+    }
+}
+
+
+/* FINAL QATTEND ROLE / NAV SAFEGUARDS */
+#logoutBtn{display:none !important;}
+@media (max-width:768px){
+  body.cr-view .role-badge::after{content:"CR";font-size:10px;line-height:1.4;}
+  .top-header #logoutBtn{display:none !important;}
+}
