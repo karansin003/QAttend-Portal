@@ -16,7 +16,7 @@ A secure, role-based web application designed to simplify student attendance man
 
 **QAttend Portal** is a web-based attendance management system developed to make the process of recording, managing, and exporting student attendance faster and more organized.
 
-The system provides different access levels for **Administrators** and **Class Representatives (CRs)**. Administrators have complete control over students, subjects, sections, and CR assignments, while CRs can securely manage attendance only for their assigned section.
+The system provides different access levels for **Administrators** and **Class Representatives (CRs)**. Administrators have complete control over students, subjects, sections, CR assignments, requests and system activity, while CRs can securely manage attendance only for their assigned section and send change requests to Admin.
 
 The application uses **Firebase Authentication** for secure login and **Cloud Firestore** for storing students, subjects, user roles, and attendance records.
 
@@ -54,6 +54,8 @@ Administrators have complete control over the system.
 * 🗑️ Delete attendance records
 * 📥 Download attendance reports
 * 📤 Share attendance reports
+* 📨 CR change requests with Admin approval
+* 📋 Admin activity logs for logins and system changes
 
 ---
 
@@ -73,6 +75,8 @@ Class Representatives have restricted access for security.
 * 📂 View previous attendance records
 * 📥 Download attendance reports
 * 📤 Share attendance reports
+* 📨 CR change requests with Admin approval
+* 📋 Admin activity logs for logins and system changes
 
 ### CR cannot:
 
@@ -105,7 +109,7 @@ QAttend makes attendance management simple and efficient.
 * 💾 Save attendance records
 * 🔄 Load previously saved attendance
 
-The system also prevents accidental incomplete attendance submission.
+Admins land on the attendance screen by default after login; the dashboard is opened explicitly from the hamburger menu. CRs land directly on their assigned attendance section. The system also prevents accidental incomplete attendance submission.
 
 > ⚠️ Attendance cannot be saved until all students have been marked.
 
@@ -130,6 +134,8 @@ Users can:
 
 * 👀 View attendance records
 * 📤 Share attendance reports
+* 📨 CR change requests with Admin approval
+* 📋 Admin activity logs for logins and system changes
 * 📥 Download attendance reports
 * 🗑️ Delete records
 

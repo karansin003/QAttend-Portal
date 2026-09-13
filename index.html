@@ -151,12 +151,6 @@
                     <span class="drawer-arrow">›</span>
                 </button>
 
-                <button type="button" class="drawer-item admin-drawer-only" data-feature="records">
-                    <span class="drawer-icon">▤</span>
-                    <span><b>Previous Records</b><small>View saved attendance records</small></span>
-                    <span class="drawer-arrow">›</span>
-                </button>
-
                 <button type="button" class="drawer-item cr-drawer-only" data-feature="records">
                     <span class="drawer-icon">▤</span>
                     <span><b>Previous Records</b><small>View saved attendance records</small></span>
@@ -307,9 +301,7 @@
                 </div>
 
             </section>
-
-
-            <!-- ADMIN PANEL -->
+            <!-- ADMIN UPDATE / MANAGE DATA -->
             <section class="admin-panel admin-only hidden" id="adminPanel">
 
                 <p class="section-small-title">ADMIN TOOLS</p>
@@ -326,22 +318,8 @@
                     <div id="manageSectionMessage" class="manage-section-message">Please select a section to manage its data.</div>
                 </div>
 
-                <div class="admin-grid">
+                <div class="manage-primary-grid">
 
-                    <!-- MANAGE STUDENT -->
-                    <div class="admin-card">
-                        <h3>Manage Student</h3>
-                        <select id="manageStudentSelect">
-                            <option value="">-- Select Student --</option>
-                        </select>
-                        <div class="manage-inline-actions">
-                            <button type="button" id="manageEditStudentBtn" class="secondary-manage-btn">Edit Student</button>
-                            <button type="button" id="manageDeleteStudentBtn" class="manage-delete-btn">Delete Student</button>
-                        </div>
-                        <p class="admin-hint">Student list comes from the selected section.</p>
-                    </div>
-
-                    <!-- ADD STUDENT -->
                     <div class="admin-card">
                         <h3>Add Student</h3>
                         <form id="addStudentForm">
@@ -349,35 +327,31 @@
                             <input type="text" id="newStudentName" placeholder="Full Name" required>
                             <button type="submit">+ Add Student</button>
                         </form>
-                        <p class="admin-hint">Adds to the section selected above.</p>
+                        <p class="admin-hint">Adds to the selected section.</p>
                     </div>
 
-                    <!-- ADD SUBJECT -->
                     <div class="admin-card">
                         <h3>Add Subject</h3>
                         <form id="addSubjectForm">
                             <input type="text" id="newSubjectName" placeholder="Subject name" required>
                             <button type="submit">+ Add Subject</button>
                         </form>
-                        <p class="admin-hint">Adds to the section selected above. Other sections aren't affected.</p>
+                        <p class="admin-hint">Adds to the selected section.</p>
                         <div id="subjectManageList" class="chip-list"></div>
                     </div>
 
-                    <!-- ASSIGN CR -->
-                    <div class="admin-card">
-                        <h3>Assign CR</h3>
+                </div>
+
+                <div class="manage-cr-wrap">
+                    <div class="admin-card manage-cr-card">
+                        <h3>Assign / Manage CR</h3>
                         <form id="addCrForm">
                             <input type="email" id="newCrEmail" placeholder="CR's login email" required>
-                            <select id="newCrSection"></select>
                             <button type="submit">+ Assign CR</button>
                         </form>
-                        <p class="admin-hint">
-                            Create the login in Firebase Console first (Authentication tab),
-                            then assign it here so it can access its section.
-                        </p>
+                        <p class="admin-hint">The selected section above will be assigned to this CR. Create the Firebase Auth login first.</p>
                         <div id="crManageList" class="cr-list"></div>
                     </div>
-
                 </div>
 
             </section>

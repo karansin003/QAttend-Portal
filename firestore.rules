@@ -22,54 +22,55 @@ service cloud.firestore {
       return myProfile().section;
     }
 
-    // ROLE ASSIGNMENTS
-    // A user can read their own profile (to know their own role/section).
-    // Only Admin can create/edit/delete role assignments.
+    // USER / ROLE PROFILES
     match /users/{email} {
       allow read: if isSignedIn() && request.auth.token.email == email;
       allow read, write: if isAdmin();
     }
 
-    // SUBJECTS — scoped per section, same access pattern as students
-    // Admin: full access to every section's subjects.
-    // CR: read-only, and only their own assigned section.
+    // SUBJECTS
+    // Admin: full access. CR: read-only in assigned section.
     match /sections/{sectionId}/subjects/{subjectId} {
       allow read: if isAdmin() || (isCR() && mySection() == sectionId);
       allow write: if isAdmin();
     }
 
-    // STUDENTS — scoped per section
-    // Admin: full access to every section.
-    // CR: read-only, and only their own assigned section.
+    // STUDENTS
+    // Admin: full access. CR: read-only in assigned section.
     match /sections/{sectionId}/students/{studentId} {
       allow read: if isAdmin() || (isCR() && mySection() == sectionId);
       allow write: if isAdmin();
     }
 
-    // ATTENDANCE — scoped per section
-    // Admin: full access to every section.
-    // CR: read/write, but only their own assigned section.
+    // ATTENDANCE
+    // Admin: all sections. CR: assigned section only.
     match /sections/{sectionId}/attendance/{recordId} {
       allow read, write: if isAdmin() || (isCR() && mySection() == sectionId);
     }
 
     // CR CHANGE REQUESTS
+    // CR can create a pending request only for its own section and its own email.
+    // CR can read only its own requests (the client uses a where(requestedBy == email) query).
+    // Only Admin can approve/reject/update/delete requests.
     match /requests/{requestId} {
       allow create: if isCR()
         && request.resource.data.requestedBy == request.auth.token.email
         && request.resource.data.section == mySection()
         && request.resource.data.status == "pending";
-      allow read: if isAdmin() || (isCR() && resource.data.requestedBy == request.auth.token.email);
+
+      allow read: if isAdmin()
+        || (isCR() && resource.data.requestedBy == request.auth.token.email);
+
       allow update, delete: if isAdmin();
     }
 
-    // ADMIN ACTIVITY LOGS
-    // Signed-in users may append their own activity; only Admin can read the history.
+    // ACTIVITY LOGS
+    // Any signed-in user may append only their own log entries.
+    // Only Admin may read/update/delete the history.
     match /activityLogs/{logId} {
       allow create: if isSignedIn()
         && request.resource.data.userEmail == request.auth.token.email;
-      allow read: if isAdmin();
-      allow update, delete: if isAdmin();
+      allow read, update, delete: if isAdmin();
     }
   }
 }

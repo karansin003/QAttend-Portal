@@ -246,6 +246,11 @@ const backToLoginLink =
     );
 
 
+const logoutBtn =
+    document.getElementById(
+        "logoutBtn"
+    );
+
 const loggedUser =
     document.getElementById(
         "loggedUser"
@@ -748,7 +753,7 @@ onAuthStateChanged(
                 profileSnap.data();
 
             // Record successful login. Admin waits for this one small write so the dashboard can show it immediately.
-            const loginLogPromise = writeActivityLog("LOGIN", "User signed in to QAttend.");
+            void writeActivityLog("LOGIN", "User signed in to QAttend.");
 
 
         } catch (error) {
@@ -835,50 +840,26 @@ onAuthStateChanged(
 
         if (isAdmin) {
 
-            await loginLogPromise;
-            showAdminDashboard();
-
-            welcomeTitle.textContent =
-                "Admin Dashboard";
-
-
-            welcomeSubtitle.textContent =
-                "Manage every section, subject and CR from one place.";
-
+            // Keep the successful login quick. The Admin lands on Mark Attendance;
+            // the dashboard is opened explicitly from the hamburger menu.
 
             populateSectionDropdowns();
 
+            activeSection = null;
+            managementSection = null;
 
-            activeSection =
-                null;
+            sectionSelect.value = "";
+            if (manageSectionSelect) manageSectionSelect.value = "";
 
+            welcomeTitle.textContent = "Mark Attendance";
+            welcomeSubtitle.textContent = "Select a section, date and subject to begin attendance.";
 
-            sectionSelect.value =
-                "";
+            showAttendanceView();
 
-
-            workArea.classList.add(
-                "hidden"
-            );
-
-
-            noSectionMessage.classList.remove(
-                "hidden"
-            );
-
-
-            sectionLabel.textContent =
-                "-- Not selected --";
-
-
-            headerTotalStudents.textContent =
-                "0";
-
-
-            await loadCrList();
-
-            await loadSubjects();
-
+            workArea.classList.add("hidden");
+            noSectionMessage.classList.remove("hidden");
+            sectionLabel.textContent = "-- Not selected --";
+            headerTotalStudents.textContent = "0";
 
         } else {
 
@@ -932,8 +913,9 @@ function populateSectionDropdowns() {
         </option>`;
 
 
-    newCrSection.innerHTML =
-        "";
+    if (newCrSection) {
+        newCrSection.innerHTML = "";
+    }
 
     const manageSection = document.getElementById("manageSectionSelect");
     if (manageSection) {
@@ -978,9 +960,9 @@ function populateSectionDropdowns() {
                 section.label;
 
 
-            newCrSection.appendChild(
-                option2
-            );
+            if (newCrSection) {
+                newCrSection.appendChild(option2);
+            }
 
             if (manageSection) {
                 const option3 = document.createElement("option");
@@ -1998,7 +1980,7 @@ async function loadSubjects() {
                 collection(
                     db,
                     "sections",
-                    targetSection,
+                    activeSection,
                     "subjects"
                 ),
 
@@ -2223,21 +2205,25 @@ async function deleteSubject(
 
     try {
 
+        const targetSection = managementSection || activeSection;
         const deletedSubject = subjects.find(item => item.id === subjectId);
 
-        await deleteDoc(
+        if(!targetSection){
+            alert("Please select a section first.");
+            return;
+        }
 
+        await deleteDoc(
             doc(
                 db,
                 "sections",
-                activeSection,
+                targetSection,
                 "subjects",
                 subjectId
             )
         );
 
-
-        void writeActivityLog("DELETE_SUBJECT",deletedSubject?.name || "",{section:activeSection});
+        void writeActivityLog("DELETE_SUBJECT",deletedSubject?.name || "",{section:targetSection});
         await loadSubjects();
 
 
@@ -2386,9 +2372,8 @@ addCrForm.addEventListener(
                 .trim()
                 .toLowerCase();
 
-        const section =
-            document.getElementById("manageSectionSelect")?.value ||
-            newCrSection.value;
+        const section = managementSection ||
+            document.getElementById("manageSectionSelect")?.value || null;
 
         if (!section) {
             alert("Please select a section first.");
@@ -3873,9 +3858,6 @@ const requestModal = document.getElementById("requestModal");
 const supportModal = document.getElementById("supportModal");
 const manageSectionSelect = document.getElementById("manageSectionSelect");
 const manageSectionMessage = document.getElementById("manageSectionMessage");
-const manageStudentSelect = document.getElementById("manageStudentSelect");
-const manageEditStudentBtn = document.getElementById("manageEditStudentBtn");
-const manageDeleteStudentBtn = document.getElementById("manageDeleteStudentBtn");
 
 let managementSection = null;
 
@@ -3924,6 +3906,12 @@ function syncAttendanceGate(){
     const ready = sectionReady && dateReady && subjectReady;
 
     const gate = document.getElementById("attendanceGateMessage");
+    const recordsSection = document.querySelector(".records-section");
+    const attendanceSection = document.querySelector(".attendance-section");
+    const statsSection = document.querySelector(".stats");
+    const topActions = document.querySelector(".top-actions");
+    const saveActions = document.querySelector(".action-buttons");
+
     if(gate){
         gate.classList.toggle("hidden", ready);
         if(!sectionReady){
@@ -3935,43 +3923,47 @@ function syncAttendanceGate(){
         }
     }
 
-    if(profile?.role === "admin" && !sectionReady){
-        workArea?.classList.add("hidden");
-        noSectionMessage?.classList.remove("hidden");
+    if(profile?.role === "admin"){
+        if(workArea){
+            workArea.classList.toggle("hidden", !sectionReady);
+        }
+        noSectionMessage?.classList.toggle("hidden", sectionReady);
+
+        [statsSection, topActions, attendanceSection, saveActions].forEach(el=>{
+            el?.classList.toggle("hidden", !ready);
+        });
+
+        recordsSection?.classList.toggle("hidden", !sectionReady);
         return;
     }
 
     noSectionMessage?.classList.add("hidden");
-    if(ready) workArea?.classList.remove("hidden");
-    else workArea?.classList.add("hidden");
+    workArea?.classList.toggle("hidden", !ready);
 }
+
 
 function showAttendanceView(){
     document.body.classList.remove("records-only-view");
     hideMainViews();
-    requestsPanel?.classList.add("hidden");
-    adminDashboard?.classList.add("hidden");
 
-    // Admin attendance should only show the attendance controls.
-    // CR keeps the direct attendance view with the same core controls.
     const welcome = document.querySelector(".welcome-section");
     const control = document.querySelector(".control-section");
 
+    adminDashboard?.classList.add("hidden");
+    requestsPanel?.classList.add("hidden");
+    adminPanel?.classList.add("hidden");
+
     if(profile?.role === "admin"){
         welcome?.classList.add("hidden");
+        activeSection = sectionSelect?.value || null;
     }else{
         welcome?.classList.remove("hidden");
     }
 
     control?.classList.remove("hidden");
-    adminPanel?.classList.add("hidden");
-
-    if(profile?.role === "admin"){
-        activeSection = sectionSelect?.value || null;
-    }
-
     syncAttendanceGate();
 }
+
 
 async function loadAdminDashboardData(){
     if(profile?.role !== "admin") return;
@@ -4037,24 +4029,23 @@ function showManageData(){
     }
 
     if(managementSection){
-        activeSection = managementSection;
         void refreshManageData();
     }else{
-        renderManageStudentSelect([]);
         subjectManageList.innerHTML = "";
         crManageList.innerHTML = "";
         if(manageSectionMessage) manageSectionMessage.textContent = "Please select a section to manage its data.";
     }
 }
 
+
 function showPreviousRecords(){
-    if(!profile) return;
+    if(profile?.role !== "cr") return;
     document.body.classList.add("records-only-view");
-    hideMainViews();
     requestsPanel?.classList.add("hidden");
     adminDashboard?.classList.add("hidden");
     document.querySelector(".welcome-section")?.classList.add("hidden");
     document.querySelector(".control-section")?.classList.add("hidden");
+    document.getElementById("noSectionMessage")?.classList.add("hidden");
     document.getElementById("attendanceGateMessage")?.classList.add("hidden");
     workArea?.classList.remove("hidden");
     const recordsSection = document.querySelector(".records-section");
@@ -4074,155 +4065,22 @@ function logoutFromApp(){
         .then(() => signOut(auth));
 }
 
-function populateManageStudentSelect(list){
-    if(!manageStudentSelect) return;
-    manageStudentSelect.innerHTML = `<option value="">-- Select Student --</option>`;
-    list.forEach(student => {
-        const option = document.createElement("option");
-        option.value = student.id;
-        option.textContent = `${student.name} — ${student.qid}`;
-        manageStudentSelect.appendChild(option);
-    });
-}
 
-function renderManageStudentSelect(list){
-    populateManageStudentSelect(list);
-    if(manageEditStudentBtn) manageEditStudentBtn.disabled = !list.length;
-    if(manageDeleteStudentBtn) manageDeleteStudentBtn.disabled = !list.length;
-}
-
-async function refreshManageData(){
-    if(profile?.role !== "admin" || !managementSection) return;
-
-    activeSection = managementSection;
-    sectionLabel.textContent = sectionLabelOf(managementSection);
-    if(manageSectionMessage) manageSectionMessage.textContent = `${sectionLabelOf(managementSection)} selected.`;
-
-    try{
-        const studentSnap = await getDocs(collection(db,"sections",managementSection,"students"));
-        const manageStudents = studentSnap.docs.map(d => ({
-            id:d.id,
-            qid:d.data()?.qid || "",
-            name:d.data()?.name || ""
-        })).sort((a,b) => compareNames(a.name,b.name));
-        renderManageStudentSelect(manageStudents);
-
-        const subjectSnap = await getDocs(collection(db,"sections",managementSection,"subjects"));
-        subjects = subjectSnap.docs.map(d => ({id:d.id,...d.data()})).sort((a,b) => String(a.name).localeCompare(String(b.name)));
-        renderSubjectManageList();
-
-        await loadCrListForManagementSection();
-
-        if(newCrSection){
-            newCrSection.value = managementSection;
-            newCrSection.disabled = true;
-        }
-    }catch(e){
-        console.error(e);
-        if(manageSectionMessage) manageSectionMessage.textContent = "Could not load this section. Try again.";
-    }
-}
-
-async function loadCrListForManagementSection(){
-    if(profile?.role !== "admin" || !managementSection || !crManageList) return;
-    try{
-        const snap = await getDocs(collection(db,"users"));
-        crManageList.innerHTML = "";
-        const crs = snap.docs.filter(d => d.data()?.role === "cr" && d.data()?.section === managementSection);
-        if(!crs.length){
-            crManageList.innerHTML = `<p class="empty-record">No CR assigned to this section.</p>`;
-            return;
-        }
-        crs.forEach(d => {
-            const row=document.createElement("div");
-            row.className="chip-row";
-            row.innerHTML=`<span>${escapeHtml(d.id)} — ${escapeHtml(sectionLabelOf(managementSection))}</span><button type="button" data-email="${escapeHtml(d.id)}">Remove</button>`;
-            row.querySelector("button")?.addEventListener("click",()=>deleteCr(d.id));
-            crManageList.appendChild(row);
-        });
-    }catch(e){
-        console.error(e);
-        crManageList.innerHTML=`<p class="empty-record">Could not load CRs.</p>`;
-    }
-}
 
 manageSectionSelect?.addEventListener("change", async () => {
     if(profile?.role !== "admin") return;
     managementSection = manageSectionSelect.value || null;
+
     if(!managementSection){
-        renderManageStudentSelect([]);
         subjectManageList.innerHTML = "";
         crManageList.innerHTML = "";
-        if(newCrSection) newCrSection.disabled = false;
         if(manageSectionMessage) manageSectionMessage.textContent = "Please select a section to manage its data.";
+        if(newCrSection) newCrSection.disabled = false;
         return;
     }
+
     await refreshManageData();
 });
-
-manageEditStudentBtn?.addEventListener("click", async () => {
-    if(profile?.role !== "admin" || !managementSection) return alert("Please select a section first.");
-    const id = manageStudentSelect.value;
-    if(!id) return alert("Please select a student first.");
-    const docSnap = await getDoc(doc(db,"sections",managementSection,"students",id));
-    if(!docSnap.exists()) return alert("Student not found.");
-    await editStudentUsingSection(managementSection,id,docSnap.data());
-    await refreshManageData();
-});
-
-manageDeleteStudentBtn?.addEventListener("click", async () => {
-    if(profile?.role !== "admin" || !managementSection) return alert("Please select a section first.");
-    const id = manageStudentSelect.value;
-    if(!id) return alert("Please select a student first.");
-    const docSnap = await getDoc(doc(db,"sections",managementSection,"students",id));
-    if(!docSnap.exists()) return alert("Student not found.");
-    const data = docSnap.data();
-    if(!confirm(`Delete ${data.name} (${data.qid})?`)) return;
-    try{
-        await deleteDoc(doc(db,"sections",managementSection,"students",id));
-        await writeActivityLog("DELETE_STUDENT",`${data.qid} · ${data.name}`,{section:managementSection});
-        await refreshManageData();
-        await loadStudentsForCurrentAttendance();
-    }catch(e){
-        console.error(e);
-        alert("Error deleting student.");
-    }
-});
-
-async function editStudentUsingSection(section,id,data){
-    const newQid = prompt("Enter Q.ID:", data.qid || "");
-    if(newQid === null) return;
-    const newName = prompt("Enter student name:", data.name || "");
-    if(newName === null) return;
-    const qid = newQid.trim();
-    const name = newName.trim().toUpperCase();
-    if(!qid || !name) return alert("Q.ID and student name cannot be empty.");
-    try{
-        const snap = await getDocs(collection(db,"sections",section,"students"));
-        const duplicate = snap.docs.some(d => d.id !== id && String(d.data()?.qid || "").toLowerCase() === qid.toLowerCase());
-        if(duplicate) return alert("A student with this Q.ID already exists in this section.");
-        await updateDoc(doc(db,"sections",section,"students",id),{qid,name});
-        await writeActivityLog("EDIT_STUDENT",`${qid} · ${name}`,{section});
-    }catch(e){
-        console.error(e);
-        alert("Error updating student.");
-    }
-}
-
-async function loadStudentsForCurrentAttendance(){
-    if(!activeSection) return;
-    try{
-        const snapshot = await getDocs(collection(db,"sections",activeSection,"students"));
-        students = snapshot.docs.map(d => ({
-            id:d.id,
-            qid:d.data()?.qid || "",
-            name:d.data()?.name || "",
-            status:null
-        })).sort((a,b)=>compareNames(a.name,b.name));
-        displayStudents();
-        headerTotalStudents.textContent = students.length;
-    }catch(e){console.error(e);}
-}
 
 document.querySelectorAll(".drawer-item").forEach(btn => {
     btn.addEventListener("click", async () => {
@@ -4272,18 +4130,20 @@ function logBadgeClass(action){
 
 async function writeActivityLog(action, details = "", extra = {}){
     const user = auth.currentUser;
-    if(!user) return;
+    if(!user?.email) return false;
     try{
         await addDoc(collection(db,"activityLogs"),{
             action,
             details,
-            userEmail:String(user.email || ""),
+            userEmail:String(user.email).trim(),
             userRole:profile?.role || "unknown",
             createdAt:new Date().toISOString(),
             ...extra
         });
+        return true;
     }catch(e){
         console.warn("Activity log failed:",e);
+        return false;
     }
 }
 
@@ -4313,7 +4173,7 @@ async function loadAdminActivityLogs(){
         });
     }catch(e){
         console.error(e);
-        activityLogList.innerHTML = `<p class="empty-record">Could not load activity logs. Publish the latest Firestore Rules.</p>`;
+        activityLogList.innerHTML = `<p class="empty-record">Could not load activity logs. Make sure the latest Firestore Rules are published.</p>`;
     }
 }
 
@@ -4344,7 +4204,7 @@ async function loadAdminRequestPreview(){
         });
     }catch(e){
         console.error(e);
-        dashboardRequestList.innerHTML=`<p class="empty-record">Could not load requests. Publish the latest Firestore Rules.</p>`;
+        dashboardRequestList.innerHTML=`<p class="empty-record">Could not load requests. Make sure the latest Firestore Rules are published.</p>`;
     }
 }
 
@@ -4359,20 +4219,19 @@ async function loadRequestCenter(){
     requestList.innerHTML=`<p class="empty-record">Loading requests...</p>`;
 
     try{
-        let rows;
+        let snap;
         if(profile.role === "cr"){
-            const email = String(auth.currentUser?.email || "");
-            const snap = await getDocs(
+            const email = String(auth.currentUser?.email || "").trim();
+            snap = await getDocs(
                 query(
                     collection(db,"requests"),
                     where("requestedBy","==",email)
                 )
             );
-            rows = snap.docs.map(d=>({id:d.id,...d.data()}));
         }else{
-            const snap = await getDocs(collection(db,"requests"));
-            rows = snap.docs.map(d=>({id:d.id,...d.data()}));
+            snap = await getDocs(collection(db,"requests"));
         }
+        const rows=snap.docs.map(d=>({id:d.id,...d.data()}));
 
         rows.sort((a,b)=>String(b.createdAt||"").localeCompare(String(a.createdAt||"")));
 
@@ -4426,7 +4285,7 @@ async function loadRequestCenter(){
         }
     }catch(e){
         console.error(e);
-        requestList.innerHTML=`<p class="empty-record">Could not load requests. Publish the latest Firestore Rules.</p>`;
+        requestList.innerHTML=`<p class="empty-record">Could not load requests. Make sure the latest Firestore Rules are published.</p>`;
     }
 
     if(profile.role === "admin") await loadAdminRequestPreview();
@@ -4524,7 +4383,7 @@ document.getElementById("requestForm")?.addEventListener("submit",async e=>{
         reason,
         section:activeSection,
         sectionLabel:sectionLabelOf(activeSection),
-        requestedBy:String(auth.currentUser.email||""),
+        requestedBy:String(auth.currentUser.email||"").trim(),
         status:"pending",
         createdAt:new Date().toISOString()
     };
@@ -4551,7 +4410,15 @@ document.getElementById("requestForm")?.addEventListener("submit",async e=>{
 
     try{
         await addDoc(collection(db,"requests"),data);
-        await writeActivityLog("REQUEST_SUBMITTED",`${friendlyRequestType(type)} · ${data.qid||data.subject||""}`,{requestType:type,section:activeSection});
+
+        // Logging is intentionally non-blocking. A temporary log permission/network
+        // issue must never make an already-saved request look like it failed.
+        void writeActivityLog(
+            "REQUEST_SUBMITTED",
+            `${friendlyRequestType(type)} · ${data.qid||data.subject||""}`,
+            {requestType:type,section:activeSection}
+        );
+
         requestModal?.classList.add("hidden");
         e.target.reset();
         syncRequestForm();
@@ -4656,7 +4523,6 @@ async function processChangeRequest(request,approve){
     }
 }
 
-// Keep admin dashboard as the first screen for Admin, and direct attendance for CR.
-// Admin dashboard statistics and logs load in the background so login remains responsive.
-// CR receives only the assigned section and does not get section-switch access.
+// Admin opens Mark Attendance by default. Dashboard is explicit from the hamburger menu.
+// CR opens its assigned attendance section directly and cannot switch sections.
 

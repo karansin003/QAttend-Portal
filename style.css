@@ -1203,9 +1203,64 @@ body.admin-view .cr-only{display:none!important}
 }
 
 
-/* FINAL QATTEND ROLE / NAV SAFEGUARDS */
-#logoutBtn{display:none !important;}
-@media (max-width:768px){
-  body.cr-view .role-badge::after{content:"CR";font-size:10px;line-height:1.4;}
-  .top-header #logoutBtn{display:none !important;}
+/* FINAL UPDATE / MANAGE DATA LAYOUT */
+.manage-section-selector{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    margin:18px auto 20px;
+    gap:10px;
 }
+.manage-section-selector .select-box{
+    width:min(440px,100%);
+    margin:0;
+    text-align:left;
+}
+.manage-section-selector .select-box label{
+    text-align:center;
+    display:block;
+}
+.manage-section-selector .select-box select{
+    text-align:left;
+}
+.manage-section-message{
+    width:min(620px,100%);
+    justify-content:center;
+    text-align:center;
+}
+.manage-primary-grid{
+    width:min(780px,100%);
+    margin:0 auto;
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:16px;
+}
+.manage-cr-wrap{
+    width:min(390px,100%);
+    margin:16px auto 0;
+}
+.manage-cr-card{width:100%;}
+
+/* Admin attendance: records remain visible after section selection, while
+   the student/attendance controls wait for subject selection. */
+#workArea > .records-section.hidden{display:none !important;}
+
+@media (max-width:768px){
+    .manage-primary-grid{
+        grid-template-columns:1fr;
+        width:100%;
+    }
+    .manage-cr-wrap{
+        width:100%;
+    }
+    .manage-section-selector .select-box{
+        width:100%;
+    }
+}
+
+
+html,body{min-height:100%;}
+body{min-height:100vh;}
+.app-page{min-height:100vh;display:flex;flex-direction:column;}
+.app-page > main{flex:1 0 auto;}
+.app-page > footer{margin-top:auto;flex-shrink:0;}

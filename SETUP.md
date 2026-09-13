@@ -77,3 +77,6 @@ do that separately in the Console if you want the login gone entirely.
 - Cannot add or delete students or subjects — those buttons don't
   exist for CR, and even if someone bypassed the UI, Firestore Rules
   would block the write
+
+## Requests and Activity Logs
+The app stores CR change requests in `requests` and Admin-visible activity history in `activityLogs`. After deploying the latest files, publish the matching `firestore.rules` in Firebase Console before testing these features.
