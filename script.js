@@ -4594,9 +4594,11 @@ async function findSubjectByName(section,name){
 
 async function processChangeRequest(request,approve,options={}){
     const silent=options.silent===true;
-    if(profile?.role!=="admin") return;
+    if(profile?.role!=="admin") return false;
 
     try{
+        // IMPORTANT: only an approved request changes the actual students/subjects data.
+        // A rejected request only changes the request status, leaving all section data untouched.
         if(approve){
             if(request.type === "add_student"){
                 if(!request.qid || !request.name) throw new Error("Student details are incomplete.");
@@ -4629,6 +4631,7 @@ async function processChangeRequest(request,approve,options={}){
             }
         }
 
+        // Mark the request only after the requested data operation succeeded.
         await updateDoc(doc(db,"requests",request.id),{
             status:approve ? "approved" : "rejected",
             reviewedBy:String(auth.currentUser?.email||"").toLowerCase(),
@@ -4654,6 +4657,13 @@ async function processChangeRequest(request,approve,options={}){
             if(request.type === "delete_subject"){
                 await writeActivityLog("DELETE_SUBJECT",request.subject||"",{section:request.section});
             }
+
+            // Refresh the currently open section so approved student/subject changes
+            // become visible immediately without requiring a page reload.
+            if(activeSection === request.section){
+                if(request.type.includes("student")) await loadStudents();
+                if(request.type.includes("subject")) await loadSubjects();
+            }
         }
 
         if(!silent){
@@ -4661,9 +4671,15 @@ async function processChangeRequest(request,approve,options={}){
             await loadAdminDashboardData();
             alert(approve ? "✅ Request approved and change applied." : "Request rejected.");
         }
+
+        return true;
     }catch(e){
         console.error(e);
-        alert(`Could not ${approve ? "approve" : "reject"} request: ${e.message || e}`);
+        if(!silent){
+            alert(`Could not ${approve ? "approve" : "reject"} request: ${e.message || e}`);
+        }
+        // Let bulk processing count the request as failed instead of falsely reporting success.
+        throw e;
     }
 }
 
