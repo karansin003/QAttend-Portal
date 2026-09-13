@@ -124,6 +124,18 @@ function sectionLabelOf(id) {
 }
 
 
+// HTML SAFETY HELPER
+// Escapes dynamic values before inserting them into HTML templates.
+function escapeHtml(value) {
+    return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+
 // NAME COMPARISON
 
 function compareNames(nameA, nameB) {
