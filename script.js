@@ -3,7 +3,6 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/fireba
 import {
     getAuth,
     signInWithEmailAndPassword,
-    createUserWithEmailAndPassword,
     signOut,
     onAuthStateChanged,
     sendPasswordResetEmail
@@ -42,18 +41,15 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// Login-page contact address. Update only this value if the Admin email changes.
-const ADMIN_CONTACT_EMAIL = "sonusin8672@gmail.com";
 
-let provisioningAuth = null;
+// ADMIN CONTACT EMAIL
+// Used by the "Contact Admin" links on the login page (Send Mail /
+// Request to Add Section). These open the visitor's own email app via
+// mailto: — no login and no Firestore write is involved, so it works
+// even for someone who isn't in the system yet. Replace with the real
+// admin inbox before deploying.
 
-function getProvisioningAuth() {
-    if (!provisioningAuth) {
-        const provisioningApp = initializeApp(firebaseConfig, "qattend-provisioning");
-        provisioningAuth = getAuth(provisioningApp);
-    }
-    return provisioningAuth;
-}
+const ADMIN_CONTACT_EMAIL = "admin@example.com";
 
 
 // LAZY-LOAD SHEETJS
@@ -103,7 +99,7 @@ function ensureXLSXLoaded() {
 
 // FIXED SECTION LIST
 
-let SECTIONS = [
+const SECTIONS = [
     { id: "SECTION-1", label: "Section 1" },
     { id: "SECTION-2", label: "Section 2" },
     { id: "SECTION-3", label: "Section 3" },
@@ -124,11 +120,7 @@ let SECTIONS = [
 ];
 
 
-const sectionMetaById = {};
-
 function sectionLabelOf(id) {
-
-    if (sectionMetaById[id]?.label) return sectionMetaById[id].label;
 
     const match =
         SECTIONS.find(
@@ -276,17 +268,77 @@ const backToLoginLink =
         "backToLoginLink"
     );
 
-const openContactAdminBtn = document.getElementById("openContactAdminBtn");
-const closeContactAdminBtn = document.getElementById("closeContactAdminBtn");
-const cancelContactAdminBtn = document.getElementById("cancelContactAdminBtn");
-const contactAdminModal = document.getElementById("contactAdminModal");
-const contactAdminForm = document.getElementById("contactAdminForm");
 
-const crWelcomeRole = document.getElementById("crWelcomeRole");
-const crWelcomeSection = document.getElementById("crWelcomeSection");
-const crWelcomeTotalStudents = document.getElementById("crWelcomeTotalStudents");
-const crWelcomeTotalSubjects = document.getElementById("crWelcomeTotalSubjects");
-const courseLabel = document.getElementById("courseLabel");
+const contactAdminLink =
+    document.getElementById(
+        "contactAdminLink"
+    );
+
+const contactAdminModal =
+    document.getElementById(
+        "contactAdminModal"
+    );
+
+const closeContactAdminModal =
+    document.getElementById(
+        "closeContactAdminModal"
+    );
+
+const contactSendMailBtn =
+    document.getElementById(
+        "contactSendMailBtn"
+    );
+
+const openSectionRequestBtn =
+    document.getElementById(
+        "openSectionRequestBtn"
+    );
+
+const sectionRequestModal =
+    document.getElementById(
+        "sectionRequestModal"
+    );
+
+const closeSectionRequestModal =
+    document.getElementById(
+        "closeSectionRequestModal"
+    );
+
+const cancelSectionRequestBtn =
+    document.getElementById(
+        "cancelSectionRequestBtn"
+    );
+
+const sectionRequestForm =
+    document.getElementById(
+        "sectionRequestForm"
+    );
+
+const sectionRequestName =
+    document.getElementById(
+        "sectionRequestName"
+    );
+
+const sectionRequestEmail =
+    document.getElementById(
+        "sectionRequestEmail"
+    );
+
+const sectionRequestSectionName =
+    document.getElementById(
+        "sectionRequestSectionName"
+    );
+
+const sectionRequestReason =
+    document.getElementById(
+        "sectionRequestReason"
+    );
+
+const sectionRequestMessage =
+    document.getElementById(
+        "sectionRequestMessage"
+    );
+
 
 const logoutBtn =
     document.getElementById(
@@ -389,12 +441,10 @@ const addCrForm =
         "addCrForm"
     );
 
-const newCrName = document.getElementById("newCrName");
 const newCrEmail =
     document.getElementById(
         "newCrEmail"
     );
-const newCrMobile = document.getElementById("newCrMobile");
 
 const newCrSection =
     document.getElementById(
@@ -721,6 +771,200 @@ sendResetBtn.addEventListener(
 );
 
 
+// CONTACT ADMIN
+
+contactAdminLink.addEventListener(
+    "click",
+    function (event) {
+
+        event.preventDefault();
+
+        contactAdminModal.classList.remove(
+            "hidden"
+        );
+    }
+);
+
+
+closeContactAdminModal.addEventListener(
+    "click",
+    function () {
+
+        contactAdminModal.classList.add(
+            "hidden"
+        );
+    }
+);
+
+
+contactAdminModal.addEventListener(
+    "click",
+    function (event) {
+
+        if (event.target === contactAdminModal) {
+
+            contactAdminModal.classList.add(
+                "hidden"
+            );
+        }
+    }
+);
+
+
+// SEND MAIL — opens the visitor's own email app addressed to Admin
+
+contactSendMailBtn.addEventListener(
+    "click",
+    function () {
+
+        const subject =
+            encodeURIComponent(
+                "QAttend — Query from a visitor"
+            );
+
+        const body =
+            encodeURIComponent(
+                "Hi Admin,\n\n" +
+                "I need help with QAttend.\n\n" +
+                "(Please describe your issue here.)"
+            );
+
+        window.location.href =
+            "mailto:" + ADMIN_CONTACT_EMAIL +
+            "?subject=" + subject +
+            "&body=" + body;
+
+        contactAdminModal.classList.add(
+            "hidden"
+        );
+    }
+);
+
+
+// REQUEST TO ADD SECTION — opens the structured form
+
+openSectionRequestBtn.addEventListener(
+    "click",
+    function () {
+
+        contactAdminModal.classList.add(
+            "hidden"
+        );
+
+        sectionRequestForm.reset();
+
+        sectionRequestMessage.textContent =
+            "";
+
+        sectionRequestMessage.classList.remove(
+            "login-message-success"
+        );
+
+        sectionRequestEmail.value =
+            emailInput.value.trim();
+
+        sectionRequestModal.classList.remove(
+            "hidden"
+        );
+    }
+);
+
+
+closeSectionRequestModal.addEventListener(
+    "click",
+    function () {
+
+        sectionRequestModal.classList.add(
+            "hidden"
+        );
+    }
+);
+
+
+cancelSectionRequestBtn.addEventListener(
+    "click",
+    function () {
+
+        sectionRequestModal.classList.add(
+            "hidden"
+        );
+    }
+);
+
+
+sectionRequestModal.addEventListener(
+    "click",
+    function (event) {
+
+        if (event.target === sectionRequestModal) {
+
+            sectionRequestModal.classList.add(
+                "hidden"
+            );
+        }
+    }
+);
+
+
+sectionRequestForm.addEventListener(
+    "submit",
+    function (event) {
+
+        event.preventDefault();
+
+        const name =
+            sectionRequestName.value.trim();
+
+        const email =
+            sectionRequestEmail.value.trim();
+
+        const sectionName =
+            sectionRequestSectionName.value.trim();
+
+        const reason =
+            sectionRequestReason.value.trim();
+
+        if (!name || !email || !sectionName || !reason) {
+
+            sectionRequestMessage.classList.remove(
+                "login-message-success"
+            );
+
+            sectionRequestMessage.textContent =
+                "Please fill in every field.";
+
+            return;
+        }
+
+        const subject =
+            encodeURIComponent(
+                "QAttend — Request to Add Section: " + sectionName
+            );
+
+        const body =
+            encodeURIComponent(
+                "New section request\n\n" +
+                "Name: " + name + "\n" +
+                "Email: " + email + "\n" +
+                "Requested Section: " + sectionName + "\n\n" +
+                "Reason:\n" + reason
+            );
+
+        window.location.href =
+            "mailto:" + ADMIN_CONTACT_EMAIL +
+            "?subject=" + subject +
+            "&body=" + body;
+
+        sectionRequestMessage.classList.add(
+            "login-message-success"
+        );
+
+        sectionRequestMessage.textContent =
+            "✅ Opening your email app to send the request to Admin...";
+    }
+);
+
+
 // AUTH STATE
 
 onAuthStateChanged(
@@ -886,7 +1130,7 @@ onAuthStateChanged(
 
             // Admin lands on the Admin Dashboard after login.
             // Mark Attendance is opened explicitly from the hamburger menu.
-            await populateSectionDropdowns();
+            populateSectionDropdowns();
 
             activeSection = null;
             managementSection = null;
@@ -898,7 +1142,6 @@ onAuthStateChanged(
 
         } else {
 
-            await loadSectionMeta(profile.section);
             showAttendanceView();
 
             welcomeTitle.textContent =
@@ -934,7 +1177,6 @@ onAuthStateChanged(
             await loadSubjects();
 
             await loadStudents();
-            await updateCrWelcomeStats();
         }
     }
 );
@@ -942,102 +1184,75 @@ onAuthStateChanged(
 
 // SECTION DROPDOWNS
 
-async function loadSectionCatalog() {
-    try {
-        const snapshot = await getDocs(collection(db, "sections"));
-        snapshot.docs.forEach(docSnap => {
-            const data = docSnap.data() || {};
-            const id = docSnap.id;
-            const label = String(data.label || data.sectionName || id);
-            sectionMetaById[id] = { id, label, ...data };
-        });
+function populateSectionDropdowns() {
 
-        const dynamic = Object.values(sectionMetaById).map(item => ({
-            id: item.id,
-            label: item.label
-        }));
+    sectionSelect.innerHTML =
+        `<option value="">
+            -- Select Section --
+        </option>`;
 
-        const merged = new Map(SECTIONS.map(s => [s.id, s]));
-        dynamic.forEach(item => merged.set(item.id, item));
-        SECTIONS = [...merged.values()].sort((a,b) => a.label.localeCompare(b.label));
-    } catch (error) {
-        console.warn("Section catalog load failed; using built-in sections.", error);
-    }
-}
-
-async function loadSectionMeta(sectionId) {
-    if (!sectionId) return null;
-    if (sectionMetaById[sectionId]) {
-        applySectionMeta(sectionId);
-        return sectionMetaById[sectionId];
-    }
-
-    try {
-        const snap = await getDoc(doc(db, "sections", sectionId));
-        if (snap.exists()) {
-            const data = snap.data() || {};
-            sectionMetaById[sectionId] = { id: sectionId, label: data.label || data.sectionName || sectionId, ...data };
-            applySectionMeta(sectionId);
-            return sectionMetaById[sectionId];
-        }
-    } catch (error) {
-        console.warn("Could not load section metadata:", error);
-    }
-
-    return null;
-}
-
-function applySectionMeta(sectionId) {
-    const meta = sectionMetaById[sectionId];
-    const label = meta?.label || sectionLabelOf(sectionId);
-    if (sectionLabel) sectionLabel.textContent = label;
-    if (crWelcomeSection) crWelcomeSection.textContent = label;
-    if (courseLabel && meta?.course) courseLabel.textContent = meta.course;
-}
-
-async function populateSectionDropdowns() {
-    await loadSectionCatalog();
-
-    sectionSelect.innerHTML = `<option value="">-- Select Section --</option>`;
 
     if (newCrSection) {
-        newCrSection.innerHTML = `<option value="">-- Select Section --</option>`;
+        newCrSection.innerHTML = "";
     }
 
     const manageSection = document.getElementById("manageSectionSelect");
     if (manageSection) {
-        manageSection.innerHTML = `<option value="">-- Select Section --</option>`;
+        manageSection.innerHTML =
+            `<option value="">-- Select Section --</option>`;
     }
 
-    SECTIONS.forEach(section => {
-        const option1 = document.createElement("option");
-        option1.value = section.id;
-        option1.textContent = section.label;
-        sectionSelect.appendChild(option1);
 
-        if (newCrSection) {
-            const option2 = document.createElement("option");
-            option2.value = section.id;
-            option2.textContent = section.label;
-            newCrSection.appendChild(option2);
-        }
+    SECTIONS.forEach(
+        function (section) {
 
-        if (manageSection) {
-            const option3 = document.createElement("option");
-            option3.value = section.id;
-            option3.textContent = section.label;
-            manageSection.appendChild(option3);
+            const option1 =
+                document.createElement(
+                    "option"
+                );
+
+
+            option1.value =
+                section.id;
+
+
+            option1.textContent =
+                section.label;
+
+
+            sectionSelect.appendChild(
+                option1
+            );
+
+
+            const option2 =
+                document.createElement(
+                    "option"
+                );
+
+
+            option2.value =
+                section.id;
+
+
+            option2.textContent =
+                section.label;
+
+
+            if (newCrSection) {
+                newCrSection.appendChild(option2);
+            }
+
+            if (manageSection) {
+                const option3 = document.createElement("option");
+                option3.value = section.id;
+                option3.textContent = section.label;
+                manageSection.appendChild(option3);
+            }
         }
-    });
+    );
 }
 
-async function updateCrWelcomeStats() {
-    if (profile?.role !== "cr" || !activeSection) return;
-    if (crWelcomeRole) crWelcomeRole.textContent = "Class Representative";
-    if (crWelcomeSection) crWelcomeSection.textContent = sectionLabelOf(activeSection);
-    if (crWelcomeTotalStudents) crWelcomeTotalStudents.textContent = String(students.length);
-    if (crWelcomeTotalSubjects) crWelcomeTotalSubjects.textContent = String(subjects.length);
-}
 
 // SECTION CHANGE
 
@@ -1098,7 +1313,6 @@ sectionSelect.addEventListener(
             sectionLabelOf(
                 activeSection
             );
-        await loadSectionMeta(activeSection);
 
 
         subjectSelect.value =
@@ -1116,7 +1330,6 @@ sectionSelect.addEventListener(
         await loadSubjects();
 
         await loadRecords();
-        await updateCrWelcomeStats();
         syncAttendanceGate();
     }
 );
@@ -1176,7 +1389,6 @@ async function loadStudents() {
 
 
         displayStudents();
-        void updateCrWelcomeStats();
 
 
     } catch (error) {
@@ -2105,9 +2317,6 @@ async function loadSubjects() {
         );
 
 
-        await updateCrWelcomeStats();
-
-
         if (
             profile.role ===
             "admin"
@@ -2461,13 +2670,24 @@ async function refreshManageData() {
 addCrForm.addEventListener(
     "submit",
     async function (event) {
+
         event.preventDefault();
 
-        if (!profile || profile.role !== "admin") return;
 
-        const name = String(newCrName?.value || "").trim();
-        const email = String(newCrEmail?.value || "").trim().toLowerCase();
-        const mobile = String(newCrMobile?.value || "").trim();
+        if (
+            !profile ||
+            profile.role !==
+                "admin"
+        ) {
+            return;
+        }
+
+
+        const email =
+            newCrEmail.value
+                .trim()
+                .toLowerCase();
+
         const section = managementSection ||
             document.getElementById("manageSectionSelect")?.value || null;
 
@@ -2475,32 +2695,41 @@ addCrForm.addEventListener(
             alert("Please select a section first.");
             return;
         }
-        if (!name || !email || !mobile) {
-            alert("Please enter CR name, email and mobile.");
+
+        if (
+            !email
+        ) {
             return;
         }
 
+
         try {
-            const authInfo = await provisionCrLogin(email);
 
             await setDoc(
-                doc(db, "users", email),
+
+                doc(
+                    db,
+                    "users",
+                    email
+                ),
+
                 {
-                    role: "cr",
-                    section,
-                    name,
-                    mobile,
-                    course: sectionMetaById[section]?.course || "",
-                    semester: sectionMetaById[section]?.semester || "",
-                    createdAt: new Date().toISOString(),
-                    assignedAt: new Date().toISOString()
-                },
-                { merge: true }
+                    role:
+                        "cr",
+
+                    section:
+                        section,
+
+                    createdAt:
+                        new Date()
+                            .toISOString()
+                }
             );
 
-            newCrName.value = "";
-            newCrEmail.value = "";
-            newCrMobile.value = "";
+
+            newCrEmail.value =
+                "";
+
 
             managementSection = section;
             await loadCrListForManagementSection();
@@ -2510,25 +2739,21 @@ addCrForm.addEventListener(
                 {section}
             );
 
-            const subject = `QAttend - You are assigned as CR for ${sectionLabelOf(section)}`;
-            const body = authInfo.created
-                ? [
-                    `Hello ${name},`,``,`You have been assigned as a Class Representative for QAttend.`,``,
-                    `Section: ${sectionLabelOf(section)}`,`Login Email: ${email}`,`Temporary Password: ${authInfo.tempPassword}`,``,
-                    `Open QAttend and log in with these credentials. Use Forgot Password later if you want to set a new password.`,``,
-                    `Regards,`,`QAttend Admin`
-                  ].join("\n")
-                : [
-                    `Hello ${name},`,``,`You have been assigned as a Class Representative for QAttend.`,``,
-                    `Section: ${sectionLabelOf(section)}`,`Login Email: ${email}`,`Your Firebase account already exists, so use your current password. Use Forgot Password if needed.`,``,
-                    `Regards,`,`QAttend Admin`
-                  ].join("\n");
 
-            alert(`${email} is assigned as CR for ${sectionLabelOf(section)}. The invitation email draft will open next.`);
-            openGmailCompose(email, subject, body);
+            alert(
+                `${email} is assigned as CR for ${sectionLabelOf(section)}.\n` +
+                `Make sure their Firebase Auth login uses this exact (lowercase) email.`
+            );
+
+
         } catch (error) {
+
             console.error(error);
-            alert(`Error assigning CR: ${error.message || error}`);
+
+
+            alert(
+                "Error assigning CR. Make sure the login was created with the exact same lowercase email."
+            );
         }
     }
 );
@@ -3958,361 +4183,6 @@ downloadBtn.addEventListener(
 );
 
 
-
-/* =========================================================
-   LOGIN CONTACT ADMIN / CLASS SETUP & CR ONBOARDING
-   ========================================================= */
-
-function openContactAdminModal(){
-    contactAdminModal?.classList.remove("hidden");
-}
-function closeContactAdminModal(){
-    contactAdminModal?.classList.add("hidden");
-    contactAdminForm?.reset();
-}
-
-openContactAdminBtn?.addEventListener("click", openContactAdminModal);
-closeContactAdminBtn?.addEventListener("click", closeContactAdminModal);
-cancelContactAdminBtn?.addEventListener("click", closeContactAdminModal);
-contactAdminModal?.addEventListener("click", e=>{
-    if(e.target===contactAdminModal) closeContactAdminModal();
-});
-
-document.getElementById("adminDirectEmail")?.addEventListener("click", e=>{
-    e.currentTarget.href=`mailto:${ADMIN_CONTACT_EMAIL}`;
-});
-
-function openGmailCompose(to, subject, body){
-    const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(to)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    const win = window.open(gmailUrl, "_blank", "noopener,noreferrer");
-    if(!win){
-        window.location.href = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    }
-}
-
-contactAdminForm?.addEventListener("submit", e=>{
-    e.preventDefault();
-    const name = document.getElementById("contactAdminName")?.value.trim();
-    const email = document.getElementById("contactAdminEmail")?.value.trim();
-    const mobile = document.getElementById("contactAdminMobile")?.value.trim();
-    const type = document.getElementById("contactAdminType")?.value;
-    const message = document.getElementById("contactAdminMessage")?.value.trim();
-    if(!name || !email || !mobile || !message) return;
-
-    const subject = `QAttend Access Request - ${type}`;
-    const body = [
-        `Hello Admin,`,
-        ``,
-        `I am requesting access/support for QAttend.`,
-        `Name: ${name}`,
-        `Email: ${email}`,
-        `Mobile: ${mobile}`,
-        `Request Type: ${type}`,
-        ``,
-        `Message:`,
-        message,
-        ``,
-        `Sent from QAttend Login Page.`
-    ].join("\n");
-
-    openGmailCompose(ADMIN_CONTACT_EMAIL, subject, body);
-    alert("✅ Your email draft is ready. Review it and press Send in Gmail.");
-    closeContactAdminModal();
-});
-
-function makeSectionId(sectionName){
-    const slug = String(sectionName||"")
-        .trim()
-        .toUpperCase()
-        .replace(/[^A-Z0-9]+/g,"-")
-        .replace(/^-+|-+$/g,"") || `SECTION-${Date.now()}`;
-    return `CUSTOM-${slug}`;
-}
-
-function generateTempPassword(){
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$";
-    let result = "Q";
-    for(let i=0;i<11;i++) result += chars[Math.floor(Math.random()*chars.length)];
-    return result;
-}
-
-function normaliseHeader(value){
-    return String(value??"").trim().toLowerCase().replace(/[._-]+/g," ").replace(/\s+/g," ");
-}
-
-function pickValue(row, candidates){
-    const entries = Object.entries(row||{});
-    for(const wanted of candidates){
-        const key = normaliseHeader(wanted);
-        const hit = entries.find(([k])=>normaliseHeader(k)===key);
-        if(hit) return hit[1];
-    }
-    return "";
-}
-
-async function buildSectionTemplate(){
-    await ensureXLSXLoaded();
-    const wb = XLSX.utils.book_new();
-    const instructions = [
-        ["QAttend New Section Import Template"],
-        [],
-        ["Students sheet"],
-        ["Required columns", "Q.ID", "Student Name"],
-        ["Use one row per student. Do not leave Q.ID or Student Name blank."],
-        [],
-        ["Subjects sheet"],
-        ["Required columns", "Subject Code", "Subject Name"],
-        ["Subject Code is optional. Subject Name is required."],
-        [],
-        ["Do not change the sheet names Students and Subjects."]
-    ];
-    const studentRows = [
-        ["Q.ID","Student Name"],
-        ["240301","Rahul Kumar"],
-        ["240302","Amit Singh"]
-    ];
-    const subjectRows = [
-        ["Subject Code","Subject Name"],
-        ["CS501","Java"],
-        ["CS502","DBMS"]
-    ];
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(instructions), "Instructions");
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(studentRows), "Students");
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(subjectRows), "Subjects");
-    XLSX.writeFile(wb, "QAttend_New_Section_Template.xlsx");
-}
-
-downloadSetupTemplateBtn?.addEventListener("click", async ()=>{
-    try{ await buildSectionTemplate(); }
-    catch(error){ console.error(error); alert("Could not create the Excel template."); }
-});
-
-function resetSectionImport(){
-    pendingSectionImport = null;
-    if(setupImportStatus) setupImportStatus.textContent = "No file selected.";
-    setupImportPreview?.classList.add("hidden");
-    if(setupImportPreview) setupImportPreview.innerHTML = "";
-}
-
-async function parseSectionImport(file){
-    await ensureXLSXLoaded();
-    const buffer = await file.arrayBuffer();
-    const workbook = XLSX.read(buffer, {type:"array"});
-
-    const studentsSheetName = workbook.SheetNames.find(name => normaliseHeader(name)==="students") || workbook.SheetNames.find(name => /student/i.test(name));
-    const subjectsSheetName = workbook.SheetNames.find(name => normaliseHeader(name)==="subjects") || workbook.SheetNames.find(name => /subject/i.test(name));
-
-    if(!studentsSheetName || !subjectsSheetName){
-        throw new Error("Excel must contain Students and Subjects sheets.");
-    }
-
-    const studentRowsRaw = XLSX.utils.sheet_to_json(workbook.Sheets[studentsSheetName], {defval:""});
-    const subjectRowsRaw = XLSX.utils.sheet_to_json(workbook.Sheets[subjectsSheetName], {defval:""});
-
-    const students = [];
-    let invalidStudents = 0;
-    let duplicateStudentRows = 0;
-    const studentSeen = new Set();
-    for(const row of studentRowsRaw){
-        const qid = String(pickValue(row,["Q.ID","QID","Student ID","Enrollment No","Enrollment Number"])).trim();
-        const name = String(pickValue(row,["Student Name","Name","Student"])).trim().toUpperCase();
-        if(!qid && !name) continue;
-        if(!qid || !name){ invalidStudents++; continue; }
-        const key=qid.toLowerCase();
-        if(studentSeen.has(key)) { duplicateStudentRows++; continue; }
-        studentSeen.add(key);
-        students.push({qid,name});
-    }
-
-    const subjects = [];
-    let invalidSubjects = 0;
-    const subjectSeen = new Set();
-    for(const row of subjectRowsRaw){
-        const code = String(pickValue(row,["Subject Code","Code","Subject ID"])||"").trim();
-        const name = String(pickValue(row,["Subject Name","Subject","Name"])||"").trim();
-        if(!code && !name) continue;
-        if(!name){ invalidSubjects++; continue; }
-        const key=name.toLowerCase();
-        if(subjectSeen.has(key)) continue;
-        subjectSeen.add(key);
-        subjects.push({code,name});
-    }
-
-    pendingSectionImport = {students, subjects, invalidStudents, invalidSubjects, duplicateStudentRows, invalidRows: invalidStudents + invalidSubjects, fileName:file.name};
-    renderSectionImportPreview(pendingSectionImport);
-    return pendingSectionImport;
-}
-
-async function renderSectionImportPreview(result){
-    if(!setupImportPreview || !setupImportStatus || !result) return;
-    setupImportPreview.classList.remove("hidden");
-    setupImportStatus.textContent = `${result.fileName} loaded.`;
-    setupImportPreview.innerHTML = `
-        <div class="import-preview-grid">
-            <div><span>Students found</span><strong>${result.students.length}</strong></div>
-            <div><span>Subjects found</span><strong>${result.subjects.length}</strong></div>
-            <div><span>Duplicate Q.ID</span><strong>${result.duplicateStudentRows || 0}</strong></div>
-            <div><span>Invalid rows</span><strong>${result.invalidRows || 0}</strong></div>
-        </div>
-        <div class="import-preview-note">Only valid, unique Q.IDs and unique subject names will be imported.</div>`;
-}
-
-setupExcelFile?.addEventListener("change", async ()=>{
-    resetSectionImport();
-    const file=setupExcelFile.files?.[0];
-    if(!file) return;
-    try{ await parseSectionImport(file); }
-    catch(error){
-        console.error(error);
-        setupImportStatus.textContent = error.message || "Could not read the Excel file.";
-        alert(error.message || "Could not read the Excel file.");
-    }
-});
-
-function openSectionSetup(){
-    if(profile?.role !== "admin") return;
-    resetSectionImport();
-    sectionSetupModal?.classList.remove("hidden");
-}
-function closeSectionSetup(){
-    sectionSetupModal?.classList.add("hidden");
-    sectionSetupForm?.reset();
-    resetSectionImport();
-}
-
-openSectionSetupBtn?.addEventListener("click", openSectionSetup);
-closeSectionSetupBtn?.addEventListener("click", closeSectionSetup);
-cancelSectionSetupBtn?.addEventListener("click", closeSectionSetup);
-sectionSetupModal?.addEventListener("click", e=>{
-    if(e.target===sectionSetupModal) closeSectionSetup();
-});
-
-async function provisionCrLogin(email){
-    const tempPassword=generateTempPassword();
-    try{
-        const secondaryAuth=getProvisioningAuth();
-        await createUserWithEmailAndPassword(secondaryAuth,email,tempPassword);
-        await signOut(secondaryAuth);
-        return {created:true,tempPassword};
-    }catch(error){
-        try{ if(provisioningAuth?.currentUser) await signOut(provisioningAuth); }catch(_e){}
-        if(error?.code === "auth/email-already-in-use") return {created:false,tempPassword:null};
-        throw error;
-    }
-}
-
-sectionSetupForm?.addEventListener("submit", async e=>{
-    e.preventDefault();
-    if(profile?.role !== "admin") return;
-
-    const course=document.getElementById("setupCourse")?.value.trim();
-    const semester=document.getElementById("setupSemester")?.value.trim();
-    const sectionName=document.getElementById("setupSectionName")?.value.trim();
-    const mentorName=document.getElementById("setupMentorName")?.value.trim();
-    const mentorEmail=document.getElementById("setupMentorEmail")?.value.trim().toLowerCase();
-    const mentorMobile=document.getElementById("setupMentorMobile")?.value.trim();
-    const crName=document.getElementById("setupCrName")?.value.trim();
-    const crEmail=document.getElementById("setupCrEmail")?.value.trim().toLowerCase();
-    const crMobile=document.getElementById("setupCrMobile")?.value.trim();
-
-    if(!course || !semester || !sectionName || !crName || !crEmail || !crMobile){
-        alert("Please fill all required section and CR details.");
-        return;
-    }
-    if(!pendingSectionImport){
-        alert("Please upload the filled Excel file first.");
-        return;
-    }
-    if(!pendingSectionImport.students.length){
-        alert("No valid students were found in the Excel file.");
-        return;
-    }
-    if(!pendingSectionImport.subjects.length){
-        alert("No valid subjects were found in the Excel file.");
-        return;
-    }
-
-    const sectionId=makeSectionId(sectionName);
-    const existing=await getDoc(doc(db,"sections",sectionId));
-    if(existing.exists()){
-        alert("A section with this name already exists. Please use a different section name.");
-        return;
-    }
-
-    const submitButton=e.target.querySelector('button[type="submit"]');
-    if(submitButton){ submitButton.disabled=true; submitButton.textContent="Creating..."; }
-
-    try{
-        // Provision the CR first so a failed Auth setup does not create an orphan class.
-        const authInfo=await provisionCrLogin(crEmail);
-
-        await setDoc(doc(db,"sections",sectionId),{
-            label:sectionName,
-            sectionName,
-            course,
-            semester,
-            mentor:{name:mentorName,email:mentorEmail,mobile:mentorMobile},
-            createdAt:new Date().toISOString(),
-            createdBy:auth.currentUser.email
-        });
-
-        for(const student of pendingSectionImport.students){
-            await addDoc(collection(db,"sections",sectionId,"students"),student);
-        }
-        for(const subject of pendingSectionImport.subjects){
-            await addDoc(collection(db,"sections",sectionId,"subjects"),{name:subject.name, code:subject.code||""});
-        }
-
-        await setDoc(doc(db,"users",crEmail),{
-            role:"cr",
-            section:sectionId,
-            name:crName,
-            mobile:crMobile,
-            course,
-            semester,
-            createdAt:new Date().toISOString(),
-            assignedAt:new Date().toISOString()
-        });
-
-        sectionMetaById[sectionId]={id:sectionId,label:sectionName,course,semester,mentor:{name:mentorName,email:mentorEmail,mobile:mentorMobile}};
-        const merged=new Map(SECTIONS.map(s=>[s.id,s]));
-        merged.set(sectionId,{id:sectionId,label:sectionName});
-        SECTIONS=[...merged.values()].sort((a,b)=>a.label.localeCompare(b.label));
-        await populateSectionDropdowns();
-        managementSection=sectionId;
-        if(manageSectionSelect) manageSectionSelect.value=sectionId;
-        await refreshManageData();
-
-        await writeActivityLog("ADD_SECTION",`${sectionName} · ${course}`,{section:sectionId});
-        await writeActivityLog("ASSIGN_CR",`${crEmail} · ${sectionName}`,{section:sectionId});
-
-        const invitationSubject=`QAttend - You are assigned as CR for ${sectionName}`;
-        const invitationBody = authInfo.created
-            ? [
-                `Hello ${crName},`,``,`You have been assigned as a Class Representative for QAttend.`,``,
-                `Course: ${course}`,`Semester: ${semester}`,`Section: ${sectionName}`,``,
-                `Login Email: ${crEmail}`,`Temporary Password: ${authInfo.tempPassword}`,``,
-                `Open QAttend and log in with the above credentials. After first login, change your password using Forgot Password if needed.`,``,
-                `Mentor: ${mentorName || "-"}`,`Mentor Mobile: ${mentorMobile || "-"}`,``,`Regards,`,`QAttend Admin`
-              ].join("\n")
-            : [
-                `Hello ${crName},`,``,`You have been assigned as a Class Representative for QAttend.`,``,
-                `Course: ${course}`,`Semester: ${semester}`,`Section: ${sectionName}`,``,
-                `Login Email: ${crEmail}`,`Your Firebase account already exists, so use your current password. Use Forgot Password if you need to set a new one.`,``,
-                `Mentor: ${mentorName || "-"}`,`Mentor Mobile: ${mentorMobile || "-"}`,``,`Regards,`,`QAttend Admin`
-              ].join("\n");
-
-        closeSectionSetup();
-        alert("✅ New section created. Students, subjects and CR assignment are ready. The invitation email draft will open next.");
-        openGmailCompose(crEmail, invitationSubject, invitationBody);
-    }catch(error){
-        console.error(error);
-        alert(`Could not create the new section: ${error.message || error}`);
-    }finally{
-        if(submitButton){ submitButton.disabled=false; submitButton.textContent="Create Section"; }
-    }
-});
-
 /* =========================================================
    MORE DRAWER / REQUEST CENTER / ADMIN ACTIVITY LOGS
    ========================================================= */
@@ -4335,18 +4205,8 @@ const requestModal = document.getElementById("requestModal");
 const supportModal = document.getElementById("supportModal");
 const manageSectionSelect = document.getElementById("manageSectionSelect");
 const manageSectionMessage = document.getElementById("manageSectionMessage");
-const openSectionSetupBtn = document.getElementById("openSectionSetupBtn");
-const sectionSetupModal = document.getElementById("sectionSetupModal");
-const closeSectionSetupBtn = document.getElementById("closeSectionSetupBtn");
-const cancelSectionSetupBtn = document.getElementById("cancelSectionSetupBtn");
-const sectionSetupForm = document.getElementById("sectionSetupForm");
-const downloadSetupTemplateBtn = document.getElementById("downloadSetupTemplateBtn");
-const setupExcelFile = document.getElementById("setupExcelFile");
-const setupImportStatus = document.getElementById("setupImportStatus");
-const setupImportPreview = document.getElementById("setupImportPreview");
 
 let managementSection = null;
-let pendingSectionImport = null;
 
 function openFeatureDrawer(){
     featureDrawer?.classList.add("open");
@@ -4511,7 +4371,7 @@ function showManageData(){
 
     if(profile?.role !== "admin") return;
 
-    void populateSectionDropdowns();
+    populateSectionDropdowns();
 
     if(manageSectionSelect){
         manageSectionSelect.value = managementSection || "";
@@ -4582,7 +4442,7 @@ document.querySelectorAll(".drawer-item").forEach(btn => {
         if(feature === "dashboard" && profile?.role === "admin") showAdminDashboard();
         if(feature === "attendance") showAttendanceView();
         if(feature === "requests") showRequestsPanel();
-        if(feature === "manage" && profile?.role === "admin") await showManageData();
+        if(feature === "manage" && profile?.role === "admin") showManageData();
         if(feature === "records" && profile?.role === "cr") showPreviousRecords();
         if(feature === "support") openSupport();
         if(feature === "logout") await logoutFromApp();
@@ -4605,7 +4465,6 @@ function friendlyLogAction(action){
         DELETE_SUBJECT:"Subject deleted",
         ASSIGN_CR:"CR assigned",
         REMOVE_CR:"CR removed",
-        ADD_SECTION:"Section created",
         SAVE_ATTENDANCE:"Attendance saved",
         DELETE_ATTENDANCE:"Attendance record deleted",
         REQUEST_SUBMITTED:"Request submitted",
