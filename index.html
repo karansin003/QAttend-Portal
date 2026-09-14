@@ -25,6 +25,7 @@
     <!-- LOGIN PAGE -->
     <div id="loginPage" class="login-page">
 
+        <div class="login-layout">
         <div class="login-card">
 
             <div class="login-logo">
@@ -86,6 +87,19 @@
 
             </div>
 
+        </div>
+
+        <aside class="contact-admin-card">
+            <div class="contact-admin-icon">✉</div>
+            <p class="login-small">NEED ACCESS?</p>
+            <h2>Contact Admin</h2>
+            <p>Don&apos;t have an account or need a new section? Send a request to the Admin.</p>
+            <button id="openContactAdminBtn" type="button" class="contact-admin-btn">Send Request</button>
+            <div class="contact-admin-direct">
+                <span>Or contact directly</span>
+                <a id="adminDirectEmail" href="mailto:sonusin8672@gmail.com">✉ sonusin8672@gmail.com</a>
+            </div>
+        </aside>
         </div>
 
     </div>
@@ -263,6 +277,12 @@
                     <h2 id="welcomeTitle">Attendance Portal</h2>
                     <p id="welcomeSubtitle">Manage student attendance quickly and securely.</p>
                 </div>
+                <div class="cr-welcome-meta cr-only">
+                    <div><span>Your Role</span><strong id="crWelcomeRole">Class Representative</strong></div>
+                    <div><span>Your Section</span><strong id="crWelcomeSection">--</strong></div>
+                    <div><span>Total Students</span><strong id="crWelcomeTotalStudents">0</strong></div>
+                    <div><span>Total Subjects</span><strong id="crWelcomeTotalSubjects">0</strong></div>
+                </div>
             </section>
 
 
@@ -276,7 +296,7 @@
                     </div>
                     <div class="detail-item">
                         <span>Course</span>
-                        <strong>B.Tech AI &amp; ML</strong>
+                        <strong id="courseLabel">B.Tech AI &amp; ML</strong>
                     </div>
                     <div class="detail-item">
                         <span>Section</span>
@@ -316,9 +336,14 @@
             <!-- ADMIN UPDATE / MANAGE DATA -->
             <section class="admin-panel admin-only hidden" id="adminPanel">
 
-                <p class="section-small-title">ADMIN TOOLS</p>
-                <h2>Update / Manage Data</h2>
-                <p class="admin-hint manage-page-subtitle">Select a section first. The selected section is used for student, subject and CR changes.</p>
+                <div class="manage-heading-row">
+                    <div>
+                        <p class="section-small-title">ADMIN TOOLS</p>
+                        <h2>Update / Manage Data</h2>
+                        <p class="admin-hint manage-page-subtitle">Select a section first. The selected section is used for student, subject and CR changes.</p>
+                    </div>
+                    <button id="openSectionSetupBtn" type="button" class="save-btn manage-add-section-btn">＋ Add New Section</button>
+                </div>
 
                 <div class="manage-section-selector">
                     <div class="select-box">
@@ -358,10 +383,12 @@
                     <div class="admin-card manage-cr-card">
                         <h3>Assign / Manage CR</h3>
                         <form id="addCrForm">
+                            <input type="text" id="newCrName" placeholder="CR name" required>
                             <input type="email" id="newCrEmail" placeholder="CR's login email" required>
+                            <input type="text" id="newCrMobile" placeholder="CR mobile" required>
                             <button type="submit">+ Assign CR</button>
                         </form>
-                        <p class="admin-hint">The selected section above will be assigned to this CR. Create the Firebase Auth login first.</p>
+                        <p class="admin-hint">The selected section will be assigned to this CR. A new Firebase Auth account gets a temporary password and an invitation email draft.</p>
                         <div id="crManageList" class="cr-list"></div>
                     </div>
                 </div>
@@ -456,6 +483,83 @@
 
         </main>
 
+
+        <div id="contactAdminModal" class="modal-backdrop hidden">
+            <div class="request-modal contact-admin-modal" role="dialog" aria-modal="true" aria-labelledby="contactAdminModalTitle">
+                <div class="modal-head">
+                    <div>
+                        <p class="section-small-title">ACCESS REQUEST</p>
+                        <h3 id="contactAdminModalTitle">Contact Admin</h3>
+                    </div>
+                    <button id="closeContactAdminBtn" class="drawer-close" type="button">×</button>
+                </div>
+                <form id="contactAdminForm">
+                    <div class="request-fields">
+                        <div class="input-group"><label for="contactAdminName">Your Name</label><input id="contactAdminName" class="request-input" placeholder="Enter your name" required></div>
+                        <div class="input-group"><label for="contactAdminEmail">Your Email</label><input id="contactAdminEmail" type="email" class="request-input" placeholder="Enter your email" required></div>
+                        <div class="input-group"><label for="contactAdminMobile">Mobile Number</label><input id="contactAdminMobile" class="request-input" placeholder="Enter your mobile number" required></div>
+                        <div class="input-group"><label for="contactAdminType">Request Type</label><select id="contactAdminType" class="request-input"><option>New CR Access</option><option>New Course / Section</option><option>Other</option></select></div>
+                    </div>
+                    <div class="input-group"><label for="contactAdminMessage">Message</label><textarea id="contactAdminMessage" class="request-input" rows="4" placeholder="Enter your request..." required></textarea></div>
+                    <div class="modal-actions"><button id="cancelContactAdminBtn" type="button" class="secondary-btn">Cancel</button><button type="submit" class="save-btn">Send Request</button></div>
+                </form>
+            </div>
+        </div>
+
+        <div id="sectionSetupModal" class="modal-backdrop hidden">
+            <div class="request-modal section-setup-modal" role="dialog" aria-modal="true" aria-labelledby="sectionSetupModalTitle">
+                <div class="modal-head">
+                    <div>
+                        <p class="section-small-title">CLASS SETUP</p>
+                        <h3 id="sectionSetupModalTitle">Add New Section</h3>
+                        <p class="setup-modal-subtitle">Create the class, assign a CR, and import students and subjects in one step.</p>
+                    </div>
+                    <button id="closeSectionSetupBtn" class="drawer-close" type="button">×</button>
+                </div>
+
+                <form id="sectionSetupForm">
+                    <div class="section-setup-grid">
+                        <section class="setup-form-card">
+                            <h4>Section Details</h4>
+                            <div class="input-group"><label for="setupCourse">Course</label><input id="setupCourse" class="request-input" placeholder="e.g. B.Tech CSE" required></div>
+                            <div class="input-group"><label for="setupSemester">Semester</label><input id="setupSemester" class="request-input" placeholder="e.g. 5" required></div>
+                            <div class="input-group"><label for="setupSectionName">Section Name</label><input id="setupSectionName" class="request-input" placeholder="e.g. CSE - 5A" required></div>
+                            <div class="input-group"><label for="setupMentorName">Mentor Name</label><input id="setupMentorName" class="request-input" placeholder="Mentor name"></div>
+                            <div class="input-group"><label for="setupMentorEmail">Mentor Email</label><input id="setupMentorEmail" type="email" class="request-input" placeholder="mentor@university.edu"></div>
+                            <div class="input-group"><label for="setupMentorMobile">Mentor Mobile</label><input id="setupMentorMobile" class="request-input" placeholder="Mentor mobile"></div>
+                        </section>
+
+                        <section class="setup-form-card">
+                            <h4>CR Details</h4>
+                            <div class="input-group"><label for="setupCrName">CR Name</label><input id="setupCrName" class="request-input" placeholder="e.g. Amit Singh" required></div>
+                            <div class="input-group"><label for="setupCrEmail">CR Email</label><input id="setupCrEmail" type="email" class="request-input" placeholder="cr@example.com" required></div>
+                            <div class="input-group"><label for="setupCrMobile">CR Mobile</label><input id="setupCrMobile" class="request-input" placeholder="CR mobile" required></div>
+                            <div class="setup-email-note">The system creates the CR Firebase login with a temporary password and prepares the invitation email.</div>
+                        </section>
+                    </div>
+
+                    <section class="setup-import-card">
+                        <div class="setup-import-head">
+                            <div>
+                                <h4>Student &amp; Subject Data</h4>
+                                <p>Download the template, fill Students and Subjects sheets, then upload it here.</p>
+                            </div>
+                            <button id="downloadSetupTemplateBtn" type="button" class="secondary-btn">📥 Download Excel Template</button>
+                        </div>
+                        <div class="setup-upload-row">
+                            <div class="setup-file-wrap">
+                                <label for="setupExcelFile">📤 Upload Filled Excel File</label>
+                                <input id="setupExcelFile" type="file" accept=".xlsx,.xls">
+                            </div>
+                            <div id="setupImportStatus" class="setup-import-status">No file selected.</div>
+                        </div>
+                        <div id="setupImportPreview" class="setup-import-preview hidden"></div>
+                    </section>
+
+                    <div class="modal-actions"><button id="cancelSectionSetupBtn" type="button" class="secondary-btn">Cancel</button><button type="submit" class="save-btn">Create Section</button></div>
+                </form>
+            </div>
+        </div>
 
         <div id="requestModal" class="modal-backdrop hidden">
             <div class="request-modal" role="dialog" aria-modal="true" aria-labelledby="requestModalTitle">

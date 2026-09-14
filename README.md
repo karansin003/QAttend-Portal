@@ -605,3 +605,16 @@ It helps support the project and motivates further development.
 **QAttend Portal**
 
 </div>
+
+
+## New onboarding and scalability features
+
+- Login page includes a Contact Admin option with a pre-filled Gmail request flow.
+- Admin can create a new section from one setup form with course, semester, mentor and CR details.
+- Admin can download an Excel template containing Instructions, Students and Subjects sheets.
+- Admin can upload the completed Excel file and preview valid student/subject counts before creating the section.
+- New sections are stored in the Firestore section catalog and automatically appear in Admin section selectors.
+- The new-section flow provisions a new Firebase Authentication CR account with a generated temporary password when the email is not already registered, creates the CR profile, assigns the new section, and opens a pre-filled invitation email.
+- Existing request approval, rejection and bulk approval/rejection behavior remains unchanged.
+
+> Email sending from a browser-only Firebase app is implemented as a pre-filled Gmail compose flow so the Admin/CR can review and press Send. Fully unattended email delivery requires a server-side email service or Cloud Function.
