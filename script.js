@@ -18,6 +18,7 @@ import {
     getDocs,
     deleteDoc,
     updateDoc,
+    writeBatch,
     query,
     orderBy,
     limit,
@@ -40,16 +41,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-
-
-// ADMIN CONTACT EMAIL
-// Used by the "Contact Admin" links on the login page (Send Mail /
-// Request to Add Section). These open the visitor's own email app via
-// mailto: — no login and no Firestore write is involved, so it works
-// even for someone who isn't in the system yet. Replace with the real
-// admin inbox before deploying.
-
-const ADMIN_CONTACT_EMAIL = "admin@example.com";
 
 
 // LAZY-LOAD SHEETJS
@@ -118,6 +109,41 @@ const SECTIONS = [
         label: "Cloud Technology & Information Security"
     }
 ];
+
+// Dynamically created section metadata is loaded from Firestore.
+const SECTION_META = {};
+
+async function loadCustomSections() {
+    if (!auth.currentUser || !profile) return;
+    try {
+        if (profile.role === "admin") {
+            const snapshot = await getDocs(collection(db, "sections"));
+            snapshot.forEach(sectionDoc => {
+                const data = sectionDoc.data() || {};
+                if (!data.label) return;
+                SECTION_META[sectionDoc.id] = data;
+                if (!SECTIONS.some(section => section.id === sectionDoc.id)) {
+                    SECTIONS.push({ id: sectionDoc.id, label: data.label });
+                }
+            });
+            return;
+        }
+
+        if (profile.role === "cr" && profile.section) {
+            const sectionDoc = await getDoc(doc(db, "sections", profile.section));
+            if (sectionDoc.exists()) {
+                const data = sectionDoc.data() || {};
+                SECTION_META[profile.section] = data;
+                if (data.label && !SECTIONS.some(section => section.id === profile.section)) {
+                    SECTIONS.push({ id: profile.section, label: data.label });
+                }
+            }
+        }
+    } catch (error) {
+        console.warn("Could not load custom sections:", error);
+    }
+}
+
 
 
 function sectionLabelOf(id) {
@@ -266,77 +292,6 @@ const resetMessage =
 const backToLoginLink =
     document.getElementById(
         "backToLoginLink"
-    );
-
-
-const contactAdminLink =
-    document.getElementById(
-        "contactAdminLink"
-    );
-
-const contactAdminModal =
-    document.getElementById(
-        "contactAdminModal"
-    );
-
-const closeContactAdminModal =
-    document.getElementById(
-        "closeContactAdminModal"
-    );
-
-const contactSendMailBtn =
-    document.getElementById(
-        "contactSendMailBtn"
-    );
-
-const openSectionRequestBtn =
-    document.getElementById(
-        "openSectionRequestBtn"
-    );
-
-const sectionRequestModal =
-    document.getElementById(
-        "sectionRequestModal"
-    );
-
-const closeSectionRequestModal =
-    document.getElementById(
-        "closeSectionRequestModal"
-    );
-
-const cancelSectionRequestBtn =
-    document.getElementById(
-        "cancelSectionRequestBtn"
-    );
-
-const sectionRequestForm =
-    document.getElementById(
-        "sectionRequestForm"
-    );
-
-const sectionRequestName =
-    document.getElementById(
-        "sectionRequestName"
-    );
-
-const sectionRequestEmail =
-    document.getElementById(
-        "sectionRequestEmail"
-    );
-
-const sectionRequestSectionName =
-    document.getElementById(
-        "sectionRequestSectionName"
-    );
-
-const sectionRequestReason =
-    document.getElementById(
-        "sectionRequestReason"
-    );
-
-const sectionRequestMessage =
-    document.getElementById(
-        "sectionRequestMessage"
     );
 
 
@@ -644,6 +599,41 @@ forgotPasswordLink.addEventListener(
 );
 
 
+// CONTACT ADMIN
+const contactAdminLink = document.getElementById("contactAdminLink");
+const contactAdminModal = document.getElementById("contactAdminModal");
+const closeContactAdminModal = document.getElementById("closeContactAdminModal");
+const cancelContactAdminBtn = document.getElementById("cancelContactAdminBtn");
+const contactAdminForm = document.getElementById("contactAdminForm");
+const contactAdminEmail = document.getElementById("contactAdminEmail");
+
+contactAdminLink?.addEventListener("click", function (event) {
+    event.preventDefault();
+    if (contactAdminEmail) contactAdminEmail.value = emailInput?.value.trim() || "";
+    contactAdminModal?.classList.remove("hidden");
+});
+
+closeContactAdminModal?.addEventListener("click", () => contactAdminModal?.classList.add("hidden"));
+cancelContactAdminBtn?.addEventListener("click", () => contactAdminModal?.classList.add("hidden"));
+contactAdminModal?.addEventListener("click", event => {
+    if (event.target === contactAdminModal) contactAdminModal.classList.add("hidden");
+});
+
+contactAdminForm?.addEventListener("submit", event => {
+    event.preventDefault();
+    const name = document.getElementById("contactAdminName")?.value.trim() || "";
+    const email = contactAdminEmail?.value.trim() || "";
+    const mobile = document.getElementById("contactAdminMobile")?.value.trim() || "";
+    const message = document.getElementById("contactAdminMessage")?.value.trim() || "";
+    const subject = encodeURIComponent("QAttend - Contact Admin / Access Request");
+    const body = encodeURIComponent(
+        `Name: ${name}\nEmail: ${email}\nMobile: ${mobile}\n\nMessage:\n${message}`
+    );
+    const gmailCompose = `https://mail.google.com/mail/?view=cm&fs=1&to=sonusin8672@gmail.com&su=${subject}&body=${body}`;
+    window.open(gmailCompose, "_blank", "noopener");
+});
+
+
 // BACK TO LOGIN
 
 backToLoginLink.addEventListener(
@@ -771,200 +761,6 @@ sendResetBtn.addEventListener(
 );
 
 
-// CONTACT ADMIN
-
-contactAdminLink.addEventListener(
-    "click",
-    function (event) {
-
-        event.preventDefault();
-
-        contactAdminModal.classList.remove(
-            "hidden"
-        );
-    }
-);
-
-
-closeContactAdminModal.addEventListener(
-    "click",
-    function () {
-
-        contactAdminModal.classList.add(
-            "hidden"
-        );
-    }
-);
-
-
-contactAdminModal.addEventListener(
-    "click",
-    function (event) {
-
-        if (event.target === contactAdminModal) {
-
-            contactAdminModal.classList.add(
-                "hidden"
-            );
-        }
-    }
-);
-
-
-// SEND MAIL — opens the visitor's own email app addressed to Admin
-
-contactSendMailBtn.addEventListener(
-    "click",
-    function () {
-
-        const subject =
-            encodeURIComponent(
-                "QAttend — Query from a visitor"
-            );
-
-        const body =
-            encodeURIComponent(
-                "Hi Admin,\n\n" +
-                "I need help with QAttend.\n\n" +
-                "(Please describe your issue here.)"
-            );
-
-        window.location.href =
-            "mailto:" + ADMIN_CONTACT_EMAIL +
-            "?subject=" + subject +
-            "&body=" + body;
-
-        contactAdminModal.classList.add(
-            "hidden"
-        );
-    }
-);
-
-
-// REQUEST TO ADD SECTION — opens the structured form
-
-openSectionRequestBtn.addEventListener(
-    "click",
-    function () {
-
-        contactAdminModal.classList.add(
-            "hidden"
-        );
-
-        sectionRequestForm.reset();
-
-        sectionRequestMessage.textContent =
-            "";
-
-        sectionRequestMessage.classList.remove(
-            "login-message-success"
-        );
-
-        sectionRequestEmail.value =
-            emailInput.value.trim();
-
-        sectionRequestModal.classList.remove(
-            "hidden"
-        );
-    }
-);
-
-
-closeSectionRequestModal.addEventListener(
-    "click",
-    function () {
-
-        sectionRequestModal.classList.add(
-            "hidden"
-        );
-    }
-);
-
-
-cancelSectionRequestBtn.addEventListener(
-    "click",
-    function () {
-
-        sectionRequestModal.classList.add(
-            "hidden"
-        );
-    }
-);
-
-
-sectionRequestModal.addEventListener(
-    "click",
-    function (event) {
-
-        if (event.target === sectionRequestModal) {
-
-            sectionRequestModal.classList.add(
-                "hidden"
-            );
-        }
-    }
-);
-
-
-sectionRequestForm.addEventListener(
-    "submit",
-    function (event) {
-
-        event.preventDefault();
-
-        const name =
-            sectionRequestName.value.trim();
-
-        const email =
-            sectionRequestEmail.value.trim();
-
-        const sectionName =
-            sectionRequestSectionName.value.trim();
-
-        const reason =
-            sectionRequestReason.value.trim();
-
-        if (!name || !email || !sectionName || !reason) {
-
-            sectionRequestMessage.classList.remove(
-                "login-message-success"
-            );
-
-            sectionRequestMessage.textContent =
-                "Please fill in every field.";
-
-            return;
-        }
-
-        const subject =
-            encodeURIComponent(
-                "QAttend — Request to Add Section: " + sectionName
-            );
-
-        const body =
-            encodeURIComponent(
-                "New section request\n\n" +
-                "Name: " + name + "\n" +
-                "Email: " + email + "\n" +
-                "Requested Section: " + sectionName + "\n\n" +
-                "Reason:\n" + reason
-            );
-
-        window.location.href =
-            "mailto:" + ADMIN_CONTACT_EMAIL +
-            "?subject=" + subject +
-            "&body=" + body;
-
-        sectionRequestMessage.classList.add(
-            "login-message-success"
-        );
-
-        sectionRequestMessage.textContent =
-            "✅ Opening your email app to send the request to Admin...";
-    }
-);
-
-
 // AUTH STATE
 
 onAuthStateChanged(
@@ -1059,6 +855,12 @@ onAuthStateChanged(
             return;
         }
 
+        await loadCustomSections();
+
+        if (profile?.section && SECTION_META[profile.section]?.course) {
+            const courseLabel = document.getElementById("courseLabel");
+            if (courseLabel) courseLabel.textContent = SECTION_META[profile.section].course;
+        }
 
         loginPage.classList.add(
             "hidden"
@@ -1130,6 +932,7 @@ onAuthStateChanged(
 
             // Admin lands on the Admin Dashboard after login.
             // Mark Attendance is opened explicitly from the hamburger menu.
+            await loadCustomSections();
             populateSectionDropdowns();
 
             activeSection = null;
@@ -1264,6 +1067,12 @@ sectionSelect.addEventListener(
             sectionSelect.value ||
             null;
 
+        const selectedCourseLabel = document.getElementById("courseLabel");
+        if (selectedCourseLabel) {
+            selectedCourseLabel.textContent = activeSection && SECTION_META[activeSection]?.course
+                ? SECTION_META[activeSection].course
+                : "B.Tech AI & ML";
+        }
 
         if (!activeSection) {
 
@@ -4181,6 +3990,258 @@ downloadBtn.addEventListener(
         );
     }
 );
+
+
+/* =========================================================
+   ADD NEW SECTION / EXCEL IMPORT
+   ========================================================= */
+
+const addSectionModal = document.getElementById("addSectionModal");
+const addSectionForm = document.getElementById("addSectionForm");
+const newSectionExcel = document.getElementById("newSectionExcel");
+const sectionImportPreview = document.getElementById("sectionImportPreview");
+const sectionImportMessage = document.getElementById("sectionImportMessage");
+const createSectionBtn = document.getElementById("createSectionBtn");
+let sectionImportData = null;
+
+function resetAddSectionForm() {
+    addSectionForm?.reset();
+    sectionImportData = null;
+    sectionImportPreview?.classList.add("hidden");
+    if (sectionImportMessage) sectionImportMessage.textContent = "Download the template, fill it, then upload it here.";
+    if (createSectionBtn) createSectionBtn.disabled = true;
+}
+
+function normalizeHeader(value) {
+    return String(value || "").trim().toLowerCase().replace(/[.\s_-]+/g, "");
+}
+
+function slugifySection(value) {
+    return String(value || "")
+        .trim()
+        .toUpperCase()
+        .replace(/&/g, " AND ")
+        .replace(/[^A-Z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 100);
+}
+
+function updateSectionImportPreview(data) {
+    if (!data) return;
+    document.getElementById("previewStudentCount").textContent = data.students.length;
+    document.getElementById("previewSubjectCount").textContent = data.subjects.length;
+    document.getElementById("previewDuplicateCount").textContent = data.duplicateCount;
+    document.getElementById("previewInvalidCount").textContent = data.invalidCount;
+    sectionImportPreview?.classList.remove("hidden");
+}
+
+newSectionExcel?.addEventListener("change", async event => {
+    const file = event.target.files?.[0];
+    sectionImportData = null;
+    if (createSectionBtn) createSectionBtn.disabled = true;
+    if (!file) return;
+
+    if (!/\.(xlsx|xls)$/i.test(file.name)) {
+        sectionImportMessage.textContent = "Please choose an .xlsx or .xls file.";
+        return;
+    }
+
+    sectionImportMessage.textContent = "Reading Excel file...";
+
+    try {
+        await ensureXLSXLoaded();
+        const buffer = await file.arrayBuffer();
+        const workbook = XLSX.read(buffer, { type: "array" });
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(firstSheet, { defval: "" });
+
+        if (!rows.length) throw new Error("The Excel sheet is empty.");
+
+        const keys = Object.keys(rows[0]);
+        const qidKey = keys.find(key => normalizeHeader(key) === "qid" || normalizeHeader(key) === "studentqid");
+        const nameKey = keys.find(key => normalizeHeader(key) === "studentname" || normalizeHeader(key) === "name");
+        if (!qidKey || !nameKey) {
+            throw new Error("Template columns not found. Use the provided Section Template.xlsx file.");
+        }
+
+        const subjectKeys = keys.filter(key => key !== qidKey && key !== nameKey && String(key).trim());
+        const qidSeen = new Set();
+        const students = [];
+        let duplicateCount = 0;
+        let invalidCount = 0;
+        const subjectSet = new Set();
+
+        rows.forEach(row => {
+            const qid = String(row[qidKey] ?? "").trim();
+            const name = String(row[nameKey] ?? "").trim();
+            if (!qid || !name) {
+                invalidCount++;
+                return;
+            }
+            const key = qid.toLowerCase();
+            if (qidSeen.has(key)) {
+                duplicateCount++;
+                return;
+            }
+            qidSeen.add(key);
+            students.push({ qid, name: name.toUpperCase() });
+
+            subjectKeys.forEach(subjectKey => {
+                const subject = String(row[subjectKey] ?? "").trim();
+                if (subject) subjectSet.add(subject);
+            });
+        });
+
+        sectionImportData = { students, subjects: [...subjectSet], duplicateCount, invalidCount };
+        updateSectionImportPreview(sectionImportData);
+        sectionImportMessage.textContent = `Excel ready: ${students.length} students and ${subjectSet.size} subjects found.`;
+        if (createSectionBtn) createSectionBtn.disabled = students.length === 0;
+    } catch (error) {
+        console.error("Section Excel import failed:", error);
+        sectionImportMessage.textContent = error.message || "Could not read the Excel file.";
+    }
+});
+
+function addSectionWriteBatchInChunks(items, makeRefAndData) {
+    const chunks = [];
+    for (let i = 0; i < items.length; i += 400) chunks.push(items.slice(i, i + 400));
+    return chunks.map(chunk => {
+        const batch = writeBatch(db);
+        chunk.forEach(item => {
+            const { ref, data } = makeRefAndData(item);
+            batch.set(ref, data);
+        });
+        return batch.commit();
+    });
+}
+
+async function createNewSectionFromForm(event) {
+    event.preventDefault();
+    if (profile?.role !== "admin") return;
+    if (!sectionImportData?.students?.length) {
+        alert("Please upload the filled Excel template first.");
+        return;
+    }
+
+    const course = document.getElementById("newSectionCourse")?.value.trim();
+    const sectionLabel = document.getElementById("newSectionSection")?.value.trim();
+    const semester = document.getElementById("newSectionSemester")?.value.trim();
+    const year = document.getElementById("newSectionYear")?.value.trim();
+    const crQid = document.getElementById("newSectionCrQid")?.value.trim();
+    const crEmail = document.getElementById("newSectionCrEmail")?.value.trim().toLowerCase();
+    const crMobile = document.getElementById("newSectionCrMobile")?.value.trim();
+    const mentorName = document.getElementById("newSectionMentorName")?.value.trim();
+    const mentorMobile = document.getElementById("newSectionMentorMobile")?.value.trim();
+
+    if (!course || !sectionLabel || !semester || !year || !crQid || !crEmail || !crMobile || !mentorName || !mentorMobile) {
+        alert("Please fill all section, CR and mentor details.");
+        return;
+    }
+
+    const sectionId = slugifySection(`${course}-${sectionLabel}`);
+    if (!sectionId) {
+        alert("Please enter a valid course and section.");
+        return;
+    }
+
+    if (SECTIONS.some(section => section.label.toLowerCase() === sectionLabel.toLowerCase())) {
+        alert("A section with this name already exists. Use a unique section name.");
+        return;
+    }
+
+    createSectionBtn.disabled = true;
+    createSectionBtn.textContent = "Creating...";
+
+    try {
+        const sectionRef = doc(db, "sections", sectionId);
+        const existingSection = await getDoc(sectionRef);
+        if (existingSection.exists()) throw new Error("This course/section already exists.");
+
+        const existingProfile = await getDoc(doc(db, "users", crEmail));
+        if (existingProfile.exists() && existingProfile.data()?.role === "admin") {
+            throw new Error("The CR email belongs to an Admin account.");
+        }
+
+        const metadata = {
+            label: sectionLabel,
+            course,
+            semester,
+            year,
+            cr: { qid: crQid, email: crEmail, mobile: crMobile },
+            mentor: { name: mentorName, mobile: mentorMobile },
+            createdAt: new Date().toISOString(),
+            createdBy: auth.currentUser?.email || ""
+        };
+
+        await setDoc(sectionRef, metadata);
+
+        const studentBatches = addSectionWriteBatchInChunks(sectionImportData.students, student => ({
+            ref: doc(db, "sections", sectionId, "students", String(student.qid)),
+            data: student
+        }));
+        for (const batchPromise of studentBatches) await batchPromise;
+
+        const subjects = [...sectionImportData.subjects];
+        const subjectBatches = addSectionWriteBatchInChunks(subjects, subject => ({
+            ref: doc(db, "sections", sectionId, "subjects", slugifySection(subject) || `SUBJECT-${subjects.indexOf(subject) + 1}`),
+            data: { name: subject }
+        }));
+        for (const batchPromise of subjectBatches) await batchPromise;
+
+        await setDoc(doc(db, "users", crEmail), {
+            role: "cr",
+            section: sectionId,
+            qid: crQid,
+            mobile: crMobile,
+            course,
+            createdAt: existingProfile.exists() ? (existingProfile.data()?.createdAt || new Date().toISOString()) : new Date().toISOString()
+        }, { merge: true });
+
+        SECTION_META[sectionId] = metadata;
+        SECTIONS.push({ id: sectionId, label: sectionLabel });
+        populateSectionDropdowns();
+        if (manageSectionSelect) manageSectionSelect.value = sectionId;
+        managementSection = sectionId;
+        if (sectionSelect) sectionSelect.value = sectionId;
+
+        await writeActivityLog("ADD_SECTION", `${sectionLabel} · ${course}`, {
+            section: sectionId,
+            studentCount: sectionImportData.students.length,
+            subjectCount: subjects.length
+        });
+
+        alert(`✅ Section created successfully.\nStudents imported: ${sectionImportData.students.length}\nSubjects imported: ${subjects.length}`);
+        addSectionModal?.classList.add("hidden");
+        resetAddSectionForm();
+        await refreshManageData();
+    } catch (error) {
+        console.error("Could not create section:", error);
+        alert(`Could not create section: ${error.message || error}`);
+    } finally {
+        createSectionBtn.disabled = false;
+        createSectionBtn.textContent = "✓ Create Section";
+    }
+}
+
+addSectionForm?.addEventListener("submit", createNewSectionFromForm);
+document.getElementById("openAddSectionBtn")?.addEventListener("click", () => {
+    resetAddSectionForm();
+    addSectionModal?.classList.remove("hidden");
+});
+document.getElementById("closeAddSectionModal")?.addEventListener("click", () => {
+    addSectionModal?.classList.add("hidden");
+    resetAddSectionForm();
+});
+document.getElementById("cancelAddSectionBtn")?.addEventListener("click", () => {
+    addSectionModal?.classList.add("hidden");
+    resetAddSectionForm();
+});
+addSectionModal?.addEventListener("click", event => {
+    if (event.target === addSectionModal) {
+        addSectionModal.classList.add("hidden");
+        resetAddSectionForm();
+    }
+});
 
 
 /* =========================================================

@@ -80,12 +80,3 @@ do that separately in the Console if you want the login gone entirely.
 
 ## Requests and Activity Logs
 The app stores CR change requests in `requests` and Admin-visible activity history in `activityLogs`. After deploying the latest files, publish the matching `firestore.rules` in Firebase Console before testing these features.
-
-
-## New Section setup
-
-From Admin -> Update / Manage Data -> Add New Section, enter the class/mentor/CR details, download the Excel template, fill the Students and Subjects sheets, upload it, preview the counts, then create the section.
-
-New sections are stored under the top-level `sections/{sectionId}` document and their students/subjects live in the existing subcollections. The Firestore rules include Admin create/update/delete access to section metadata and CR read access to the metadata for the CR's assigned section.
-
-The CR account is provisioned from the Admin browser using a secondary Firebase Auth instance so the Admin session is not signed out. For a brand-new CR email, a temporary password is generated. The invitation email opens in Gmail as a pre-filled draft because the current app has no server-side email service.

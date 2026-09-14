@@ -64,6 +64,10 @@
                 <a href="#" id="forgotPasswordLink">Forgot password?</a>
             </p>
 
+            <p class="contact-admin-row">
+                <a href="#" id="contactAdminLink">Contact to Admin</a>
+            </p>
+
             <!-- FORGOT PASSWORD (hidden until "Forgot password?" is clicked) -->
             <div id="resetPasswordBox" class="hidden">
 
@@ -84,80 +88,10 @@
                     <a href="#" id="backToLoginLink">Back to login</a>
                 </p>
 
-                <p class="contact-admin-row">
-                    Need help? <a href="#" id="contactAdminLink">Contact Admin</a>
-                </p>
-
             </div>
 
         </div>
 
-    </div>
-
-
-    <!-- CONTACT ADMIN (choice) -->
-    <div id="contactAdminModal" class="modal-backdrop hidden">
-        <div class="support-modal" role="dialog" aria-modal="true" aria-labelledby="contactAdminTitle">
-            <div class="modal-head">
-                <div>
-                    <p class="section-small-title">GET IN TOUCH</p>
-                    <h3 id="contactAdminTitle">Contact Admin</h3>
-                </div>
-                <button id="closeContactAdminModal" class="drawer-close" type="button">×</button>
-            </div>
-            <p class="login-description" style="margin-bottom:16px;">
-                Can't log in, or don't see your section yet? Choose an option below.
-            </p>
-            <div class="contact-choice-list">
-                <button type="button" id="contactSendMailBtn" class="contact-choice-btn">
-                    <span class="drawer-icon">📧</span>
-                    <span><b>Send Mail</b><small>Email the Admin directly with your question</small></span>
-                    <span class="drawer-arrow">›</span>
-                </button>
-                <button type="button" id="openSectionRequestBtn" class="contact-choice-btn">
-                    <span class="drawer-icon">➕</span>
-                    <span><b>Request to Add Section</b><small>Ask Admin to set up a new section for you</small></span>
-                    <span class="drawer-arrow">›</span>
-                </button>
-            </div>
-        </div>
-    </div>
-
-
-    <!-- REQUEST TO ADD SECTION -->
-    <div id="sectionRequestModal" class="modal-backdrop hidden">
-        <div class="request-modal" role="dialog" aria-modal="true" aria-labelledby="sectionRequestTitle">
-            <div class="modal-head">
-                <div>
-                    <p class="section-small-title">REQUEST TO ADMIN</p>
-                    <h3 id="sectionRequestTitle">Request to Add Section</h3>
-                </div>
-                <button id="closeSectionRequestModal" class="drawer-close" type="button">×</button>
-            </div>
-            <form id="sectionRequestForm">
-                <div class="input-group">
-                    <label for="sectionRequestName">Your Name</label>
-                    <input id="sectionRequestName" class="request-input" placeholder="Full Name" required>
-                </div>
-                <div class="input-group">
-                    <label for="sectionRequestEmail">Your Email</label>
-                    <input type="email" id="sectionRequestEmail" class="request-input" placeholder="you@example.com" required>
-                </div>
-                <div class="input-group">
-                    <label for="sectionRequestSectionName">Section Name</label>
-                    <input id="sectionRequestSectionName" class="request-input" placeholder="e.g. CSCQ" required>
-                </div>
-                <div class="input-group">
-                    <label for="sectionRequestReason">Reason</label>
-                    <textarea id="sectionRequestReason" class="request-input" rows="4" placeholder="Why does this section need to be added?" required></textarea>
-                </div>
-                <p id="sectionRequestMessage" class="login-message"></p>
-                <div class="modal-actions">
-                    <button id="cancelSectionRequestBtn" type="button" class="secondary-btn">Cancel</button>
-                    <button type="submit" class="save-btn">Send Request</button>
-                </div>
-            </form>
-        </div>
     </div>
 
 
@@ -346,7 +280,7 @@
                     </div>
                     <div class="detail-item">
                         <span>Course</span>
-                        <strong>B.Tech AI &amp; ML</strong>
+                        <strong id="courseLabel">B.Tech AI &amp; ML</strong>
                     </div>
                     <div class="detail-item">
                         <span>Section</span>
@@ -386,9 +320,14 @@
             <!-- ADMIN UPDATE / MANAGE DATA -->
             <section class="admin-panel admin-only hidden" id="adminPanel">
 
-                <p class="section-small-title">ADMIN TOOLS</p>
-                <h2>Update / Manage Data</h2>
-                <p class="admin-hint manage-page-subtitle">Select a section first. The selected section is used for student, subject and CR changes.</p>
+                <div class="manage-page-heading">
+                    <div>
+                        <p class="section-small-title">ADMIN TOOLS</p>
+                        <h2>Update / Manage Data</h2>
+                        <p class="admin-hint manage-page-subtitle">Select a section first. The selected section is used for student, subject and CR changes.</p>
+                    </div>
+                    <button id="openAddSectionBtn" class="primary-outline-btn" type="button">+ Add New Section</button>
+                </div>
 
                 <div class="manage-section-selector">
                     <div class="select-box">
@@ -526,6 +465,138 @@
 
         </main>
 
+
+        <!-- CONTACT ADMIN -->
+        <div id="contactAdminModal" class="modal-backdrop hidden">
+            <div class="contact-admin-modal" role="dialog" aria-modal="true" aria-labelledby="contactAdminTitle">
+                <div class="modal-head">
+                    <div>
+                        <p class="section-small-title">ACCESS SUPPORT</p>
+                        <h3 id="contactAdminTitle">Contact to Admin</h3>
+                    </div>
+                    <button id="closeContactAdminModal" class="drawer-close" type="button">×</button>
+                </div>
+                <form id="contactAdminForm">
+                    <div class="input-group">
+                        <label for="contactAdminName">Your Name</label>
+                        <input id="contactAdminName" class="request-input" type="text" placeholder="Enter your name" required>
+                    </div>
+                    <div class="contact-admin-grid">
+                        <div class="input-group">
+                            <label for="contactAdminEmail">Your Email</label>
+                            <input id="contactAdminEmail" class="request-input" type="email" placeholder="Enter your email" required>
+                        </div>
+                        <div class="input-group">
+                            <label for="contactAdminMobile">Mobile Number</label>
+                            <input id="contactAdminMobile" class="request-input" type="tel" placeholder="Enter your mobile number">
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label for="contactAdminMessage">Message</label>
+                        <textarea id="contactAdminMessage" class="request-input" rows="5" placeholder="Tell Admin what access or help you need." required></textarea>
+                    </div>
+                    <div class="contact-admin-recipient">
+                        <span>Send to Admin</span>
+                        <strong>sonusin8672@gmail.com</strong>
+                    </div>
+                    <div class="modal-actions">
+                        <button id="cancelContactAdminBtn" type="button" class="secondary-btn">Cancel</button>
+                        <button type="submit" class="save-btn">✉ Send Mail</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- ADD NEW SECTION -->
+        <div id="addSectionModal" class="modal-backdrop hidden">
+            <div class="add-section-modal" role="dialog" aria-modal="true" aria-labelledby="addSectionTitle">
+                <div class="modal-head">
+                    <div>
+                        <p class="section-small-title">CLASS SETUP</p>
+                        <h3 id="addSectionTitle">Add New Section</h3>
+                        <p class="admin-hint">Enter class, CR and mentor details, then upload the filled Excel template.</p>
+                    </div>
+                    <button id="closeAddSectionModal" class="drawer-close" type="button">×</button>
+                </div>
+
+                <form id="addSectionForm">
+                    <div class="add-section-grid">
+                        <section class="add-section-form-card">
+                            <h4>Section Details</h4>
+                            <div class="input-group">
+                                <label for="newSectionCourse">Course</label>
+                                <input id="newSectionCourse" class="request-input" type="text" placeholder="e.g. B.Tech CSE" required>
+                            </div>
+                            <div class="add-section-small-grid">
+                                <div class="input-group">
+                                    <label for="newSectionSection">Section</label>
+                                    <input id="newSectionSection" class="request-input" type="text" placeholder="e.g. CSE-5A" required>
+                                </div>
+                                <div class="input-group">
+                                    <label for="newSectionSemester">Semester</label>
+                                    <input id="newSectionSemester" class="request-input" type="text" placeholder="e.g. 5" required>
+                                </div>
+                            </div>
+                            <div class="input-group">
+                                <label for="newSectionYear">Year</label>
+                                <input id="newSectionYear" class="request-input" type="text" placeholder="e.g. 2026-27" required>
+                            </div>
+
+                            <h4>CR Details</h4>
+                            <div class="input-group">
+                                <label for="newSectionCrQid">CR's Q.ID</label>
+                                <input id="newSectionCrQid" class="request-input" type="text" placeholder="CR Q.ID" required>
+                            </div>
+                            <div class="input-group">
+                                <label for="newSectionCrEmail">CR's Mail</label>
+                                <input id="newSectionCrEmail" class="request-input" type="email" placeholder="cr@example.com" required>
+                            </div>
+                            <div class="input-group">
+                                <label for="newSectionCrMobile">CR's Mobile Number</label>
+                                <input id="newSectionCrMobile" class="request-input" type="tel" placeholder="CR mobile number" required>
+                            </div>
+
+                            <h4>Mentor Details</h4>
+                            <div class="input-group">
+                                <label for="newSectionMentorName">Mentor Name</label>
+                                <input id="newSectionMentorName" class="request-input" type="text" placeholder="Mentor name" required>
+                            </div>
+                            <div class="input-group">
+                                <label for="newSectionMentorMobile">Mentor Number</label>
+                                <input id="newSectionMentorMobile" class="request-input" type="tel" placeholder="Mentor mobile number" required>
+                            </div>
+                        </section>
+
+                        <section class="add-section-import-card">
+                            <h4>Student &amp; Subject Data</h4>
+                            <p class="admin-hint">Use the same Excel template provided by QAttend.</p>
+                            <a class="template-download-btn" href="Section%20Template.xlsx" download="Section Template.xlsx">📥 Download Excel Template</a>
+                            <div class="template-note">Template columns: <b>Qid</b>, <b>Student Name</b>, <b>Subject1</b>, <b>Subject2</b>, <b>Subject3</b> and more subject columns if needed.</div>
+
+                            <label class="upload-file-box" for="newSectionExcel">
+                                <span>📤 Upload Filled Excel File</span>
+                                <small>Only .xlsx and .xls files are allowed.</small>
+                                <input id="newSectionExcel" type="file" accept=".xlsx,.xls">
+                            </label>
+
+                            <div id="sectionImportPreview" class="section-import-preview hidden">
+                                <div><span>Students found</span><strong id="previewStudentCount">0</strong></div>
+                                <div><span>Subjects found</span><strong id="previewSubjectCount">0</strong></div>
+                                <div><span>Duplicate Q.ID</span><strong id="previewDuplicateCount">0</strong></div>
+                                <div><span>Invalid rows</span><strong id="previewInvalidCount">0</strong></div>
+                            </div>
+
+                            <div id="sectionImportMessage" class="section-import-message">Download the template, fill it, then upload it here.</div>
+                        </section>
+                    </div>
+
+                    <div class="modal-actions add-section-actions">
+                        <button id="cancelAddSectionBtn" type="button" class="secondary-btn">Cancel</button>
+                        <button id="createSectionBtn" type="submit" class="save-btn" disabled>✓ Create Section</button>
+                    </div>
+                </form>
+            </div>
+        </div>
 
         <div id="requestModal" class="modal-backdrop hidden">
             <div class="request-modal" role="dialog" aria-modal="true" aria-labelledby="requestModalTitle">

@@ -22,17 +22,17 @@ service cloud.firestore {
       return myProfile().section;
     }
 
-    // SECTION CATALOG / METADATA
-    // Admin can create and manage new sections. A CR can read metadata only for the section assigned to them.
-    match /sections/{sectionId} {
-      allow read: if isAdmin() || (isCR() && mySection() == sectionId);
-      allow create, update, delete: if isAdmin();
-    }
-
     // USER / ROLE PROFILES
     match /users/{email} {
       allow read: if isSignedIn() && request.auth.token.email == email;
       allow read, write: if isAdmin();
+    }
+
+    // SECTION METADATA
+    // Admin can create/manage sections. A CR can read only its assigned section metadata.
+    match /sections/{sectionId} {
+      allow read: if isAdmin() || (isCR() && mySection() == sectionId);
+      allow create, update, delete: if isAdmin();
     }
 
     // SUBJECTS
