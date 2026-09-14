@@ -3526,8 +3526,22 @@ async function viewRecord(
         );
 
 
+        // Make sure the attendance UI is explicitly opened when an admin
+        // clicks View from Previous Attendance. The normal attendance gate
+        // can otherwise remain hidden from the previous screen state.
+        workArea?.classList.remove("hidden");
+        noSectionMessage?.classList.add("hidden");
+        document.getElementById("attendanceGateMessage")?.classList.add("hidden");
+        document.querySelector(".stats")?.classList.remove("hidden");
+        document.querySelector(".top-actions")?.classList.remove("hidden");
+        document.querySelector(".attendance-section")?.classList.remove("hidden");
+        document.querySelector(".action-buttons")?.classList.remove("hidden");
+
         displayStudents();
 
+        // Re-sync the gate after restoring the record so the normal view
+        // state is consistent with the selected section/date/subject.
+        syncAttendanceGate();
 
         window.scrollTo({
 
