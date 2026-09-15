@@ -605,3 +605,25 @@ It helps support the project and motivates further development.
 **QAttend Portal**
 
 </div>
+
+## Login-page access features
+
+The login page now includes:
+
+- Forgot password
+- Need access? Contact Admin
+- Request a new section
+
+### Contact Admin
+
+The Contact Admin form opens before login and prepares an email to `sonusin8672@gmail.com` with the entered details. On localhost/static hosting, the user's configured mail application must be available because browsers do not silently send email without an email service.
+
+### Request a new section
+
+The new-section form collects CR Q.ID, CR name, CR mobile, CR email, mentor name/number, course, section, semester and year. It also provides `Section_Template.xlsx` for download and accepts the completed Excel file.
+
+The request is saved to Firestore as `type: "add_section"` with `status: "pending"`. Admin approval creates the section metadata, imports students and subjects, creates the CR Firebase Authentication account, creates the CR profile, and prepares the CR invitation email. Rejecting the request changes only the request status and does not modify section data.
+
+### Existing request center
+
+Admin can select multiple pending requests and accept or reject them together, or process each request individually. Approved student/subject requests update the corresponding Firestore section immediately.

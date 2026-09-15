@@ -5,7 +5,8 @@ import {
     signInWithEmailAndPassword,
     signOut,
     onAuthStateChanged,
-    sendPasswordResetEmail
+    sendPasswordResetEmail,
+    createUserWithEmailAndPassword
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 
 import {
@@ -18,11 +19,11 @@ import {
     getDocs,
     deleteDoc,
     updateDoc,
-    writeBatch,
     query,
     orderBy,
     limit,
-    where
+    where,
+    writeBatch
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
 
@@ -41,6 +42,12 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+
+// A secondary Firebase Auth instance is used only when Admin approves a
+// new-section request. It creates the CR account without signing the Admin out.
+const provisioningApp = initializeApp(firebaseConfig, "qattend-cr-provisioning");
+const provisioningAuth = getAuth(provisioningApp);
+
 
 
 // LAZY-LOAD SHEETJS
@@ -87,6 +94,235 @@ function ensureXLSXLoaded() {
     return xlsxLoadPromise;
 }
 
+// EXCEL TEMPLATE GENERATORS & PARSERS
+async function downloadSectionTemplate(e) {
+    if (e && typeof e.preventDefault === "function") e.preventDefault();
+    try {
+        await ensureXLSXLoaded();
+        const wb = XLSX.utils.book_new();
+
+        // Sheet 1: Students
+        const studentData = [
+            ["QID", "Student Name"],
+            ["24030101", "Karan Kumar"],
+            ["24030102", "Rahul Kumar"],
+            ["24030103", "Amit Singh"],
+            ["24030104", "Neha Sharma"],
+            ["24030105", "Priya Verma"]
+        ];
+        const wsStudents = XLSX.utils.aoa_to_sheet(studentData);
+        XLSX.utils.book_append_sheet(wb, wsStudents, "Students");
+
+        // Sheet 2: Subjects
+        const subjectData = [
+            ["Subject Name"],
+            ["Design and Analysis of Algorithm"],
+            ["Database Management System"],
+            ["Operating System"],
+            ["Computer Networks"],
+            ["Machine Learning"],
+            ["Artificial Intelligence"]
+        ];
+        const wsSubjects = XLSX.utils.aoa_to_sheet(subjectData);
+        XLSX.utils.book_append_sheet(wb, wsSubjects, "Subjects");
+
+        // Sheet 3: Instructions
+        const instructions = [
+            ["Sheet / Column", "Rule & Guideline"],
+            ["Students: QID", "Fill student university QID (unique, required)"],
+            ["Students: Student Name", "Fill student full name (required)"],
+            ["Subjects: Subject Name", "Fill each subject on a new row (required)"],
+            ["Column Headers", "Do not modify column headers in row 1"],
+            ["Duplicates", "Do not add duplicate QIDs"],
+            ["File Format", "Save as .xlsx and upload in QAttend"]
+        ];
+        const wsInstructions = XLSX.utils.aoa_to_sheet(instructions);
+        XLSX.utils.book_append_sheet(wb, wsInstructions, "Instructions");
+
+        XLSX.writeFile(wb, "Section_Template.xlsx");
+    } catch (err) {
+        console.error("Error generating section template:", err);
+        window.location.href = "Section_Template.xlsx";
+    }
+}
+
+async function downloadStudentTemplate(e) {
+    if (e && typeof e.preventDefault === "function") e.preventDefault();
+    try {
+        await ensureXLSXLoaded();
+        const wb = XLSX.utils.book_new();
+        const studentData = [
+            ["QID", "Student Name"],
+            ["24030101", "Karan Kumar"],
+            ["24030102", "Rahul Kumar"]
+        ];
+        const wsStudents = XLSX.utils.aoa_to_sheet(studentData);
+        XLSX.utils.book_append_sheet(wb, wsStudents, "Students");
+
+        const instructions = [
+            ["Column", "Rule"],
+            ["QID", "University QID (Required, Unique)"],
+            ["Student Name", "Student Full Name (Required)"]
+        ];
+        const wsInstructions = XLSX.utils.aoa_to_sheet(instructions);
+        XLSX.utils.book_append_sheet(wb, wsInstructions, "Instructions");
+
+        XLSX.writeFile(wb, "Student_Template.xlsx");
+    } catch (err) {
+        console.error("Error generating student template:", err);
+    }
+}
+
+async function downloadSubjectTemplate(e) {
+    if (e && typeof e.preventDefault === "function") e.preventDefault();
+    try {
+        await ensureXLSXLoaded();
+        const wb = XLSX.utils.book_new();
+        const subjectData = [
+            ["Subject Name"],
+            ["Design and Analysis of Algorithm"],
+            ["Database Management System"],
+            ["Operating System"]
+        ];
+        const wsSubjects = XLSX.utils.aoa_to_sheet(subjectData);
+        XLSX.utils.book_append_sheet(wb, wsSubjects, "Subjects");
+
+        const instructions = [
+            ["Column", "Rule"],
+            ["Subject Name", "Course Subject Name (Required, Unique)"]
+        ];
+        const wsInstructions = XLSX.utils.aoa_to_sheet(instructions);
+        XLSX.utils.book_append_sheet(wb, wsInstructions, "Instructions");
+
+        XLSX.writeFile(wb, "Subject_Template.xlsx");
+    } catch (err) {
+        console.error("Error generating subject template:", err);
+    }
+}
+
+async function parseSectionExcelFile(file) {
+    await ensureXLSXLoaded();
+    const buffer = await file.arrayBuffer();
+    const workbook = XLSX.read(buffer, { type: "array" });
+    const normalize = v => String(v ?? "").trim();
+    const findSheet = name => workbook.Sheets[name] || workbook.Sheets[name.toLowerCase()] || workbook.Sheets[name.toUpperCase()] || null;
+
+    const studentsSheet = findSheet("Students") || workbook.Sheets[workbook.SheetNames[0]];
+    const subjectsSheet = findSheet("Subjects") || (workbook.SheetNames.length > 1 ? workbook.Sheets[workbook.SheetNames[1]] : null);
+
+    const studentRows = studentsSheet ? XLSX.utils.sheet_to_json(studentsSheet, { header: 1, defval: "" }) : [];
+    const subjectRows = subjectsSheet ? XLSX.utils.sheet_to_json(subjectsSheet, { header: 1, defval: "" }) : [];
+
+    const studentsOut = [];
+    const qids = new Set();
+    let duplicateCount = 0;
+    let invalidCount = 0;
+
+    studentRows.slice(1).forEach(row => {
+        const qid = normalize(row[0]);
+        const name = normalize(row[1]);
+        if (!qid && !name) return;
+        if (!qid || !name) {
+            invalidCount++;
+            return;
+        }
+        if (qids.has(qid.toLowerCase())) {
+            duplicateCount++;
+            return;
+        }
+        qids.add(qid.toLowerCase());
+        studentsOut.push({ qid, name: name.toUpperCase() });
+    });
+
+    const subjectsOut = [];
+    const subjectSet = new Set();
+    subjectRows.slice(1).forEach(row => {
+        const name = normalize(row[0]);
+        if (!name) return;
+        const key = name.toLowerCase();
+        if (!subjectSet.has(key)) {
+            subjectSet.add(key);
+            subjectsOut.push(name);
+        }
+    });
+
+    return {
+        students: studentsOut,
+        subjects: subjectsOut,
+        duplicateCount,
+        invalidCount,
+        fileName: file.name
+    };
+}
+
+function renderSectionExcelPreview(prefix, parsedData) {
+    const previewEl = document.getElementById(prefix ? `${prefix}ExcelPreview` : "sectionExcelPreview");
+    if (!previewEl) return;
+
+    const badge = document.getElementById(prefix ? `${prefix}SuccessBadge` : "sectionExcelSuccessBadge");
+    const fileNameEl = document.getElementById(prefix ? `${prefix}FileName` : "sectionExcelFileName");
+    if (badge && fileNameEl) {
+        fileNameEl.textContent = parsedData.fileName || "section_data.xlsx";
+        badge.classList.remove("hidden");
+    }
+
+    const studentCountEl = document.getElementById(prefix ? `${prefix}StudentCount` : "excelStudentCount");
+    const subjectCountEl = document.getElementById(prefix ? `${prefix}SubjectCount` : "excelSubjectCount");
+    const duplicateCountEl = document.getElementById(prefix ? `${prefix}DuplicateCount` : "excelDuplicateCount");
+    const invalidCountEl = document.getElementById(prefix ? `${prefix}InvalidCount` : "excelInvalidCount");
+
+    if (studentCountEl) studentCountEl.textContent = parsedData.students.length;
+    if (subjectCountEl) subjectCountEl.textContent = parsedData.subjects.length;
+    if (duplicateCountEl) duplicateCountEl.textContent = parsedData.duplicateCount;
+    if (invalidCountEl) invalidCountEl.textContent = parsedData.invalidCount;
+
+    // Subjects Preview
+    const subjectsBox = document.getElementById(prefix ? `${prefix}SubjectsBox` : "sectionExcelSubjectsBox");
+    const subjectsList = document.getElementById(prefix ? `${prefix}SubjectsList` : "excelSubjectsList");
+    if (subjectsBox && subjectsList) {
+        subjectsList.innerHTML = "";
+        if (parsedData.subjects.length > 0) {
+            parsedData.subjects.forEach(sub => {
+                const pill = document.createElement("span");
+                pill.className = "subject-pill-tag";
+                pill.textContent = sub;
+                subjectsList.appendChild(pill);
+            });
+            subjectsBox.classList.remove("hidden");
+        } else {
+            subjectsBox.classList.add("hidden");
+        }
+    }
+
+    // Students Preview (first 10)
+    const studentsBox = document.getElementById(prefix ? `${prefix}StudentsBox` : "sectionExcelStudentsBox");
+    const tableBody = document.getElementById(prefix ? `${prefix}StudentsTableBody` : "excelStudentsTableBody");
+    const moreText = document.getElementById(prefix ? `${prefix}MoreStudentsText` : "excelMoreStudentsText");
+    if (studentsBox && tableBody) {
+        tableBody.innerHTML = "";
+        const previewRows = parsedData.students.slice(0, 10);
+        previewRows.forEach((st, idx) => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `<td>${idx + 1}</td><td>${escapeHtml(st.qid)}</td><td>${escapeHtml(st.name)}</td>`;
+            tableBody.appendChild(tr);
+        });
+
+        if (moreText) {
+            const remaining = parsedData.students.length - 10;
+            if (remaining > 0) {
+                moreText.textContent = `+ ${remaining} more students`;
+                moreText.classList.remove("hidden");
+            } else {
+                moreText.textContent = "";
+                moreText.classList.add("hidden");
+            }
+        }
+        studentsBox.classList.remove("hidden");
+    }
+
+    previewEl.classList.remove("hidden");
+}
+
 
 // FIXED SECTION LIST
 
@@ -109,41 +345,6 @@ const SECTIONS = [
         label: "Cloud Technology & Information Security"
     }
 ];
-
-// Dynamically created section metadata is loaded from Firestore.
-const SECTION_META = {};
-
-async function loadCustomSections() {
-    if (!auth.currentUser || !profile) return;
-    try {
-        if (profile.role === "admin") {
-            const snapshot = await getDocs(collection(db, "sections"));
-            snapshot.forEach(sectionDoc => {
-                const data = sectionDoc.data() || {};
-                if (!data.label) return;
-                SECTION_META[sectionDoc.id] = data;
-                if (!SECTIONS.some(section => section.id === sectionDoc.id)) {
-                    SECTIONS.push({ id: sectionDoc.id, label: data.label });
-                }
-            });
-            return;
-        }
-
-        if (profile.role === "cr" && profile.section) {
-            const sectionDoc = await getDoc(doc(db, "sections", profile.section));
-            if (sectionDoc.exists()) {
-                const data = sectionDoc.data() || {};
-                SECTION_META[profile.section] = data;
-                if (data.label && !SECTIONS.some(section => section.id === profile.section)) {
-                    SECTIONS.push({ id: profile.section, label: data.label });
-                }
-            }
-        }
-    } catch (error) {
-        console.warn("Could not load custom sections:", error);
-    }
-}
-
 
 
 function sectionLabelOf(id) {
@@ -170,6 +371,7 @@ function escapeHtml(value) {
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
 }
+window.escapeHtml = escapeHtml;
 
 
 // NAME COMPARISON
@@ -562,6 +764,176 @@ loginForm.addEventListener(
 );
 
 
+// LOGIN-PAGE ACCESS MODALS
+
+const contactAdminLink = document.getElementById("contactAdminLink");
+const contactAdminModal = document.getElementById("contactAdminModal");
+const closeContactAdminModal = document.getElementById("closeContactAdminModal");
+const cancelContactAdminBtn = document.getElementById("cancelContactAdminBtn");
+const contactAdminForm = document.getElementById("contactAdminForm");
+const contactAdminMessage = document.getElementById("contactAdminMessage");
+const requestSectionLink = document.getElementById("requestSectionLink");
+const addSectionRequestModal = document.getElementById("addSectionRequestModal");
+const closeAddSectionRequestModal = document.getElementById("closeAddSectionRequestModal");
+const cancelAddSectionRequestBtn = document.getElementById("cancelAddSectionRequestBtn");
+const addSectionRequestForm = document.getElementById("addSectionRequestForm");
+const sectionExcelFile = document.getElementById("sectionExcelFile");
+const sectionExcelFileLabel = document.getElementById("sectionExcelFileLabel");
+const sectionExcelPreview = document.getElementById("sectionExcelPreview");
+const sectionRequestMessage = document.getElementById("sectionRequestMessage");
+const submitAddSectionRequestBtn = document.getElementById("submitAddSectionRequestBtn");
+
+let sectionExcelPayload = null;
+
+function openLoginModal(modal) {
+    modal?.classList.remove("hidden");
+    document.body.classList.add("modal-open");
+}
+function closeLoginModal(modal) {
+    modal?.classList.add("hidden");
+    if (!document.querySelector(".modal-backdrop:not(.hidden)")) document.body.classList.remove("modal-open");
+}
+
+contactAdminLink?.addEventListener("click", () => {
+    contactAdminMessage.textContent = "";
+    openLoginModal(contactAdminModal);
+});
+closeContactAdminModal?.addEventListener("click", () => closeLoginModal(contactAdminModal));
+cancelContactAdminBtn?.addEventListener("click", () => closeLoginModal(contactAdminModal));
+
+contactAdminForm?.addEventListener("submit", event => {
+    event.preventDefault();
+    const name = document.getElementById("contactName").value.trim();
+    const email = document.getElementById("contactEmail").value.trim();
+    const mobile = document.getElementById("contactMobile").value.trim();
+    const message = document.getElementById("contactMessage").value.trim();
+    if (!/^\d{10}$/.test(mobile)) {
+        contactAdminMessage.textContent = "Mobile number must be exactly 10 digits.";
+        contactAdminMessage.className = "form-feedback error";
+        return;
+    }
+    const subject = encodeURIComponent(`QAttend Access Request - ${name}`);
+    const body = encodeURIComponent(`Name: ${name}\nEmail: ${email}\nMobile: ${mobile}\n\nMessage:\n${message}`);
+    contactAdminMessage.textContent = "Opening your email app...";
+    contactAdminMessage.className = "form-feedback success";
+    window.location.href = `mailto:sonusin8672@gmail.com?subject=${subject}&body=${body}`;
+});
+
+requestSectionLink?.addEventListener("click", () => {
+    sectionRequestMessage.textContent = "";
+    sectionExcelPayload = null;
+    if (sectionExcelFile) sectionExcelFile.value = "";
+    if (sectionExcelFileLabel) sectionExcelFileLabel.textContent = "Click to upload Excel file";
+    sectionExcelPreview?.classList.add("hidden");
+    openLoginModal(addSectionRequestModal);
+});
+closeAddSectionRequestModal?.addEventListener("click", () => closeLoginModal(addSectionRequestModal));
+cancelAddSectionRequestBtn?.addEventListener("click", () => closeLoginModal(addSectionRequestModal));
+
+sectionExcelFile?.addEventListener("change", async () => {
+    const file = sectionExcelFile.files?.[0];
+    if (!file) return;
+    if (!/\.(xlsx|xls)$/i.test(file.name)) {
+        sectionRequestMessage.textContent = "Please upload an .xlsx or .xls file.";
+        sectionRequestMessage.className = "section-request-message error";
+        sectionExcelFile.value = "";
+        return;
+    }
+    sectionExcelFileLabel.textContent = file.name;
+    sectionRequestMessage.textContent = "Reading Excel file...";
+    sectionRequestMessage.className = "section-request-message";
+    try {
+        await ensureXLSXLoaded();
+        const buffer = await file.arrayBuffer();
+        const workbook = XLSX.read(buffer, {type:"array"});
+        const normalize = v => String(v ?? "").trim();
+        const findSheet = name => workbook.Sheets[name] || workbook.Sheets[name.toLowerCase()] || null;
+        const studentsSheet = findSheet("Students") || workbook.Sheets[workbook.SheetNames[0]];
+        const subjectsSheet = findSheet("Subjects") || (workbook.SheetNames[1] ? workbook.Sheets[workbook.SheetNames[1]] : null);
+        const studentRows = studentsSheet ? XLSX.utils.sheet_to_json(studentsSheet, {header:1, defval:""}) : [];
+        const subjectRows = subjectsSheet ? XLSX.utils.sheet_to_json(subjectsSheet, {header:1, defval:""}) : [];
+
+        const studentsOut = [];
+        const qids = new Set();
+        let invalid = 0;
+        studentRows.slice(1).forEach(row => {
+            const qid = normalize(row[0]);
+            const name = normalize(row[1]);
+            if (!qid && !name) return;
+            if (!qid || !name || qids.has(qid.toLowerCase())) { invalid++; return; }
+            qids.add(qid.toLowerCase());
+            studentsOut.push({qid, name: name.toUpperCase()});
+        });
+
+        const subjectsOut = [];
+        const subjectSet = new Set();
+        subjectRows.slice(1).forEach(row => {
+            const name = normalize(row[0]);
+            if (!name) return;
+            const key = name.toLowerCase();
+            if (!subjectSet.has(key)) { subjectSet.add(key); subjectsOut.push(name); }
+        });
+
+        sectionExcelPayload = {students:studentsOut, subjects:subjectsOut, duplicateCount:0, invalidCount:invalid};
+        document.getElementById("excelStudentCount").textContent = studentsOut.length;
+        document.getElementById("excelSubjectCount").textContent = subjectsOut.length;
+        document.getElementById("excelDuplicateCount").textContent = 0;
+        document.getElementById("excelInvalidCount").textContent = invalid;
+        sectionExcelPreview.classList.remove("hidden");
+        sectionRequestMessage.textContent = studentsOut.length ? "Excel validated. You can submit the request." : "No valid students found in the Excel file.";
+        sectionRequestMessage.className = `section-request-message ${studentsOut.length ? "success" : "error"}`;
+    } catch (error) {
+        console.error(error);
+        sectionExcelPayload = null;
+        sectionExcelPreview?.classList.add("hidden");
+        sectionRequestMessage.textContent = "Could not read the Excel file. Please use the provided template.";
+        sectionRequestMessage.className = "section-request-message error";
+    }
+});
+
+addSectionRequestForm?.addEventListener("submit", async event => {
+    event.preventDefault();
+    const get = id => document.getElementById(id)?.value.trim() || "";
+    const crQid=get("reqCrQid"), crName=get("reqCrName"), crMobile=get("reqCrMobile"), crEmail=get("reqCrEmail").toLowerCase();
+    const mentorName=get("reqMentorName"), mentorMobile=get("reqMentorMobile"), course=get("reqCourse"), sectionName=get("reqSectionName"), semester=get("reqSemester"), year=get("reqYear");
+    if (!/^\d{10}$/.test(crMobile) || !/^\d{10}$/.test(mentorMobile)) {
+        sectionRequestMessage.textContent = "CR Mobile and Mentor No. must be exactly 10 digits.";
+        sectionRequestMessage.className = "section-request-message error";
+        return;
+    }
+    if (!sectionExcelPayload || !sectionExcelPayload.students.length) {
+        sectionRequestMessage.textContent = "Please download, fill and upload the Excel template before submitting.";
+        sectionRequestMessage.className = "section-request-message error";
+        return;
+    }
+    submitAddSectionRequestBtn.disabled = true;
+    sectionRequestMessage.textContent = "Sending request to Admin...";
+    sectionRequestMessage.className = "section-request-message";
+    const sectionId = `${course}-${sectionName}`.toUpperCase().replace(/[^A-Z0-9]+/g,"-").replace(/^-|-$/g,"");
+    const data = {
+        type:"add_section", status:"pending", requestedBy:crEmail, requestedByRole:"guest",
+        crQid, crName, crMobile, crEmail, mentorName, mentorMobile, course, section:sectionId,
+        sectionLabel:sectionName, semester, year, students:sectionExcelPayload.students, subjects:sectionExcelPayload.subjects,
+        excelStats:{students:sectionExcelPayload.students.length,subjects:sectionExcelPayload.subjects.length,duplicates:sectionExcelPayload.duplicateCount,invalid:sectionExcelPayload.invalidCount},
+        createdAt:new Date().toISOString()
+    };
+    try {
+        await addDoc(collection(db,"requests"),data);
+        const subject=encodeURIComponent(`QAttend - New Section Request - ${sectionName}`);
+        const body=encodeURIComponent(`CR Q.ID: ${crQid}\nCR Name: ${crName}\nCR Mobile: ${crMobile}\nCR Email: ${crEmail}\n\nMentor Name: ${mentorName}\nMentor No.: ${mentorMobile}\n\nCourse: ${course}\nSection: ${sectionName}\nSemester: ${semester}\nYear: ${year}\n\nStudents: ${data.students.length}\nSubjects: ${data.subjects.join(", ")}\n\nPlease review this request in QAttend Admin Request Center.`);
+        sectionRequestMessage.textContent = "Request saved. Opening email to Admin...";
+        sectionRequestMessage.className = "section-request-message success";
+        window.location.href=`mailto:sonusin8672@gmail.com?subject=${subject}&body=${body}`;
+        setTimeout(() => closeLoginModal(addSectionRequestModal), 800);
+    } catch (error) {
+        console.error(error);
+        sectionRequestMessage.textContent = "Could not submit request. Check Firestore Rules and try again.";
+        sectionRequestMessage.className = "section-request-message error";
+    } finally { submitAddSectionRequestBtn.disabled = false; }
+});
+
+[contactAdminModal, addSectionRequestModal].forEach(modal => modal?.addEventListener("click", e => { if(e.target===modal) closeLoginModal(modal); }));
+
 // FORGOT PASSWORD
 
 forgotPasswordLink.addEventListener(
@@ -597,41 +969,6 @@ forgotPasswordLink.addEventListener(
         );
     }
 );
-
-
-// CONTACT ADMIN
-const contactAdminLink = document.getElementById("contactAdminLink");
-const contactAdminModal = document.getElementById("contactAdminModal");
-const closeContactAdminModal = document.getElementById("closeContactAdminModal");
-const cancelContactAdminBtn = document.getElementById("cancelContactAdminBtn");
-const contactAdminForm = document.getElementById("contactAdminForm");
-const contactAdminEmail = document.getElementById("contactAdminEmail");
-
-contactAdminLink?.addEventListener("click", function (event) {
-    event.preventDefault();
-    if (contactAdminEmail) contactAdminEmail.value = emailInput?.value.trim() || "";
-    contactAdminModal?.classList.remove("hidden");
-});
-
-closeContactAdminModal?.addEventListener("click", () => contactAdminModal?.classList.add("hidden"));
-cancelContactAdminBtn?.addEventListener("click", () => contactAdminModal?.classList.add("hidden"));
-contactAdminModal?.addEventListener("click", event => {
-    if (event.target === contactAdminModal) contactAdminModal.classList.add("hidden");
-});
-
-contactAdminForm?.addEventListener("submit", event => {
-    event.preventDefault();
-    const name = document.getElementById("contactAdminName")?.value.trim() || "";
-    const email = contactAdminEmail?.value.trim() || "";
-    const mobile = document.getElementById("contactAdminMobile")?.value.trim() || "";
-    const message = document.getElementById("contactAdminMessage")?.value.trim() || "";
-    const subject = encodeURIComponent("QAttend - Contact Admin / Access Request");
-    const body = encodeURIComponent(
-        `Name: ${name}\nEmail: ${email}\nMobile: ${mobile}\n\nMessage:\n${message}`
-    );
-    const gmailCompose = `https://mail.google.com/mail/?view=cm&fs=1&to=sonusin8672@gmail.com&su=${subject}&body=${body}`;
-    window.open(gmailCompose, "_blank", "noopener");
-});
 
 
 // BACK TO LOGIN
@@ -855,12 +1192,6 @@ onAuthStateChanged(
             return;
         }
 
-        await loadCustomSections();
-
-        if (profile?.section && SECTION_META[profile.section]?.course) {
-            const courseLabel = document.getElementById("courseLabel");
-            if (courseLabel) courseLabel.textContent = SECTION_META[profile.section].course;
-        }
 
         loginPage.classList.add(
             "hidden"
@@ -932,7 +1263,6 @@ onAuthStateChanged(
 
             // Admin lands on the Admin Dashboard after login.
             // Mark Attendance is opened explicitly from the hamburger menu.
-            await loadCustomSections();
             populateSectionDropdowns();
 
             activeSection = null;
@@ -987,73 +1317,29 @@ onAuthStateChanged(
 
 // SECTION DROPDOWNS
 
-function populateSectionDropdowns() {
+async function populateSectionDropdowns() {
+    const allSections = [...SECTIONS];
+    try {
+        const snap = await getDocs(collection(db,"sections"));
+        snap.docs.forEach(d=>{
+            const x=d.data()||{};
+            if(!d.id || allSections.some(s=>s.id===d.id)) return;
+            const item={id:d.id,label:x.label||x.section||d.id};
+            allSections.push(item);
+            SECTIONS.push(item);
+        });
+    }catch(e){console.warn("Could not load dynamic sections:",e);}
 
-    sectionSelect.innerHTML =
-        `<option value="">
-            -- Select Section --
-        </option>`;
+    sectionSelect.innerHTML=`<option value="">-- Select Section --</option>`;
+    if(newCrSection)newCrSection.innerHTML="";
+    const manageSection=document.getElementById("manageSectionSelect");
+    if(manageSection)manageSection.innerHTML=`<option value="">-- Select Section --</option>`;
 
-
-    if (newCrSection) {
-        newCrSection.innerHTML = "";
-    }
-
-    const manageSection = document.getElementById("manageSectionSelect");
-    if (manageSection) {
-        manageSection.innerHTML =
-            `<option value="">-- Select Section --</option>`;
-    }
-
-
-    SECTIONS.forEach(
-        function (section) {
-
-            const option1 =
-                document.createElement(
-                    "option"
-                );
-
-
-            option1.value =
-                section.id;
-
-
-            option1.textContent =
-                section.label;
-
-
-            sectionSelect.appendChild(
-                option1
-            );
-
-
-            const option2 =
-                document.createElement(
-                    "option"
-                );
-
-
-            option2.value =
-                section.id;
-
-
-            option2.textContent =
-                section.label;
-
-
-            if (newCrSection) {
-                newCrSection.appendChild(option2);
-            }
-
-            if (manageSection) {
-                const option3 = document.createElement("option");
-                option3.value = section.id;
-                option3.textContent = section.label;
-                manageSection.appendChild(option3);
-            }
-        }
-    );
+    allSections.forEach(section=>{
+        const option1=document.createElement("option");option1.value=section.id;option1.textContent=section.label;sectionSelect.appendChild(option1);
+        if(newCrSection){const option2=document.createElement("option");option2.value=section.id;option2.textContent=section.label;newCrSection.appendChild(option2);}
+        if(manageSection){const option3=document.createElement("option");option3.value=section.id;option3.textContent=section.label;manageSection.appendChild(option3);}
+    });
 }
 
 
@@ -1067,12 +1353,6 @@ sectionSelect.addEventListener(
             sectionSelect.value ||
             null;
 
-        const selectedCourseLabel = document.getElementById("courseLabel");
-        if (selectedCourseLabel) {
-            selectedCourseLabel.textContent = activeSection && SECTION_META[activeSection]?.course
-                ? SECTION_META[activeSection].course
-                : "B.Tech AI & ML";
-        }
 
         if (!activeSection) {
 
@@ -3993,258 +4273,6 @@ downloadBtn.addEventListener(
 
 
 /* =========================================================
-   ADD NEW SECTION / EXCEL IMPORT
-   ========================================================= */
-
-const addSectionModal = document.getElementById("addSectionModal");
-const addSectionForm = document.getElementById("addSectionForm");
-const newSectionExcel = document.getElementById("newSectionExcel");
-const sectionImportPreview = document.getElementById("sectionImportPreview");
-const sectionImportMessage = document.getElementById("sectionImportMessage");
-const createSectionBtn = document.getElementById("createSectionBtn");
-let sectionImportData = null;
-
-function resetAddSectionForm() {
-    addSectionForm?.reset();
-    sectionImportData = null;
-    sectionImportPreview?.classList.add("hidden");
-    if (sectionImportMessage) sectionImportMessage.textContent = "Download the template, fill it, then upload it here.";
-    if (createSectionBtn) createSectionBtn.disabled = true;
-}
-
-function normalizeHeader(value) {
-    return String(value || "").trim().toLowerCase().replace(/[.\s_-]+/g, "");
-}
-
-function slugifySection(value) {
-    return String(value || "")
-        .trim()
-        .toUpperCase()
-        .replace(/&/g, " AND ")
-        .replace(/[^A-Z0-9]+/g, "-")
-        .replace(/^-+|-+$/g, "")
-        .slice(0, 100);
-}
-
-function updateSectionImportPreview(data) {
-    if (!data) return;
-    document.getElementById("previewStudentCount").textContent = data.students.length;
-    document.getElementById("previewSubjectCount").textContent = data.subjects.length;
-    document.getElementById("previewDuplicateCount").textContent = data.duplicateCount;
-    document.getElementById("previewInvalidCount").textContent = data.invalidCount;
-    sectionImportPreview?.classList.remove("hidden");
-}
-
-newSectionExcel?.addEventListener("change", async event => {
-    const file = event.target.files?.[0];
-    sectionImportData = null;
-    if (createSectionBtn) createSectionBtn.disabled = true;
-    if (!file) return;
-
-    if (!/\.(xlsx|xls)$/i.test(file.name)) {
-        sectionImportMessage.textContent = "Please choose an .xlsx or .xls file.";
-        return;
-    }
-
-    sectionImportMessage.textContent = "Reading Excel file...";
-
-    try {
-        await ensureXLSXLoaded();
-        const buffer = await file.arrayBuffer();
-        const workbook = XLSX.read(buffer, { type: "array" });
-        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(firstSheet, { defval: "" });
-
-        if (!rows.length) throw new Error("The Excel sheet is empty.");
-
-        const keys = Object.keys(rows[0]);
-        const qidKey = keys.find(key => normalizeHeader(key) === "qid" || normalizeHeader(key) === "studentqid");
-        const nameKey = keys.find(key => normalizeHeader(key) === "studentname" || normalizeHeader(key) === "name");
-        if (!qidKey || !nameKey) {
-            throw new Error("Template columns not found. Use the provided Section Template.xlsx file.");
-        }
-
-        const subjectKeys = keys.filter(key => key !== qidKey && key !== nameKey && String(key).trim());
-        const qidSeen = new Set();
-        const students = [];
-        let duplicateCount = 0;
-        let invalidCount = 0;
-        const subjectSet = new Set();
-
-        rows.forEach(row => {
-            const qid = String(row[qidKey] ?? "").trim();
-            const name = String(row[nameKey] ?? "").trim();
-            if (!qid || !name) {
-                invalidCount++;
-                return;
-            }
-            const key = qid.toLowerCase();
-            if (qidSeen.has(key)) {
-                duplicateCount++;
-                return;
-            }
-            qidSeen.add(key);
-            students.push({ qid, name: name.toUpperCase() });
-
-            subjectKeys.forEach(subjectKey => {
-                const subject = String(row[subjectKey] ?? "").trim();
-                if (subject) subjectSet.add(subject);
-            });
-        });
-
-        sectionImportData = { students, subjects: [...subjectSet], duplicateCount, invalidCount };
-        updateSectionImportPreview(sectionImportData);
-        sectionImportMessage.textContent = `Excel ready: ${students.length} students and ${subjectSet.size} subjects found.`;
-        if (createSectionBtn) createSectionBtn.disabled = students.length === 0;
-    } catch (error) {
-        console.error("Section Excel import failed:", error);
-        sectionImportMessage.textContent = error.message || "Could not read the Excel file.";
-    }
-});
-
-function addSectionWriteBatchInChunks(items, makeRefAndData) {
-    const chunks = [];
-    for (let i = 0; i < items.length; i += 400) chunks.push(items.slice(i, i + 400));
-    return chunks.map(chunk => {
-        const batch = writeBatch(db);
-        chunk.forEach(item => {
-            const { ref, data } = makeRefAndData(item);
-            batch.set(ref, data);
-        });
-        return batch.commit();
-    });
-}
-
-async function createNewSectionFromForm(event) {
-    event.preventDefault();
-    if (profile?.role !== "admin") return;
-    if (!sectionImportData?.students?.length) {
-        alert("Please upload the filled Excel template first.");
-        return;
-    }
-
-    const course = document.getElementById("newSectionCourse")?.value.trim();
-    const sectionLabel = document.getElementById("newSectionSection")?.value.trim();
-    const semester = document.getElementById("newSectionSemester")?.value.trim();
-    const year = document.getElementById("newSectionYear")?.value.trim();
-    const crQid = document.getElementById("newSectionCrQid")?.value.trim();
-    const crEmail = document.getElementById("newSectionCrEmail")?.value.trim().toLowerCase();
-    const crMobile = document.getElementById("newSectionCrMobile")?.value.trim();
-    const mentorName = document.getElementById("newSectionMentorName")?.value.trim();
-    const mentorMobile = document.getElementById("newSectionMentorMobile")?.value.trim();
-
-    if (!course || !sectionLabel || !semester || !year || !crQid || !crEmail || !crMobile || !mentorName || !mentorMobile) {
-        alert("Please fill all section, CR and mentor details.");
-        return;
-    }
-
-    const sectionId = slugifySection(`${course}-${sectionLabel}`);
-    if (!sectionId) {
-        alert("Please enter a valid course and section.");
-        return;
-    }
-
-    if (SECTIONS.some(section => section.label.toLowerCase() === sectionLabel.toLowerCase())) {
-        alert("A section with this name already exists. Use a unique section name.");
-        return;
-    }
-
-    createSectionBtn.disabled = true;
-    createSectionBtn.textContent = "Creating...";
-
-    try {
-        const sectionRef = doc(db, "sections", sectionId);
-        const existingSection = await getDoc(sectionRef);
-        if (existingSection.exists()) throw new Error("This course/section already exists.");
-
-        const existingProfile = await getDoc(doc(db, "users", crEmail));
-        if (existingProfile.exists() && existingProfile.data()?.role === "admin") {
-            throw new Error("The CR email belongs to an Admin account.");
-        }
-
-        const metadata = {
-            label: sectionLabel,
-            course,
-            semester,
-            year,
-            cr: { qid: crQid, email: crEmail, mobile: crMobile },
-            mentor: { name: mentorName, mobile: mentorMobile },
-            createdAt: new Date().toISOString(),
-            createdBy: auth.currentUser?.email || ""
-        };
-
-        await setDoc(sectionRef, metadata);
-
-        const studentBatches = addSectionWriteBatchInChunks(sectionImportData.students, student => ({
-            ref: doc(db, "sections", sectionId, "students", String(student.qid)),
-            data: student
-        }));
-        for (const batchPromise of studentBatches) await batchPromise;
-
-        const subjects = [...sectionImportData.subjects];
-        const subjectBatches = addSectionWriteBatchInChunks(subjects, subject => ({
-            ref: doc(db, "sections", sectionId, "subjects", slugifySection(subject) || `SUBJECT-${subjects.indexOf(subject) + 1}`),
-            data: { name: subject }
-        }));
-        for (const batchPromise of subjectBatches) await batchPromise;
-
-        await setDoc(doc(db, "users", crEmail), {
-            role: "cr",
-            section: sectionId,
-            qid: crQid,
-            mobile: crMobile,
-            course,
-            createdAt: existingProfile.exists() ? (existingProfile.data()?.createdAt || new Date().toISOString()) : new Date().toISOString()
-        }, { merge: true });
-
-        SECTION_META[sectionId] = metadata;
-        SECTIONS.push({ id: sectionId, label: sectionLabel });
-        populateSectionDropdowns();
-        if (manageSectionSelect) manageSectionSelect.value = sectionId;
-        managementSection = sectionId;
-        if (sectionSelect) sectionSelect.value = sectionId;
-
-        await writeActivityLog("ADD_SECTION", `${sectionLabel} · ${course}`, {
-            section: sectionId,
-            studentCount: sectionImportData.students.length,
-            subjectCount: subjects.length
-        });
-
-        alert(`✅ Section created successfully.\nStudents imported: ${sectionImportData.students.length}\nSubjects imported: ${subjects.length}`);
-        addSectionModal?.classList.add("hidden");
-        resetAddSectionForm();
-        await refreshManageData();
-    } catch (error) {
-        console.error("Could not create section:", error);
-        alert(`Could not create section: ${error.message || error}`);
-    } finally {
-        createSectionBtn.disabled = false;
-        createSectionBtn.textContent = "✓ Create Section";
-    }
-}
-
-addSectionForm?.addEventListener("submit", createNewSectionFromForm);
-document.getElementById("openAddSectionBtn")?.addEventListener("click", () => {
-    resetAddSectionForm();
-    addSectionModal?.classList.remove("hidden");
-});
-document.getElementById("closeAddSectionModal")?.addEventListener("click", () => {
-    addSectionModal?.classList.add("hidden");
-    resetAddSectionForm();
-});
-document.getElementById("cancelAddSectionBtn")?.addEventListener("click", () => {
-    addSectionModal?.classList.add("hidden");
-    resetAddSectionForm();
-});
-addSectionModal?.addEventListener("click", event => {
-    if (event.target === addSectionModal) {
-        addSectionModal.classList.add("hidden");
-        resetAddSectionForm();
-    }
-});
-
-
-/* =========================================================
    MORE DRAWER / REQUEST CENTER / ADMIN ACTIVITY LOGS
    ========================================================= */
 
@@ -4380,10 +4408,17 @@ async function loadAdminDashboardData(){
         const usersSnap = await getDocs(collection(db,"users"));
         const crCount = usersSnap.docs.filter(d => d.data()?.role === "cr").length;
 
-        const sectionTasks = SECTIONS.map(async section => {
+        const allSectionIds = new Set(SECTIONS.map(section => section.id));
+        try {
+            const dynamicSections = await getDocs(collection(db,"sections"));
+            dynamicSections.docs.forEach(d => allSectionIds.add(d.id));
+        } catch (e) {
+            console.warn("Could not read dynamic sections for dashboard:", e);
+        }
+        const sectionTasks = [...allSectionIds].map(async sectionId => {
             const [studentSnap, subjectSnap] = await Promise.all([
-                getDocs(collection(db,"sections",section.id,"students")),
-                getDocs(collection(db,"sections",section.id,"subjects"))
+                getDocs(collection(db,"sections",sectionId,"students")),
+                getDocs(collection(db,"sections",sectionId,"subjects"))
             ]);
             return {students: studentSnap.size, subjects: subjectSnap.size};
         });
@@ -4530,7 +4565,8 @@ function friendlyLogAction(action){
         DELETE_ATTENDANCE:"Attendance record deleted",
         REQUEST_SUBMITTED:"Request submitted",
         REQUEST_APPROVED:"Request approved",
-        REQUEST_REJECTED:"Request rejected"
+        REQUEST_REJECTED:"Request rejected",
+        ADD_SECTION:"Section added"
     }[action] || action;
 }
 
@@ -4611,7 +4647,9 @@ async function loadAdminRequestPreview(){
             el.className="activity-item";
             const title = r.type?.includes("student")
                 ? (r.type==="add_student"?"Add Student":"Delete Student")
-                : (r.type==="add_subject"?"Add Subject":"Delete Subject");
+                : r.type?.includes("subject")
+                    ? (r.type==="add_subject"?"Add Subject":"Delete Subject")
+                    : r.type === "add_section" ? "Add New Section" : "Request";
             el.innerHTML=`<span class="activity-icon">↗</span><div><b>${escapeHtml(title||"Request")}</b><small>${escapeHtml(r.requestedBy||"")} · ${escapeHtml(r.sectionLabel||sectionLabelOf(r.section||""))}</small><small>${escapeHtml(r.reason||"")}</small></div>`;
             dashboardRequestList.appendChild(el);
         });
@@ -4654,6 +4692,7 @@ async function loadRequestCenter(){
             if(requestFilter==="pending") return r.status==="pending";
             if(requestFilter==="student") return String(r.type||"").includes("student");
             if(requestFilter==="subject") return String(r.type||"").includes("subject");
+            if(requestFilter==="section") return r.type === "add_section";
             return true;
         });
 
@@ -4771,6 +4810,7 @@ async function processBulkRequests(approve){
         }
         await loadRequestCenter();
         await loadAdminDashboardData();
+        await populateSectionDropdowns();
         alert(`${approve?"✅ Accepted":"✅ Rejected"} ${success} request${success===1?"":"s"}${failed?` · ${failed} failed`:""}.`);
     }finally{
         if(bulkApproveRequestsBtn && approveBtnState===false) bulkApproveRequestsBtn.disabled=false;
@@ -4928,7 +4968,8 @@ function friendlyRequestType(type){
         add_student:"Add Student",
         delete_student:"Delete Student",
         add_subject:"Add Subject",
-        delete_subject:"Delete Subject"
+        delete_subject:"Delete Subject",
+        add_section:"Add New Section"
     })[type] || type;
 }
 
@@ -4945,93 +4986,63 @@ async function findSubjectByName(section,name){
 async function processChangeRequest(request,approve,options={}){
     const silent=options.silent===true;
     if(profile?.role!=="admin") return false;
-
     try{
-        // IMPORTANT: only an approved request changes the actual students/subjects data.
-        // A rejected request only changes the request status, leaving all section data untouched.
         if(approve){
             if(request.type === "add_student"){
                 if(!request.qid || !request.name) throw new Error("Student details are incomplete.");
-                const existing=await findStudentByQid(request.section,request.qid);
-                if(existing) throw new Error("A student with this Q.ID already exists.");
-                await addDoc(collection(db,"sections",request.section,"students"),{
-                    qid:request.qid,
-                    name:String(request.name||"").toUpperCase()
-                });
+                if(await findStudentByQid(request.section,request.qid)) throw new Error("A student with this Q.ID already exists.");
+                await addDoc(collection(db,"sections",request.section,"students"),{qid:request.qid,name:String(request.name).toUpperCase()});
             }
+            if(request.type === "delete_student"){const d=await findStudentByQid(request.section,request.qid);if(!d)throw new Error("Student not found.");await deleteDoc(d.ref);}
+            if(request.type === "add_subject"){if(await findSubjectByName(request.section,request.subject))throw new Error("This subject already exists in the section.");await addDoc(collection(db,"sections",request.section,"subjects"),{name:request.subject});}
+            if(request.type === "delete_subject"){const d=await findSubjectByName(request.section,request.subject);if(!d)throw new Error("Subject not found.");await deleteDoc(d.ref);}
 
-            if(request.type === "delete_student"){
-                const d=await findStudentByQid(request.section,request.qid);
-                if(!d) throw new Error("Student not found.");
-                await deleteDoc(d.ref);
-            }
+            if(request.type === "add_section"){
+                const sectionId=request.section;
+                if(!sectionId) throw new Error("Section ID is missing.");
+                await setDoc(doc(db,"sections",sectionId),{
+                    label:request.sectionLabel||sectionId, course:request.course||"", semester:request.semester||"", year:request.year||"",
+                    crQid:request.crQid||"", crName:request.crName||"", crMobile:request.crMobile||"", crEmail:request.crEmail||"",
+                    mentorName:request.mentorName||"", mentorMobile:request.mentorMobile||"", createdAt:new Date().toISOString()
+                },{merge:true});
+                const batch=writeBatch(db);
+                (request.students||[]).forEach(st=>{const ref=doc(collection(db,"sections",sectionId,"students"));batch.set(ref,{qid:String(st.qid||""),name:String(st.name||"").toUpperCase()});});
+                (request.subjects||[]).forEach(name=>{const ref=doc(collection(db,"sections",sectionId,"subjects"));batch.set(ref,{name:String(name)});});
+                await batch.commit();
 
-            if(request.type === "add_subject"){
-                const existing=await findSubjectByName(request.section,request.subject);
-                if(existing) throw new Error("This subject already exists in the section.");
-                await addDoc(collection(db,"sections",request.section,"subjects"),{
-                    name:request.subject
-                });
-            }
-
-            if(request.type === "delete_subject"){
-                const d=await findSubjectByName(request.section,request.subject);
-                if(!d) throw new Error("Subject not found.");
-                await deleteDoc(d.ref);
+                let tempPassword=request.generatedPassword||`QA@${Math.random().toString(36).slice(2,8)}${Math.floor(10+Math.random()*90)}`;
+                try{await createUserWithEmailAndPassword(provisioningAuth,request.crEmail,tempPassword);}
+                catch(authError){if(authError.code!=="auth/email-already-in-use")throw authError;}
+                finally{try{await signOut(provisioningAuth);}catch(_) {}}
+                await setDoc(doc(db,"users",request.crEmail),{
+                    role:"cr",email:request.crEmail,qid:request.crQid,name:request.crName,mobile:request.crMobile,section:sectionId,sectionLabel:request.sectionLabel||sectionId,
+                    course:request.course||"",semester:request.semester||"",year:request.year||"",mentorName:request.mentorName||"",mentorMobile:request.mentorMobile||"",passwordIssued:tempPassword,createdAt:new Date().toISOString()
+                },{merge:true});
+                // Email client is used on localhost/static hosting. A server email provider can be wired later for fully automatic delivery.
+                const mailSubject=encodeURIComponent(`QAttend - CR Account Assigned - ${request.sectionLabel||sectionId}`);
+                const mailBody=encodeURIComponent(`Hello ${request.crName},\n\nYou have been assigned as the Class Representative (CR) for ${request.sectionLabel||sectionId}.\n\nLogin Email: ${request.crEmail}\nTemporary Password: ${tempPassword}\nCourse: ${request.course||""}\nSemester: ${request.semester||""}\nYear: ${request.year||""}\n\nPlease change your password after your first login.`);
+                if(!silent) window.location.href=`mailto:${request.crEmail}?subject=${mailSubject}&body=${mailBody}`;
             }
         }
 
-        // Mark the request only after the requested data operation succeeded.
-        await updateDoc(doc(db,"requests",request.id),{
-            status:approve ? "approved" : "rejected",
-            reviewedBy:String(auth.currentUser?.email||"").toLowerCase(),
-            reviewedAt:new Date().toISOString()
-        });
-
-        await writeActivityLog(
-            approve ? "REQUEST_APPROVED" : "REQUEST_REJECTED",
-            `${friendlyRequestType(request.type)} · ${request.qid || request.subject || ""}`,
-            {requestId:request.id,section:request.section}
-        );
-
+        await updateDoc(doc(db,"requests",request.id),{status:approve?"approved":"rejected",reviewedBy:String(auth.currentUser?.email||"").toLowerCase(),reviewedAt:new Date().toISOString()});
+        await writeActivityLog(approve?"REQUEST_APPROVED":"REQUEST_REJECTED",`${friendlyRequestType(request.type)} · ${request.qid||request.subject||request.sectionLabel||""}`,{requestId:request.id,section:request.section});
         if(approve){
-            if(request.type === "add_student"){
-                await writeActivityLog("ADD_STUDENT",`${request.qid||""} · ${request.name||""}`,{section:request.section});
-            }
-            if(request.type === "delete_student"){
-                await writeActivityLog("DELETE_STUDENT",`${request.qid||""} · ${request.name||""}`,{section:request.section});
-            }
-            if(request.type === "add_subject"){
-                await writeActivityLog("ADD_SUBJECT",request.subject||"",{section:request.section});
-            }
-            if(request.type === "delete_subject"){
-                await writeActivityLog("DELETE_SUBJECT",request.subject||"",{section:request.section});
-            }
-
-            // Refresh the currently open section so approved student/subject changes
-            // become visible immediately without requiring a page reload.
-            if(activeSection === request.section){
-                if(request.type.includes("student")) await loadStudents();
-                if(request.type.includes("subject")) await loadSubjects();
+            if(request.type==="add_student")await writeActivityLog("ADD_STUDENT",`${request.qid||""} · ${request.name||""}`,{section:request.section});
+            if(request.type==="delete_student")await writeActivityLog("DELETE_STUDENT",`${request.qid||""} · ${request.name||""}`,{section:request.section});
+            if(request.type==="add_subject")await writeActivityLog("ADD_SUBJECT",request.subject||"",{section:request.section});
+            if(request.type==="delete_subject")await writeActivityLog("DELETE_SUBJECT",request.subject||"",{section:request.section});
+            if(request.type==="add_section")await writeActivityLog("ADD_SECTION",`${request.sectionLabel||request.section} · ${request.course||""}`,{section:request.section});
+            if(activeSection===request.section){
+                if(request.type.includes("student")||request.type==="add_section")await loadStudents();
+                if(request.type.includes("subject")||request.type==="add_section")await loadSubjects();
             }
         }
-
-        if(!silent){
-            await loadRequestCenter();
-            await loadAdminDashboardData();
-            alert(approve ? "✅ Request approved and change applied." : "Request rejected.");
-        }
-
+        if(!silent){await loadRequestCenter();await loadAdminDashboardData();await populateSectionDropdowns();alert(approve?"✅ Request approved and change applied.":"Request rejected. No data was changed.");}
         return true;
-    }catch(e){
-        console.error(e);
-        if(!silent){
-            alert(`Could not ${approve ? "approve" : "reject"} request: ${e.message || e}`);
-        }
-        // Let bulk processing count the request as failed instead of falsely reporting success.
-        throw e;
-    }
+    }catch(e){console.error(e);if(!silent)alert(`Could not ${approve?"approve":"reject"} request: ${e.message||e}`);throw e;}
 }
+
 
 // Admin opens Mark Attendance by default. Dashboard is explicit from the hamburger menu.
 // CR opens its assigned attendance section directly and cannot switch sections.

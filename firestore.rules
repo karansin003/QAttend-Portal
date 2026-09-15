@@ -28,42 +28,60 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
-    // SECTION METADATA
-    // Admin can create/manage sections. A CR can read only its assigned section metadata.
+    // COURSES
+    // Authenticated users: read-only. Admin: full access.
+    match /courses/{courseId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // SECTIONS
+    // Admin: full access. Authenticated users: read section metadata.
     match /sections/{sectionId} {
-      allow read: if isAdmin() || (isCR() && mySection() == sectionId);
-      allow create, update, delete: if isAdmin();
-    }
-
-    // SUBJECTS
-    // Admin: full access. CR: read-only in assigned section.
-    match /sections/{sectionId}/subjects/{subjectId} {
-      allow read: if isAdmin() || (isCR() && mySection() == sectionId);
+      allow read: if isSignedIn();
       allow write: if isAdmin();
+
+      // SUBJECTS
+      // Admin: full access. CR: read-only in assigned section.
+      match /subjects/{subjectId} {
+        allow read: if isAdmin() || (isCR() && mySection() == sectionId);
+        allow write: if isAdmin();
+      }
+
+      // STUDENTS
+      // Admin: full access. CR: read-only in assigned section.
+      match /students/{studentId} {
+        allow read: if isAdmin() || (isCR() && mySection() == sectionId);
+        allow write: if isAdmin();
+      }
+
+      // ATTENDANCE
+      // Admin: all sections. CR: assigned section only.
+      match /attendance/{recordId} {
+        allow read, write: if isAdmin() || (isCR() && mySection() == sectionId);
+      }
     }
 
-    // STUDENTS
-    // Admin: full access. CR: read-only in assigned section.
-    match /sections/{sectionId}/students/{studentId} {
-      allow read: if isAdmin() || (isCR() && mySection() == sectionId);
-      allow write: if isAdmin();
-    }
-
-    // ATTENDANCE
-    // Admin: all sections. CR: assigned section only.
-    match /sections/{sectionId}/attendance/{recordId} {
-      allow read, write: if isAdmin() || (isCR() && mySection() == sectionId);
-    }
-
-    // CR CHANGE REQUESTS
-    // CR can create a pending request only for its own section and its own email.
-    // CR can read only its own requests (the client uses a where(requestedBy == email) query).
-    // Only Admin can approve/reject/update/delete requests.
+    // CHANGE REQUESTS
+    // CRs can submit student/subject changes for their assigned section.
+    // Visitors can submit only a new-section request from the login page.
+    // Admin must approve before section data is created.
     match /requests/{requestId} {
-      allow create: if isCR()
+      allow create: if (
+        isCR()
         && request.resource.data.requestedBy == request.auth.token.email
         && request.resource.data.section == mySection()
-        && request.resource.data.status == "pending";
+        && request.resource.data.status == "pending"
+      ) || (
+        !isSignedIn()
+        && request.resource.data.type == "add_section"
+        && request.resource.data.status == "pending"
+        && request.resource.data.requestedBy == request.resource.data.crEmail
+        && request.resource.data.crEmail is string
+        && request.resource.data.crName is string
+        && request.resource.data.course is string
+        && request.resource.data.section is string
+      );
 
       allow read: if isAdmin()
         || (isCR() && resource.data.requestedBy == request.auth.token.email);
