@@ -167,10 +167,7 @@ body {
 
 .login-help-row {
     margin-top: 10px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    flex-wrap: wrap;
+    text-align: center;
     font-size: 12.5px;
     color: var(--gray);
 }
@@ -1346,3 +1343,68 @@ body{min-height:100vh;}
 .request-view-btn:hover{border-color:var(--pink);color:var(--pink)}
 @media(max-width:900px){.admin-report-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:600px){.admin-form-grid,.admin-detail-grid{grid-template-columns:1fr}.admin-report-grid{grid-template-columns:1fr}.dashboard-heading{gap:15px;align-items:flex-start;flex-direction:column}.primary-admin-btn{width:100%}.admin-data-table th,.admin-data-table td{padding:11px 9px}}
+
+/* =========================================================
+   ADMIN LAYOUT RESTORE
+   Keeps the existing login/CR/attendance theme unchanged.
+   ========================================================= */
+.app-layout-wrapper{
+    width:100%;
+    display:flex;
+    align-items:stretch;
+    flex:1 0 auto;
+    min-width:0;
+}
+.admin-sidebar{
+    width:245px;
+    min-width:245px;
+    background:#101820;
+    color:#fff;
+    min-height:calc(100vh - 76px);
+    padding:18px 12px;
+    border-right:1px solid rgba(255,255,255,.08);
+    position:sticky;
+    top:0;
+    align-self:flex-start;
+}
+.admin-sidebar.hidden{display:none!important}
+.sidebar-head{display:flex;align-items:center;gap:10px;padding:4px 8px 18px;border-bottom:1px solid rgba(255,255,255,.10);margin-bottom:12px}
+.sidebar-logo{width:38px;height:38px;background:#fff;border-radius:8px;padding:4px;flex:none}
+.sidebar-logo img{width:100%;height:100%;object-fit:contain}
+.sidebar-brand-text h2{font-size:17px;margin:0;color:#fff}.sidebar-brand-text p{font-size:10px;color:#aeb7c2;margin-top:3px}
+.sidebar-menu{display:flex;flex-direction:column;gap:5px}
+.sidebar-btn{width:100%;border:0;background:transparent;color:#d8dde3;border-radius:8px;padding:11px 10px;display:flex;align-items:center;gap:11px;text-align:left;cursor:pointer;font:600 12px Arial,sans-serif;position:relative}
+.sidebar-btn:hover{background:rgba(255,255,255,.07);color:#fff}
+.sidebar-btn.active{background:var(--pink);color:#fff}
+.sidebar-icon{width:22px;min-width:22px;text-align:center;font-size:15px}.sidebar-label{flex:1}.sidebar-badge{min-width:21px;height:21px;padding:0 6px;border-radius:999px;background:var(--pink);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:10px}.sidebar-btn.active .sidebar-badge{background:#fff;color:var(--pink-dark)}
+.sidebar-divider{height:1px;background:rgba(255,255,255,.10);margin:8px 5px}
+.sidebar-logout{color:#ffb1c9}.sidebar-logout:hover{background:rgba(233,30,99,.13)}
+.main-content-area{flex:1 1 auto;min-width:0;max-width:none!important;margin:0!important;padding:30px 28px!important}
+.admin-dashboard,.admin-view-panel,.admin-management-panel,.admin-panel{width:100%;max-width:1250px;margin-left:auto;margin-right:auto}
+.admin-view-panel.hidden,.admin-management-panel.hidden{display:none!important}
+.admin-view-panel .panel-card{margin-top:0}
+.full-width-panel{width:100%}
+.request-list{width:100%}
+
+/* Admin sidebar should not affect CR pages. */
+body.cr-view .admin-sidebar{display:none!important}
+body.cr-view .main-content-area{max-width:1200px!important;margin:0 auto!important;padding:30px 20px!important}
+body:not(.admin-view) .admin-sidebar{display:none!important}
+
+@media (max-width:900px){
+    .admin-sidebar{width:215px;min-width:215px}
+    .main-content-area{padding:24px 18px!important}
+}
+@media (max-width:768px){
+    .app-layout-wrapper{display:block}
+    .admin-sidebar{display:none!important}
+    body.admin-view .main-content-area{padding:20px 14px!important}
+    .dashboard-stats{grid-template-columns:repeat(2,1fr)}
+    .dashboard-panels{grid-template-columns:1fr}
+}
+@media (max-width:480px){
+    .dashboard-stats{grid-template-columns:1fr}
+    .dashboard-heading h2{font-size:21px}
+    .dashboard-stat{padding:14px}
+    .admin-data-table{min-width:760px}
+}

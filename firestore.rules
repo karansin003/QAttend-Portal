@@ -28,6 +28,13 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    // COURSES
+    // Course catalog is managed only by Admin.
+    match /courses/{courseId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
     // SECTION DOCUMENTS
     // Admin can create/edit section metadata. CRs may read their assigned section metadata.
     match /sections/{sectionId} {
