@@ -64,11 +64,11 @@
                 <a href="#" id="forgotPasswordLink">Forgot password?</a>
             </p>
 
-            <div class="login-access-row">
-                <button type="button" id="contactAdminLink" class="login-access-link">Need access? Contact Admin</button>
-                <span class="login-access-separator">·</span>
-                <button type="button" id="requestSectionLink" class="login-access-link">Request a new section</button>
-            </div>
+            <p class="login-help-row">
+                <a href="#" id="contactAdminLink">Need access? Contact Admin</a>
+                <span class="login-help-sep">·</span>
+                <a href="#" id="requestSectionLink">Request a new section</a>
+            </p>
 
             <!-- FORGOT PASSWORD (hidden until "Forgot password?" is clicked) -->
             <div id="resetPasswordBox" class="hidden">
@@ -96,83 +96,71 @@
 
     </div>
 
-
-    <!-- CONTACT ADMIN FROM LOGIN -->
+    <!-- CONTACT ADMIN (accessible from the login page, no account needed) -->
     <div id="contactAdminModal" class="modal-backdrop hidden">
-        <div class="request-modal login-request-modal" role="dialog" aria-modal="true" aria-labelledby="contactAdminTitle">
+        <div class="request-modal" role="dialog" aria-modal="true" aria-labelledby="contactAdminTitle">
             <div class="modal-head">
                 <div>
-                    <p class="section-small-title">ACCESS SUPPORT</p>
-                    <h3 id="contactAdminTitle">Contact to Admin</h3>
+                    <p class="section-small-title">GET IN TOUCH</p>
+                    <h3 id="contactAdminTitle">Contact Admin</h3>
                 </div>
-                <button id="closeContactAdminModal" class="drawer-close" type="button" aria-label="Close">×</button>
+                <button id="closeContactAdminModal" class="drawer-close" type="button">×</button>
             </div>
-
-            <p class="modal-note">Need an account or access to QAttend? Send your request directly to Admin.</p>
-
             <form id="contactAdminForm">
                 <div class="input-group">
-                    <label for="contactName">Your Name</label>
-                    <input id="contactName" type="text" class="request-input" placeholder="Enter your name" required>
+                    <label for="contactName">Name</label>
+                    <input id="contactName" class="request-input" placeholder="Your full name" required>
                 </div>
-
-                <div class="login-modal-grid">
-                    <div class="input-group">
-                        <label for="contactEmail">Your Email</label>
-                        <input id="contactEmail" type="email" class="request-input" placeholder="Enter your email" required>
-                    </div>
-                    <div class="input-group">
-                        <label for="contactMobile">Mobile Number</label>
-                        <input id="contactMobile" type="tel" class="request-input" inputmode="numeric" maxlength="10" placeholder="10-digit mobile number" required>
-                    </div>
+                <div class="input-group">
+                    <label for="contactEmail">Email</label>
+                    <input id="contactEmail" type="email" class="request-input" placeholder="you@example.com" required>
                 </div>
-
+                <div class="input-group">
+                    <label for="contactMobile">Mobile Number</label>
+                    <input id="contactMobile" class="request-input" placeholder="10-digit mobile number" required>
+                </div>
+                <div class="input-group">
+                    <label for="contactType">Request Type</label>
+                    <select id="contactType" class="request-input">
+                        <option value="Need account access">Need account access</option>
+                        <option value="Password / login issue">Password / login issue</option>
+                        <option value="General query">General query</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
                 <div class="input-group">
                     <label for="contactMessage">Message</label>
-                    <textarea id="contactMessage" class="request-input" rows="4" placeholder="Tell Admin what access or help you need." required></textarea>
+                    <textarea id="contactMessage" class="request-input" rows="4" placeholder="How can Admin help?" required></textarea>
                 </div>
-
-                <div class="admin-email-display">
-                    <span>Send to Admin</span>
-                    <strong>sonusin8672@gmail.com</strong>
-                </div>
-
-                <div id="contactAdminMessage" class="form-feedback"></div>
-
                 <div class="modal-actions">
                     <button id="cancelContactAdminBtn" type="button" class="secondary-btn">Cancel</button>
-                    <button type="submit" class="save-btn">✉ Send Mail</button>
+                    <button type="submit" class="save-btn">✉ Send Email</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- REQUEST NEW SECTION FROM LOGIN -->
+    <!-- REQUEST A NEW SECTION (accessible from the login page, no account needed) -->
     <div id="addSectionRequestModal" class="modal-backdrop hidden">
-        <div class="section-request-modal login-section-request-modal" role="dialog" aria-modal="true" aria-labelledby="addSectionRequestTitle">
+        <div class="section-request-modal" role="dialog" aria-modal="true" aria-labelledby="addSectionRequestTitle">
             <div class="section-request-header">
                 <div>
                     <p class="section-small-title">NEW SECTION SETUP</p>
-                    <h3 id="addSectionRequestTitle">Request a New Section</h3>
-                    <p class="section-request-subtitle">Enter CR, mentor and section details, then upload the completed Excel template.</p>
+                    <h3 id="addSectionRequestTitle">Add New Section</h3>
+                    <p class="section-request-subtitle">Fill the section details and upload the completed Excel template.</p>
                 </div>
                 <button id="closeAddSectionRequestModal" class="drawer-close" type="button" aria-label="Close">×</button>
             </div>
-
             <form id="addSectionRequestForm">
                 <div class="section-request-grid">
-                    <div class="section-request-card">
-                        <div class="section-request-card-head">
-                            <span class="section-request-icon">♙</span>
-                            <div><h4>Section Details</h4><p>CR and mentor information</p></div>
-                        </div>
-
+                    <div class="section-request-card section-details-card">
+                        <div class="section-request-card-head"><span class="section-request-icon">♙</span><div><h4>Section &amp; People Details</h4><p>Enter the CR and mentor information.</p></div></div>
                         <div class="request-fields">
                             <div class="input-group"><label for="reqCrQid">CR's Q.ID <span>*</span></label><input id="reqCrQid" class="request-input" placeholder="e.g. 240301" required></div>
                             <div class="input-group"><label for="reqCrName">CR's Name <span>*</span></label><input id="reqCrName" class="request-input" placeholder="e.g. Rahul Kumar" required></div>
                             <div class="input-group"><label for="reqCrMobile">CR's Mobile No. <span>*</span></label><input id="reqCrMobile" class="request-input" inputmode="numeric" maxlength="10" placeholder="e.g. 9876543210" required></div>
-                            <div class="input-group"><label for="reqCrEmail">CR's Email <span>*</span></label><input id="reqCrEmail" type="email" class="request-input" placeholder="e.g. cr@example.com" required></div>
-                            <div class="input-group"><label for="reqMentorName">Mentor Name <span>*</span></label><input id="reqMentorName" class="request-input" placeholder="e.g. Dr. Sharma" required></div>
+                            <div class="input-group"><label for="reqCrEmail">CR's Email <span>*</span></label><input id="reqCrEmail" type="email" class="request-input" placeholder="e.g. cr@quantumuniversity.edu.in" required></div>
+                            <div class="input-group"><label for="reqMentorName">Mentor Name <span>*</span></label><input id="reqMentorName" class="request-input" placeholder="e.g. Dr. Amit Sharma" required></div>
                             <div class="input-group"><label for="reqMentorMobile">Mentor No. <span>*</span></label><input id="reqMentorMobile" class="request-input" inputmode="numeric" maxlength="10" placeholder="e.g. 9876543210" required></div>
                             <div class="input-group"><label for="reqCourse">Course <span>*</span></label><input id="reqCourse" class="request-input" placeholder="e.g. B.Tech CSE" required></div>
                             <div class="input-group"><label for="reqSectionName">Section <span>*</span></label><input id="reqSectionName" class="request-input" placeholder="e.g. CSE - 5" required></div>
@@ -180,86 +168,15 @@
                             <div class="input-group"><label for="reqYear">Year <span>*</span></label><input id="reqYear" class="request-input" placeholder="e.g. 2026-27" required></div>
                         </div>
                     </div>
-
                     <div class="section-request-card excel-card">
-                        <div class="section-request-card-head">
-                            <span class="section-request-icon">▤</span>
-                            <div><h4>Student &amp; Subject Data</h4><p>Download, fill and upload Excel</p></div>
-                        </div>
-
-                        <div class="excel-step">
-                            <div class="excel-step-number">1</div>
-                            <div class="excel-step-content">
-                                <strong>Download Template</strong>
-                                <span>Fill student Q.ID, student name and subjects in the provided sheets.</span>
-                                <a class="excel-download-btn" href="Section_Template.xlsx" download="Section_Template.xlsx">⇩ &nbsp; Download Excel Template</a>
-                            </div>
-                        </div>
-
-                        <div class="excel-step">
-                            <div class="excel-step-number">2</div>
-                            <div class="excel-step-content">
-                                <strong>Upload Filled File</strong>
-                                <span>Upload the edited .xlsx or .xls file.</span>
-                                <label class="excel-upload-box" for="sectionExcelFile">
-                                    <span class="excel-upload-icon">⇧</span>
-                                    <span><b id="sectionExcelFileLabel">Click to upload Excel file</b><small>Supports .xlsx and .xls</small></span>
-                                </label>
-                                <input id="sectionExcelFile" type="file" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" hidden>
-                            </div>
-                        </div>
-
-                        <div class="excel-step">
-                            <div class="excel-step-number">3</div>
-                            <div class="excel-step-content">
-                                <strong>Preview</strong>
-                                <span>Verify the imported data before sending the request.</span>
-                                <div id="sectionExcelPreview" class="excel-preview-container hidden">
-                                    <div id="sectionExcelSuccessBadge" class="upload-success-badge hidden">
-                                        <span class="badge-icon">✓</span>
-                                        <div>
-                                            <b>File Uploaded Successfully!</b>
-                                            <span id="sectionExcelFileName">section_data.xlsx</span>
-                                        </div>
-                                    </div>
-                                    <div class="excel-stats-grid">
-                                        <div class="stat-pill"><span class="pill-label">Students Found</span><b id="excelStudentCount">0</b></div>
-                                        <div class="stat-pill"><span class="pill-label">Subjects Found</span><b id="excelSubjectCount">0</b></div>
-                                        <div class="stat-pill"><span class="pill-label">Duplicate Q.IDs</span><b id="excelDuplicateCount">0</b></div>
-                                        <div class="stat-pill"><span class="pill-label">Invalid Rows</span><b id="excelInvalidCount">0</b></div>
-                                    </div>
-                                    <div id="sectionExcelSubjectsBox" class="excel-preview-section hidden">
-                                        <p class="preview-heading">Subjects Preview</p>
-                                        <div id="excelSubjectsList" class="preview-subjects-list"></div>
-                                    </div>
-                                    <div id="sectionExcelStudentsBox" class="excel-preview-section hidden">
-                                        <p class="preview-heading">Student Preview (First 10)</p>
-                                        <div class="preview-table-wrapper">
-                                            <table class="preview-mini-table">
-                                                <thead>
-                                                    <tr>
-                                                        <th>#</th>
-                                                        <th>Q.ID</th>
-                                                        <th>Student Name</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody id="excelStudentsTableBody"></tbody>
-                                            </table>
-                                        </div>
-                                        <p id="excelMoreStudentsText" class="preview-more-text"></p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        <div class="section-request-card-head"><span class="section-request-icon">▤</span><div><h4>Student &amp; Subject Data (Excel)</h4><p>Download, fill and upload the template.</p></div></div>
+                        <div class="excel-step"><div class="excel-step-number">1</div><div class="excel-step-content"><strong>Download Template</strong><span>Use the same Excel format for students and subjects.</span><a id="downloadSectionTemplateBtn" class="excel-download-btn" href="Section%20Template.xlsx" download="Section_Template.xlsx">⇩ &nbsp; Download Excel Template</a></div></div>
+                        <div class="excel-step"><div class="excel-step-number">2</div><div class="excel-step-content"><strong>Upload Filled File</strong><span>Upload the Excel file after entering all student details.</span><label class="excel-upload-box" for="sectionExcelFile"><span class="excel-upload-icon">⇧</span><span><b id="sectionExcelFileLabel">Click to upload Excel file</b><small>Supports .xlsx and .xls</small></span></label><input id="sectionExcelFile" type="file" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" hidden></div></div>
+                        <div class="excel-step"><div class="excel-step-number">3</div><div class="excel-step-content"><strong>Preview</strong><span>Check the data found in your uploaded file before sending.</span><div id="sectionExcelPreview" class="excel-preview hidden"><div><span>Students Found</span><b id="excelStudentCount">0</b></div><div><span>Subjects Found</span><b id="excelSubjectCount">0</b></div><div><span>Duplicate Q.ID</span><b id="excelDuplicateCount">0</b></div><div><span>Invalid Rows</span><b id="excelInvalidCount">0</b></div></div><div class="excel-format-note">ⓘ Keep the same column structure as the template: <b>Qid | Student Name | Subject1 | Subject2 | Subject3...</b></div></div></div>
                     </div>
                 </div>
-
-                <div id="sectionRequestMessage" class="section-request-message"></div>
-
-                <div class="modal-actions section-request-actions">
-                    <button id="cancelAddSectionRequestBtn" type="button" class="secondary-btn">Cancel</button>
-                    <button id="submitAddSectionRequestBtn" type="submit" class="save-btn">➤ Send Request</button>
-                </div>
+                <p id="sectionRequestMessage" class="section-request-message"></p>
+                <div class="modal-actions section-request-actions"><button id="cancelAddSectionRequestBtn" type="button" class="secondary-btn">Cancel</button><button id="submitAddSectionRequestBtn" type="submit" class="save-btn">➤ Submit Request</button></div>
             </form>
         </div>
     </div>
@@ -302,25 +219,7 @@
             <div class="feature-drawer-list">
                 <button type="button" class="drawer-item admin-drawer-only" data-feature="dashboard">
                     <span class="drawer-icon">⌂</span>
-                    <span><b>Admin Dashboard</b><small>Overview and stats</small></span>
-                    <span class="drawer-arrow">›</span>
-                </button>
-
-                <button type="button" class="drawer-item admin-drawer-only" data-feature="courses">
-                    <span class="drawer-icon">🎓</span>
-                    <span><b>Manage Courses</b><small>Add and manage degree courses</small></span>
-                    <span class="drawer-arrow">›</span>
-                </button>
-
-                <button type="button" class="drawer-item admin-drawer-only" data-feature="sections">
-                    <span class="drawer-icon">▦</span>
-                    <span><b>Manage Sections</b><small>Sections, students and subjects</small></span>
-                    <span class="drawer-arrow">›</span>
-                </button>
-
-                <button type="button" class="drawer-item admin-drawer-only" data-feature="requests">
-                    <span class="drawer-icon">↗</span>
-                    <span><b id="drawerRequestsTitle">Section Requests</b><small id="drawerRequestsText">Review section and change requests</small></span>
+                    <span><b>Admin Dashboard</b><small>CR logins, system changes and requests</small></span>
                     <span class="drawer-arrow">›</span>
                 </button>
 
@@ -332,19 +231,37 @@
 
                 <button type="button" class="drawer-item admin-drawer-only" data-feature="manage">
                     <span class="drawer-icon">✎</span>
-                    <span><b>Update / Manage Data</b><small>Select a section to add or edit data</small></span>
+                    <span><b>Update / Manage Data</b><small>Select a section to add, edit or manage data</small></span>
+                    <span class="drawer-arrow">›</span>
+                </button>
+
+                <button type="button" class="drawer-item admin-drawer-only" data-feature="sections">
+                    <span class="drawer-icon">▦</span>
+                    <span><b>Manage Sections</b><small>Create, edit and remove course sections</small></span>
+                    <span class="drawer-arrow">›</span>
+                </button>
+
+                <button type="button" class="drawer-item admin-drawer-only" data-feature="users">
+                    <span class="drawer-icon">♙</span>
+                    <span><b>Manage Users</b><small>Manage Admin and CR accounts</small></span>
+                    <span class="drawer-arrow">›</span>
+                </button>
+
+                <button type="button" class="drawer-item admin-drawer-only" data-feature="reports">
+                    <span class="drawer-icon">▤</span>
+                    <span><b>Reports</b><small>Export students, subjects and requests</small></span>
+                    <span class="drawer-arrow">›</span>
+                </button>
+
+                <button type="button" class="drawer-item" data-feature="requests">
+                    <span class="drawer-icon">↗</span>
+                    <span><b id="drawerRequestsTitle">Requests</b><small id="drawerRequestsText">View all CR student and subject requests</small></span>
                     <span class="drawer-arrow">›</span>
                 </button>
 
                 <button type="button" class="drawer-item cr-drawer-only" data-feature="records">
                     <span class="drawer-icon">▤</span>
                     <span><b>Previous Records</b><small>View saved attendance records</small></span>
-                    <span class="drawer-arrow">›</span>
-                </button>
-
-                <button type="button" class="drawer-item admin-drawer-only" data-feature="logs">
-                    <span class="drawer-icon">🕒</span>
-                    <span><b>Activity Logs</b><small>Audit trail of system actions</small></span>
                     <span class="drawer-arrow">›</span>
                 </button>
 
@@ -362,260 +279,121 @@
             </div>
         </aside>
 
-        <!-- ADMIN SIDEBAR (Desktop) -->
-        <div class="app-layout-wrapper">
-            <aside id="adminSidebar" class="admin-sidebar admin-only hidden">
-                <div class="sidebar-head">
-                    <div class="sidebar-logo">
-                        <img src="logo.png" alt="QAttend">
+        <main class="container">
+
+            <!-- ADMIN DASHBOARD -->
+            <section id="adminDashboard" class="admin-dashboard admin-only hidden">
+                <div class="dashboard-heading">
+                    <div>
+                        <p class="section-small-title">ADMIN PORTAL</p>
+                        <h2>Admin Dashboard</h2>
+                        <p>Monitor CR activity, logins, attendance and system changes.</p>
                     </div>
-                    <div class="sidebar-brand-text">
-                        <h2>QAttend</h2>
-                        <p>Attendance Portal</p>
+                    <button id="openLogsBtn" class="secondary-btn" type="button">Refresh Logs</button>
+                </div>
+
+                <div class="dashboard-stats">
+                    <div class="dashboard-stat"><span>Total Students</span><strong id="dashTotalStudents">0</strong></div>
+                    <div class="dashboard-stat"><span>Active CRs</span><strong id="dashTotalCRs">0</strong></div>
+                    <div class="dashboard-stat"><span>Total Subjects</span><strong id="dashTotalSubjects">0</strong></div>
+                    <div class="dashboard-stat request-stat"><span>Pending Requests</span><strong id="dashPendingRequests">0</strong></div>
+                </div>
+
+                <div class="dashboard-panels">
+                    <section class="dashboard-panel-card">
+                        <div class="dashboard-panel-head">
+                            <div><p class="section-small-title">ACTIVITY HISTORY</p><h3>Activity Logs</h3></div>
+                            <button id="refreshLogsBtn" class="text-btn" type="button">Refresh</button>
+                        </div>
+                        <div id="activityLogList" class="activity-log-list">
+                            <p class="empty-record">Loading activity...</p>
+                        </div>
+                    </section>
+
+                    <section class="dashboard-panel-card">
+                        <div class="dashboard-panel-head">
+                            <div><p class="section-small-title">REQUEST CENTER</p><h3>Pending Requests</h3></div>
+                            <button id="openRequestsFromDashboard" class="text-btn" type="button">View All</button>
+                        </div>
+                        <div id="dashboardRequestList" class="activity-log-list">
+                            <p class="empty-record">Loading requests...</p>
+                        </div>
+                    </section>
+                </div>
+            </section>
+
+            <!-- ADMIN MANAGE SECTIONS -->
+            <section id="adminSectionsPanel" class="admin-management-panel admin-only hidden">
+                <div class="dashboard-heading">
+                    <div><p class="section-small-title">ADMIN MANAGEMENT</p><h2>Manage Sections</h2><p>Create, edit or remove course sections without changing the attendance screen.</p></div>
+                    <button id="adminAddSectionBtn" class="primary-admin-btn" type="button">＋ Add Section</button>
+                </div>
+                <div class="admin-table-card"><div class="admin-table-wrap"><table class="admin-data-table"><thead><tr><th>Course</th><th>Section</th><th>Semester</th><th>Year</th><th>Students</th><th>Subjects</th><th>CR</th><th>Action</th></tr></thead><tbody id="adminSectionsTableBody"><tr><td colspan="8" class="empty-cell">Loading sections...</td></tr></tbody></table></div></div>
+            </section>
+
+            <!-- ADMIN MANAGE USERS -->
+            <section id="adminUsersPanel" class="admin-management-panel admin-only hidden">
+                <div class="dashboard-heading">
+                    <div><p class="section-small-title">ADMIN MANAGEMENT</p><h2>Manage Users</h2><p>View Admin and Class Representative accounts and their assigned sections.</p></div>
+                    <button id="adminAddUserBtn" class="primary-admin-btn" type="button">＋ Add User</button>
+                </div>
+                <div class="admin-table-card"><div class="admin-table-wrap"><table class="admin-data-table"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Section</th><th>Status</th><th>Action</th></tr></thead><tbody id="adminUsersTableBody"><tr><td colspan="6" class="empty-cell">Loading users...</td></tr></tbody></table></div></div>
+            </section>
+
+            <!-- ADMIN REPORTS -->
+            <section id="adminReportsPanel" class="admin-management-panel admin-only hidden">
+                <div class="dashboard-heading"><div><p class="section-small-title">ADMIN REPORTS</p><h2>Reports</h2><p>Download lightweight CSV reports without loading the attendance workbook on page load.</p></div></div>
+                <div class="admin-report-grid">
+                    <button class="admin-report-card" data-report="attendance"><b>📊 Attendance Report</b><span>Download saved attendance records as CSV.</span></button>
+                    <button class="admin-report-card" data-report="requests"><b>📋 Requests Report</b><span>Export all request history as CSV.</span></button>
+                    <button class="admin-report-card" data-report="students"><b>👨‍🎓 Students Report</b><span>Export students section-wise.</span></button>
+                    <button class="admin-report-card" data-report="subjects"><b>📚 Subjects Report</b><span>Export subjects section-wise.</span></button>
+                </div>
+            </section>
+
+            <!-- REQUEST CENTER -->
+            <section id="requestsPanel" class="requests-panel hidden">
+                <div class="dashboard-heading">
+                    <div>
+                        <p class="section-small-title">REQUEST CENTER</p>
+                        <h2 id="requestsHeading">Student &amp; Subject Requests</h2>
+                        <p id="requestsHeadingText">Send a student or subject change request to Admin.</p>
+                    </div>
+                    <button id="backFromRequestsBtn" class="secondary-btn" type="button">Back</button>
+                </div>
+
+                <div id="crRequestButtons" class="request-quick-actions cr-only">
+                    <button id="crSendRequestBtn" class="request-feature-btn request-feature-btn-single" type="button" data-request-open="request">
+                        <b>＋ Send Request</b>
+                        <span>Request a student or subject change from Admin</span>
+                    </button>
+                </div>
+
+                <div class="request-tabs admin-only hidden" id="adminRequestTabs">
+                    <button type="button" class="request-tab active" data-request-filter="all">All</button>
+                    <button type="button" class="request-tab" data-request-filter="pending">Pending</button>
+                    <button type="button" class="request-tab" data-request-filter="student">Students</button>
+                    <button type="button" class="request-tab" data-request-filter="subject">Subjects</button>
+                    <button type="button" class="request-tab" data-request-filter="section">New Sections</button>
+                    <button type="button" class="request-tab" data-request-filter="contact">Contact Admin</button>
+                </div>
+
+                <div id="bulkRequestToolbar" class="bulk-request-toolbar admin-only hidden">
+                    <label class="bulk-select-label">
+                        <input type="checkbox" id="selectAllRequests">
+                        <span>Select pending requests</span>
+                    </label>
+                    <span id="selectedRequestsCount" class="selected-requests-count">0 selected</span>
+                    <div class="bulk-request-actions">
+                        <button type="button" id="bulkApproveRequestsBtn" class="approve-btn" disabled>✓ Accept Selected</button>
+                        <button type="button" id="bulkRejectRequestsBtn" class="reject-btn" disabled>✕ Reject Selected</button>
                     </div>
                 </div>
 
-                <nav class="sidebar-menu">
-                    <button type="button" class="sidebar-btn active" data-feature="dashboard">
-                        <span class="sidebar-icon">⌂</span>
-                        <span class="sidebar-label">Dashboard</span>
-                    </button>
-                    <button type="button" class="sidebar-btn" data-feature="courses">
-                        <span class="sidebar-icon">🎓</span>
-                        <span class="sidebar-label">Manage Courses</span>
-                    </button>
-                    <button type="button" class="sidebar-btn" data-feature="sections">
-                        <span class="sidebar-icon">▦</span>
-                        <span class="sidebar-label">Manage Sections</span>
-                    </button>
-                    <button type="button" class="sidebar-btn" data-feature="manage">
-                        <span class="sidebar-icon">👥</span>
-                        <span class="sidebar-label">Manage Students</span>
-                    </button>
-                    <button type="button" class="sidebar-btn" data-feature="manage-subjects">
-                        <span class="sidebar-icon">📚</span>
-                        <span class="sidebar-label">Manage Subjects</span>
-                    </button>
-                    <button type="button" class="sidebar-btn" data-feature="requests">
-                        <span class="sidebar-icon">↗</span>
-                        <span class="sidebar-label">Section Requests</span>
-                        <span id="sidebarRequestsBadge" class="sidebar-badge hidden">0</span>
-                    </button>
-                    <button type="button" class="sidebar-btn" data-feature="attendance">
-                        <span class="sidebar-icon">✓</span>
-                        <span class="sidebar-label">Attendance</span>
-                    </button>
-                    <button type="button" class="sidebar-btn" data-feature="logs">
-                        <span class="sidebar-icon">🕒</span>
-                        <span class="sidebar-label">Logs</span>
-                    </button>
-                    <button type="button" class="sidebar-btn" data-feature="profile">
-                        <span class="sidebar-icon">👤</span>
-                        <span class="sidebar-label">Profile</span>
-                    </button>
-                    <div class="sidebar-divider"></div>
-                    <button type="button" class="sidebar-btn sidebar-logout" data-feature="logout">
-                        <span class="sidebar-icon">↪</span>
-                        <span class="sidebar-label">Logout</span>
-                    </button>
-                </nav>
-            </aside>
-
-            <main class="container main-content-area">
-
-                <!-- ADMIN DASHBOARD -->
-                <section id="adminDashboard" class="admin-dashboard admin-only hidden">
-                    <div class="dashboard-heading">
-                        <div>
-                            <p class="section-small-title">ADMIN PORTAL</p>
-                            <h2>Dashboard</h2>
-                            <p>Welcome, Admin!</p>
-                        </div>
-                        <button id="openLogsBtn" class="secondary-btn" type="button">Refresh Logs</button>
-                    </div>
-
-                    <div class="dashboard-stats">
-                        <div class="dashboard-stat"><span>Total Courses</span><strong id="dashTotalCourses">0</strong></div>
-                        <div class="dashboard-stat"><span>Total Sections</span><strong id="dashTotalSections">0</strong></div>
-                        <div class="dashboard-stat"><span>Total Students</span><strong id="dashTotalStudents">0</strong></div>
-                        <div class="dashboard-stat request-stat"><span>Pending Requests</span><strong id="dashPendingRequests">0</strong></div>
-                    </div>
-
-                    <div class="dashboard-panels">
-                        <section class="dashboard-panel-card full-width-panel">
-                            <div class="dashboard-panel-head">
-                                <div><p class="section-small-title">REQUEST OVERVIEW</p><h3>Recent Section Requests</h3></div>
-                                <button id="openRequestsFromDashboard" class="text-btn" type="button">View All &gt;</button>
-                            </div>
-                            <div class="table-responsive">
-                                <table class="portal-table" id="dashboardRequestsTable">
-                                    <thead>
-                                        <tr>
-                                            <th>CR Name</th>
-                                            <th>Section</th>
-                                            <th>Course</th>
-                                            <th>Students</th>
-                                            <th>Subjects</th>
-                                            <th>Date</th>
-                                            <th>Status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="dashboardRequestTableBody">
-                                        <tr><td colspan="7" class="empty-record">Loading requests...</td></tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </section>
-
-                        <section class="dashboard-panel-card full-width-panel">
-                            <div class="dashboard-panel-head">
-                                <div><p class="section-small-title">ACTIVITY HISTORY</p><h3>Activity Logs</h3></div>
-                                <button id="refreshLogsBtn" class="text-btn" type="button">Refresh</button>
-                            </div>
-                            <div id="activityLogList" class="activity-log-list">
-                                <p class="empty-record">Loading activity...</p>
-                            </div>
-                        </section>
-                    </div>
-                </section>
-
-                <!-- MANAGE COURSES -->
-                <section id="adminCoursesView" class="admin-view-panel admin-only hidden">
-                    <div class="dashboard-heading">
-                        <div>
-                            <p class="section-small-title">ACADEMIC SETUP</p>
-                            <h2>Manage Courses</h2>
-                            <p>Add, view and manage all courses.</p>
-                        </div>
-                        <button id="openAddCourseBtn" class="save-btn" type="button">+ Add New Course</button>
-                    </div>
-
-                    <div class="panel-card">
-                        <div class="table-responsive">
-                            <table class="portal-table" id="coursesTable">
-                                <thead>
-                                    <tr>
-                                        <th>#</th>
-                                        <th>Course Code</th>
-                                        <th>Course Name</th>
-                                        <th>Department</th>
-                                        <th>Duration</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="coursesTableBody">
-                                    <tr><td colspan="6" class="empty-record">Loading courses...</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- MANAGE SECTIONS -->
-                <section id="adminSectionsView" class="admin-view-panel admin-only hidden">
-                    <div class="dashboard-heading">
-                        <div>
-                            <p class="section-small-title">ACADEMIC SETUP</p>
-                            <h2>Manage Sections</h2>
-                            <p>View and manage sections under each course.</p>
-                        </div>
-                        <button id="openAddSectionBtn" class="save-btn" type="button">+ Add Section</button>
-                    </div>
-
-                    <div class="filter-card">
-                        <div class="select-box">
-                            <label for="manageSectionsCourseFilter">Select Course</label>
-                            <select id="manageSectionsCourseFilter">
-                                <option value="">-- Select Course --</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="panel-card">
-                        <div class="table-responsive">
-                            <table class="portal-table" id="sectionsTable">
-                                <thead>
-                                    <tr>
-                                        <th>#</th>
-                                        <th>Section</th>
-                                        <th>Semester</th>
-                                        <th>Year</th>
-                                        <th>Students</th>
-                                        <th>Subjects</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="sectionsTableBody">
-                                    <tr><td colspan="7" class="empty-record">Select a course to view sections.</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- SECTION REQUESTS -->
-                <section id="requestsPanel" class="requests-panel hidden">
-                    <div class="dashboard-heading">
-                        <div>
-                            <p class="section-small-title">REQUEST CENTER</p>
-                            <h2 id="requestsHeading">Section Requests</h2>
-                            <p id="requestsHeadingText">Review and manage section creation requests.</p>
-                        </div>
-                        <button id="backFromRequestsBtn" class="secondary-btn" type="button">Back</button>
-                    </div>
-
-                    <div id="crRequestButtons" class="request-quick-actions cr-only">
-                        <button id="crSendRequestBtn" class="request-feature-btn request-feature-btn-single" type="button" data-request-open="request">
-                            <b>＋ Send Request</b>
-                            <span>Request a student or subject change from Admin</span>
-                        </button>
-                    </div>
-
-                    <div class="request-tabs admin-only hidden" id="adminRequestTabs">
-                        <button type="button" class="request-tab active" data-request-filter="pending">Pending <span id="tabCountPending" class="tab-badge">0</span></button>
-                        <button type="button" class="request-tab" data-request-filter="approved">Approved</button>
-                        <button type="button" class="request-tab" data-request-filter="rejected">Rejected</button>
-                        <button type="button" class="request-tab" data-request-filter="all">All</button>
-                    </div>
-
-                    <div id="bulkRequestToolbar" class="bulk-request-toolbar admin-only hidden">
-                        <label class="bulk-select-label">
-                            <input type="checkbox" id="selectAllRequests">
-                            <span>Select All</span>
-                        </label>
-                        <div class="bulk-actions-group">
-                            <button type="button" id="bulkApproveRequestsBtn" class="approve-btn" disabled>✓ Approve Selected</button>
-                            <button type="button" id="bulkRejectRequestsBtn" class="reject-btn" disabled>✕ Reject Selected</button>
-                        </div>
-                    </div>
-
-                    <div class="panel-card admin-only" id="adminRequestsTableWrapper">
-                        <div class="table-responsive">
-                            <table class="portal-table" id="adminRequestsTable">
-                                <thead>
-                                    <tr>
-                                        <th style="width:40px;"></th>
-                                        <th>CR Name</th>
-                                        <th>Course</th>
-                                        <th>Section</th>
-                                        <th>Students</th>
-                                        <th>Subjects</th>
-                                        <th>Date</th>
-                                        <th>Status</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="adminRequestsTableBody">
-                                    <tr><td colspan="9" class="empty-record">Loading requests...</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <div id="requestList" class="request-list cr-only">
-                        <p class="empty-record">No requests yet.</p>
-                    </div>
-                </section>
+                <div id="requestList" class="request-list">
+                    <p class="empty-record">No requests yet.</p>
+                </div>
+            </section>
 
             <!-- WELCOME -->
             <section class="welcome-section">
@@ -815,302 +593,45 @@
 
             </div>
 
-            </main>
-        </div>
+        </main>
 
-        <!-- ADD/EDIT COURSE MODAL -->
-        <div id="courseModal" class="modal-backdrop hidden">
-            <div class="request-modal form-modal" role="dialog" aria-modal="true" aria-labelledby="courseModalTitle">
-                <div class="modal-head">
-                    <div>
-                        <p class="section-small-title">COURSE SETUP</p>
-                        <h3 id="courseModalTitle">Add New Course</h3>
+
+        <div id="adminSectionModal" class="modal-backdrop hidden">
+            <div class="request-modal admin-form-modal" role="dialog" aria-modal="true">
+                <div class="modal-head"><div><p class="section-small-title">ADMIN</p><h3 id="adminSectionModalTitle">Add Section</h3></div><button id="closeAdminSectionModal" class="drawer-close" type="button">×</button></div>
+                <form id="adminSectionForm">
+                    <div class="admin-form-grid">
+                        <div class="input-group"><label>Course</label><input id="adminSectionCourse" required placeholder="e.g. B.Tech CSE"></div>
+                        <div class="input-group"><label>Section</label><input id="adminSectionName" required placeholder="e.g. CSE-5"></div>
+                        <div class="input-group"><label>Semester</label><input id="adminSectionSemester" placeholder="e.g. 5"></div>
+                        <div class="input-group"><label>Year</label><input id="adminSectionYear" placeholder="e.g. 2026-27"></div>
+                        <div class="input-group"><label>Mentor Name</label><input id="adminSectionMentor" placeholder="Mentor name"></div>
+                        <div class="input-group"><label>Mentor Number</label><input id="adminSectionMentorMobile" maxlength="10" placeholder="10-digit mobile"></div>
                     </div>
-                    <button id="closeCourseModal" class="drawer-close" type="button" aria-label="Close">×</button>
-                </div>
-                <form id="courseForm">
-                    <input type="hidden" id="courseEditId">
-                    <div class="input-group">
-                        <label for="courseNameInput">Course Name <span>*</span></label>
-                        <input type="text" id="courseNameInput" class="request-input" placeholder="e.g. Bachelor of Computer Applications" required>
-                    </div>
-                    <div class="input-group">
-                        <label for="courseCodeInput">Course Code <span>*</span></label>
-                        <input type="text" id="courseCodeInput" class="request-input" placeholder="e.g. BCA" required>
-                    </div>
-                    <div class="input-group">
-                        <label for="courseDeptInput">Department <span>*</span></label>
-                        <input type="text" id="courseDeptInput" class="request-input" placeholder="e.g. Computer Applications" required>
-                    </div>
-                    <div class="input-group">
-                        <label for="courseDurationInput">Duration <span>*</span></label>
-                        <input type="text" id="courseDurationInput" class="request-input" placeholder="e.g. 3 Years" required>
-                    </div>
-                    <div id="courseFormMessage" class="form-feedback"></div>
-                    <div class="modal-actions">
-                        <button type="button" id="cancelCourseBtn" class="secondary-btn">Cancel</button>
-                        <button type="submit" id="saveCourseBtn" class="save-btn">Create Course</button>
-                    </div>
+                    <div class="modal-actions"><button id="cancelAdminSectionBtn" type="button" class="secondary-btn">Cancel</button><button class="save-btn" type="submit">Save Section</button></div>
                 </form>
             </div>
         </div>
 
-        <!-- ADMIN ADD SECTION MODAL -->
-        <div id="adminAddSectionModal" class="modal-backdrop hidden">
-            <div class="section-request-modal" role="dialog" aria-modal="true" aria-labelledby="adminAddSecTitle">
-                <div class="section-request-header">
-                    <div>
-                        <p class="section-small-title">NEW SECTION</p>
-                        <h3 id="adminAddSecTitle">Add Section to Existing Course</h3>
-                        <p class="section-request-subtitle">Enter section details and upload student/subject Excel data.</p>
+        <div id="adminUserModal" class="modal-backdrop hidden">
+            <div class="request-modal admin-form-modal" role="dialog" aria-modal="true">
+                <div class="modal-head"><div><p class="section-small-title">ADMIN</p><h3>Add User Profile</h3></div><button id="closeAdminUserModal" class="drawer-close" type="button">×</button></div>
+                <form id="adminUserForm">
+                    <div class="admin-form-grid">
+                        <div class="input-group"><label>Name</label><input id="adminUserName" required placeholder="Full name"></div>
+                        <div class="input-group"><label>Email</label><input id="adminUserEmail" type="email" required placeholder="user@example.com"></div>
+                        <div class="input-group"><label>Role</label><select id="adminUserRole"><option value="cr">Class Representative</option><option value="admin">Admin</option></select></div>
+                        <div class="input-group"><label>Section</label><select id="adminUserSection"><option value="">-- None --</option></select></div>
                     </div>
-                    <button id="closeAdminAddSectionModal" class="drawer-close" type="button" aria-label="Close">×</button>
-                </div>
-                <form id="adminAddSectionForm">
-                    <div class="section-request-grid">
-                        <div class="section-request-card">
-                            <div class="section-request-card-head">
-                                <span class="section-request-icon">♙</span>
-                                <div><h4>Section Details</h4><p>Course, semester and mentor info</p></div>
-                            </div>
-                            <div class="request-fields">
-                                <div class="input-group">
-                                    <label for="adminSecCourse">Course <span>*</span></label>
-                                    <select id="adminSecCourse" class="request-input" required>
-                                        <option value="">-- Select Course --</option>
-                                    </select>
-                                </div>
-                                <div class="input-group">
-                                    <label for="adminSecName">Section <span>*</span></label>
-                                    <input id="adminSecName" class="request-input" placeholder="e.g. BCA-3A" required>
-                                </div>
-                                <div class="input-group">
-                                    <label for="adminSecSemester">Semester <span>*</span></label>
-                                    <input id="adminSecSemester" class="request-input" placeholder="e.g. 3" required>
-                                </div>
-                                <div class="input-group">
-                                    <label for="adminSecYear">Year <span>*</span></label>
-                                    <input id="adminSecYear" class="request-input" placeholder="e.g. 2026" required>
-                                </div>
-                                <div class="input-group">
-                                    <label for="adminSecMentorName">Mentor Name</label>
-                                    <input id="adminSecMentorName" class="request-input" placeholder="e.g. Dr. Amit Sharma">
-                                </div>
-                                <div class="input-group">
-                                    <label for="adminSecMentorMobile">Mentor Number</label>
-                                    <input id="adminSecMentorMobile" class="request-input" inputmode="numeric" maxlength="10" placeholder="e.g. 9876543210">
-                                </div>
-                            </div>
-                        </div>
-                        <div class="section-request-card excel-card">
-                            <div class="section-request-card-head">
-                                <span class="section-request-icon">▤</span>
-                                <div><h4>Student &amp; Subject Excel</h4><p>Download, fill and upload template</p></div>
-                            </div>
-                            <div class="excel-step">
-                                <div class="excel-step-number">1</div>
-                                <div class="excel-step-content">
-                                    <strong>Download Template</strong>
-                                    <a class="excel-download-btn" href="Section_Template.xlsx" download="Section_Template.xlsx">⇩ &nbsp; Download Section Template .xlsx</a>
-                                </div>
-                            </div>
-                            <div class="excel-step">
-                                <div class="excel-step-number">2</div>
-                                <div class="excel-step-content">
-                                    <strong>Upload Filled Excel</strong>
-                                    <label class="excel-upload-box" for="adminSecExcelFile">
-                                        <span class="excel-upload-icon">⇧</span>
-                                        <span><b id="adminSecExcelFileLabel">Click to upload Excel file</b><small>Supports .xlsx and .xls</small></span>
-                                    </label>
-                                    <input id="adminSecExcelFile" type="file" accept=".xlsx,.xls" hidden>
-                                </div>
-                            </div>
-                            <div class="excel-step">
-                                <div class="excel-step-number">3</div>
-                                <div class="excel-step-content">
-                                    <strong>Preview</strong>
-                                    <div id="adminSecExcelPreview" class="excel-preview-container hidden">
-                                        <div class="excel-stats-grid">
-                                            <div class="stat-pill"><span class="pill-label">Students Found</span><b id="adminSecStudentCount">0</b></div>
-                                            <div class="stat-pill"><span class="pill-label">Subjects Found</span><b id="adminSecSubjectCount">0</b></div>
-                                            <div class="stat-pill"><span class="pill-label">Duplicate Q.IDs</span><b id="adminSecDuplicateCount">0</b></div>
-                                            <div class="stat-pill"><span class="pill-label">Invalid Rows</span><b id="adminSecInvalidCount">0</b></div>
-                                        </div>
-                                        <div id="adminSecSubjectsBox" class="excel-preview-section hidden">
-                                            <p class="preview-heading">Subjects Preview</p>
-                                            <div id="adminSecSubjectsList" class="preview-subjects-list"></div>
-                                        </div>
-                                        <div id="adminSecStudentsBox" class="excel-preview-section hidden">
-                                            <p class="preview-heading">Student Preview (First 10)</p>
-                                            <div class="preview-table-wrapper">
-                                                <table class="preview-mini-table">
-                                                    <thead><tr><th>#</th><th>Q.ID</th><th>Student Name</th></tr></thead>
-                                                    <tbody id="adminSecStudentsTableBody"></tbody>
-                                                </table>
-                                            </div>
-                                            <p id="adminSecMoreStudentsText" class="preview-more-text"></p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div id="adminSecMessage" class="form-feedback"></div>
-                    <div class="modal-actions">
-                        <button type="button" id="cancelAdminAddSectionBtn" class="secondary-btn">Cancel</button>
-                        <button type="submit" id="submitAdminAddSectionBtn" class="save-btn">Create Section</button>
-                    </div>
+                    <p class="admin-hint">This creates/updates the Firestore profile. Firebase Authentication credentials must still be created through Firebase Authentication or your secure server workflow.</p>
+                    <div class="modal-actions"><button id="cancelAdminUserBtn" type="button" class="secondary-btn">Cancel</button><button class="save-btn" type="submit">Save User</button></div>
                 </form>
             </div>
         </div>
 
-        <!-- ADD STUDENTS TO SECTION MODAL -->
-        <div id="addStudentsModal" class="modal-backdrop hidden">
-            <div class="request-modal excel-action-modal" role="dialog" aria-modal="true" aria-labelledby="addStudentsModalTitle">
-                <div class="modal-head">
-                    <div>
-                        <p class="section-small-title">STUDENT IMPORT</p>
-                        <h3 id="addStudentsModalTitle">Add Students to Section</h3>
-                    </div>
-                    <button id="closeAddStudentsModal" class="drawer-close" type="button" aria-label="Close">×</button>
-                </div>
-                <form id="addStudentsForm">
-                    <input type="hidden" id="addStudentsSectionId">
-                    <div class="excel-action-step">
-                        <button type="button" id="downloadStudentTemplateBtn" class="excel-download-btn">⇩ &nbsp; Download Student Template</button>
-                    </div>
-                    <div class="excel-action-step">
-                        <label class="excel-upload-box" for="importStudentsExcelFile">
-                            <span class="excel-upload-icon">⇧</span>
-                            <span><b id="importStudentsExcelFileLabel">Click to upload Excel file</b><small>Supports .xlsx and .xls</small></span>
-                        </label>
-                        <input id="importStudentsExcelFile" type="file" accept=".xlsx,.xls" hidden>
-                    </div>
-                    <div id="importStudentsPreviewBox" class="import-preview-box hidden">
-                        <div class="excel-stats-grid">
-                            <div class="stat-pill"><span class="pill-label">Students Found</span><b id="importStudentsCount">0</b></div>
-                            <div class="stat-pill"><span class="pill-label">Duplicate Q.IDs</span><b id="importStudentsDuplicateCount">0</b></div>
-                            <div class="stat-pill"><span class="pill-label">Invalid Rows</span><b id="importStudentsInvalidCount">0</b></div>
-                        </div>
-                        <div class="preview-table-wrapper">
-                            <p class="preview-heading">Student Preview (First 10)</p>
-                            <table class="preview-mini-table">
-                                <thead><tr><th>#</th><th>Q.ID</th><th>Student Name</th></tr></thead>
-                                <tbody id="importStudentsTableBody"></tbody>
-                            </table>
-                            <p id="importStudentsMoreText" class="preview-more-text"></p>
-                        </div>
-                    </div>
-                    <div id="importStudentsMessage" class="form-feedback"></div>
-                    <div class="modal-actions">
-                        <button type="button" id="cancelAddStudentsBtn" class="secondary-btn">Cancel</button>
-                        <button type="submit" id="confirmAddStudentsBtn" class="save-btn" disabled>Add Students</button>
-                    </div>
-                </form>
-            </div>
+        <div id="adminRequestDetailModal" class="modal-backdrop hidden">
+            <div class="request-modal admin-request-detail-modal" role="dialog" aria-modal="true"><div class="modal-head"><div><p class="section-small-title">REQUEST DETAILS</p><h3>Review Request</h3></div><button id="closeAdminRequestDetail" class="drawer-close" type="button">×</button></div><div id="adminRequestDetailBody"></div><div class="modal-actions"><button id="detailRejectBtn" class="reject-btn" type="button">Reject</button><button id="detailApproveBtn" class="approve-btn" type="button">Approve</button></div></div>
         </div>
-
-        <!-- ADD SUBJECTS TO SECTION MODAL -->
-        <div id="addSubjectsModal" class="modal-backdrop hidden">
-            <div class="request-modal excel-action-modal" role="dialog" aria-modal="true" aria-labelledby="addSubjectsModalTitle">
-                <div class="modal-head">
-                    <div>
-                        <p class="section-small-title">SUBJECT IMPORT</p>
-                        <h3 id="addSubjectsModalTitle">Add Subjects to Section</h3>
-                    </div>
-                    <button id="closeAddSubjectsModal" class="drawer-close" type="button" aria-label="Close">×</button>
-                </div>
-                <form id="addSubjectsForm">
-                    <input type="hidden" id="addSubjectsSectionId">
-                    <div class="excel-action-step">
-                        <button type="button" id="downloadSubjectTemplateBtn" class="excel-download-btn">⇩ &nbsp; Download Subject Template</button>
-                    </div>
-                    <div class="excel-action-step">
-                        <label class="excel-upload-box" for="importSubjectsExcelFile">
-                            <span class="excel-upload-icon">⇧</span>
-                            <span><b id="importSubjectsExcelFileLabel">Click to upload Excel file</b><small>Supports .xlsx and .xls</small></span>
-                        </label>
-                        <input id="importSubjectsExcelFile" type="file" accept=".xlsx,.xls" hidden>
-                    </div>
-                    <div id="importSubjectsPreviewBox" class="import-preview-box hidden">
-                        <div class="excel-stats-grid single-stat">
-                            <div class="stat-pill"><span class="pill-label">Subjects Found</span><b id="importSubjectsCount">0</b></div>
-                        </div>
-                        <div class="excel-preview-section">
-                            <p class="preview-heading">Subjects Preview</p>
-                            <div id="importSubjectsList" class="preview-subjects-list"></div>
-                        </div>
-                    </div>
-                    <div id="importSubjectsMessage" class="form-feedback"></div>
-                    <div class="modal-actions">
-                        <button type="button" id="cancelAddSubjectsBtn" class="secondary-btn">Cancel</button>
-                        <button type="submit" id="confirmAddSubjectsBtn" class="save-btn" disabled>Add Subjects</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-
-        <!-- APPROVE REQUEST CONFIRMATION MODAL -->
-        <div id="approveConfirmModal" class="modal-backdrop hidden">
-            <div class="request-modal confirm-modal" role="dialog" aria-modal="true" aria-labelledby="approveConfirmTitle">
-                <div class="confirm-head">
-                    <div class="confirm-icon-wrap">✓</div>
-                    <h3 id="approveConfirmTitle">Approve Section Request</h3>
-                    <p class="modal-note">This will create the course (if not exists), section, students, subjects and CR profile.</p>
-                </div>
-                <div class="confirm-summary-card">
-                    <div class="summary-row"><span>Course:</span><strong id="confirmCourseName">--</strong></div>
-                    <div class="summary-row"><span>Section:</span><strong id="confirmSectionName">--</strong></div>
-                    <div class="summary-row"><span>Students:</span><strong id="confirmStudentsCount">0</strong></div>
-                    <div class="summary-row"><span>Subjects:</span><strong id="confirmSubjectsCount">0</strong></div>
-                    <div class="summary-row"><span>CR:</span><strong id="confirmCrDetails">--</strong></div>
-                </div>
-                <div id="approveConfirmMessage" class="form-feedback"></div>
-                <div class="modal-actions confirm-actions">
-                    <button type="button" id="cancelApproveConfirmBtn" class="secondary-btn">Cancel</button>
-                    <button type="button" id="executeApproveBtn" class="save-btn success-btn">Confirm &amp; Approve</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- FINAL RESULT / SUCCESS MODAL -->
-        <div id="approveSuccessModal" class="modal-backdrop hidden">
-            <div class="request-modal success-modal" role="dialog" aria-modal="true">
-                <div class="success-head">
-                    <div class="success-icon-badge">✓</div>
-                    <h3>Section Created Successfully!</h3>
-                    <p class="modal-note">The section has been created and all data has been added.</p>
-                </div>
-                <div class="success-checklist">
-                    <div class="checklist-item"><span class="check-icon">✓</span><span>Course verified/created</span></div>
-                    <div class="checklist-item"><span class="check-icon">✓</span><span>Section created</span></div>
-                    <div class="checklist-item"><span class="check-icon">✓</span><span id="successStudentsCountText">Students added</span></div>
-                    <div class="checklist-item"><span class="check-icon">✓</span><span id="successSubjectsCountText">Subjects added</span></div>
-                    <div class="checklist-item"><span class="check-icon">✓</span><span>CR profile created</span></div>
-                </div>
-                <div class="modal-actions success-actions">
-                    <button type="button" id="successGoToSectionsBtn" class="save-btn">Go to Manage Sections</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- VIEW REQUEST DETAIL MODAL -->
-        <div id="viewRequestDetailModal" class="modal-backdrop hidden">
-            <div class="request-modal detail-modal" role="dialog" aria-modal="true">
-                <div class="modal-head">
-                    <div>
-                        <p class="section-small-title">REQUEST DETAILS</p>
-                        <h3 id="viewRequestDetailTitle">Section Request Details</h3>
-                    </div>
-                    <button id="closeViewRequestDetailModal" class="drawer-close" type="button" aria-label="Close">×</button>
-                </div>
-                <div id="viewRequestDetailContent" class="detail-modal-body"></div>
-                <div class="modal-actions">
-                    <button type="button" id="closeViewRequestDetailBtn" class="secondary-btn">Close</button>
-                </div>
-            </div>
-        </div>
-
 
         <div id="requestModal" class="modal-backdrop hidden">
             <div class="request-modal" role="dialog" aria-modal="true" aria-labelledby="requestModalTitle">
