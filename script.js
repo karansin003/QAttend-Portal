@@ -5,7 +5,10 @@ import {
     signInWithEmailAndPassword,
     signOut,
     onAuthStateChanged,
-    sendPasswordResetEmail
+    setPersistence,
+    browserLocalPersistence,
+    sendPasswordResetEmail,
+    createUserWithEmailAndPassword
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 
 import {
@@ -21,7 +24,8 @@ import {
     query,
     orderBy,
     limit,
-    where
+    where,
+    writeBatch
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
 
@@ -40,10 +44,45 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const authPersistenceReady = setPersistence(auth, browserLocalPersistence).catch(error => {
+    console.warn("Could not enable local login persistence:", error);
+});
 
-// Where "Contact Admin" and "Request a new section" emails are sent.
-// >>> CHANGE THIS to the real admin's email before deploying. <<<
-const ADMIN_CONTACT_EMAIL = "sonusin8672@gmail.com";
+// A secondary Firebase Auth instance is used only when Admin approves a
+// new-section request. It creates the CR account without signing the Admin out.
+const provisioningApp = initializeApp(firebaseConfig, "qattend-cr-provisioning");
+const provisioningAuth = getAuth(provisioningApp);
+
+// DIRECT EMAIL CONFIGURATION
+// Replace these three EmailJS values with your EmailJS account values.
+// Emails are sent directly. No Gmail/Apple Mail compose window is opened.
+const EMAILJS_CONFIG = {
+    publicKey: "YOUR_EMAILJS_PUBLIC_KEY",
+    serviceId: "YOUR_EMAILJS_SERVICE_ID",
+    templateId: "YOUR_EMAILJS_TEMPLATE_ID",
+    adminEmail: "sonusin8672@gmail.com"
+};
+
+if (window.emailjs) {
+    window.emailjs.init({ publicKey: EMAILJS_CONFIG.publicKey });
+}
+
+async function sendDirectEmail({toEmail, subject, message, replyTo=""}) {
+    if (!window.emailjs) {
+        throw new Error("Email service could not be loaded. Check your internet connection.");
+    }
+    if (EMAILJS_CONFIG.publicKey.startsWith("YOUR_") || EMAILJS_CONFIG.serviceId.startsWith("YOUR_") || EMAILJS_CONFIG.templateId.startsWith("YOUR_")) {
+        throw new Error("EmailJS is not configured yet. Add your EmailJS Public Key, Service ID and Template ID in script.js.");
+    }
+    return window.emailjs.send(EMAILJS_CONFIG.serviceId, EMAILJS_CONFIG.templateId, {
+        to_email: toEmail,
+        subject,
+        message,
+        from_name: "QAttend",
+        reply_to: replyTo || toEmail
+    });
+}
+
 
 
 // LAZY-LOAD SHEETJS
@@ -88,6 +127,235 @@ function ensureXLSXLoaded() {
     }
 
     return xlsxLoadPromise;
+}
+
+// EXCEL TEMPLATE GENERATORS & PARSERS
+async function downloadSectionTemplate(e) {
+    if (e && typeof e.preventDefault === "function") e.preventDefault();
+    try {
+        await ensureXLSXLoaded();
+        const wb = XLSX.utils.book_new();
+
+        // Sheet 1: Students
+        const studentData = [
+            ["QID", "Student Name"],
+            ["24030101", "Karan Kumar"],
+            ["24030102", "Rahul Kumar"],
+            ["24030103", "Amit Singh"],
+            ["24030104", "Neha Sharma"],
+            ["24030105", "Priya Verma"]
+        ];
+        const wsStudents = XLSX.utils.aoa_to_sheet(studentData);
+        XLSX.utils.book_append_sheet(wb, wsStudents, "Students");
+
+        // Sheet 2: Subjects
+        const subjectData = [
+            ["Subject Name"],
+            ["Design and Analysis of Algorithm"],
+            ["Database Management System"],
+            ["Operating System"],
+            ["Computer Networks"],
+            ["Machine Learning"],
+            ["Artificial Intelligence"]
+        ];
+        const wsSubjects = XLSX.utils.aoa_to_sheet(subjectData);
+        XLSX.utils.book_append_sheet(wb, wsSubjects, "Subjects");
+
+        // Sheet 3: Instructions
+        const instructions = [
+            ["Sheet / Column", "Rule & Guideline"],
+            ["Students: QID", "Fill student university QID (unique, required)"],
+            ["Students: Student Name", "Fill student full name (required)"],
+            ["Subjects: Subject Name", "Fill each subject on a new row (required)"],
+            ["Column Headers", "Do not modify column headers in row 1"],
+            ["Duplicates", "Do not add duplicate QIDs"],
+            ["File Format", "Save as .xlsx and upload in QAttend"]
+        ];
+        const wsInstructions = XLSX.utils.aoa_to_sheet(instructions);
+        XLSX.utils.book_append_sheet(wb, wsInstructions, "Instructions");
+
+        XLSX.writeFile(wb, "Section_Template.xlsx");
+    } catch (err) {
+        console.error("Error generating section template:", err);
+        window.location.href = "Section_Template.xlsx";
+    }
+}
+
+async function downloadStudentTemplate(e) {
+    if (e && typeof e.preventDefault === "function") e.preventDefault();
+    try {
+        await ensureXLSXLoaded();
+        const wb = XLSX.utils.book_new();
+        const studentData = [
+            ["QID", "Student Name"],
+            ["24030101", "Karan Kumar"],
+            ["24030102", "Rahul Kumar"]
+        ];
+        const wsStudents = XLSX.utils.aoa_to_sheet(studentData);
+        XLSX.utils.book_append_sheet(wb, wsStudents, "Students");
+
+        const instructions = [
+            ["Column", "Rule"],
+            ["QID", "University QID (Required, Unique)"],
+            ["Student Name", "Student Full Name (Required)"]
+        ];
+        const wsInstructions = XLSX.utils.aoa_to_sheet(instructions);
+        XLSX.utils.book_append_sheet(wb, wsInstructions, "Instructions");
+
+        XLSX.writeFile(wb, "Student_Template.xlsx");
+    } catch (err) {
+        console.error("Error generating student template:", err);
+    }
+}
+
+async function downloadSubjectTemplate(e) {
+    if (e && typeof e.preventDefault === "function") e.preventDefault();
+    try {
+        await ensureXLSXLoaded();
+        const wb = XLSX.utils.book_new();
+        const subjectData = [
+            ["Subject Name"],
+            ["Design and Analysis of Algorithm"],
+            ["Database Management System"],
+            ["Operating System"]
+        ];
+        const wsSubjects = XLSX.utils.aoa_to_sheet(subjectData);
+        XLSX.utils.book_append_sheet(wb, wsSubjects, "Subjects");
+
+        const instructions = [
+            ["Column", "Rule"],
+            ["Subject Name", "Course Subject Name (Required, Unique)"]
+        ];
+        const wsInstructions = XLSX.utils.aoa_to_sheet(instructions);
+        XLSX.utils.book_append_sheet(wb, wsInstructions, "Instructions");
+
+        XLSX.writeFile(wb, "Subject_Template.xlsx");
+    } catch (err) {
+        console.error("Error generating subject template:", err);
+    }
+}
+
+async function parseSectionExcelFile(file) {
+    await ensureXLSXLoaded();
+    const buffer = await file.arrayBuffer();
+    const workbook = XLSX.read(buffer, { type: "array" });
+    const normalize = v => String(v ?? "").trim();
+    const findSheet = name => workbook.Sheets[name] || workbook.Sheets[name.toLowerCase()] || workbook.Sheets[name.toUpperCase()] || null;
+
+    const studentsSheet = findSheet("Students") || workbook.Sheets[workbook.SheetNames[0]];
+    const subjectsSheet = findSheet("Subjects") || (workbook.SheetNames.length > 1 ? workbook.Sheets[workbook.SheetNames[1]] : null);
+
+    const studentRows = studentsSheet ? XLSX.utils.sheet_to_json(studentsSheet, { header: 1, defval: "" }) : [];
+    const subjectRows = subjectsSheet ? XLSX.utils.sheet_to_json(subjectsSheet, { header: 1, defval: "" }) : [];
+
+    const studentsOut = [];
+    const qids = new Set();
+    let duplicateCount = 0;
+    let invalidCount = 0;
+
+    studentRows.slice(1).forEach(row => {
+        const qid = normalize(row[0]);
+        const name = normalize(row[1]);
+        if (!qid && !name) return;
+        if (!qid || !name) {
+            invalidCount++;
+            return;
+        }
+        if (qids.has(qid.toLowerCase())) {
+            duplicateCount++;
+            return;
+        }
+        qids.add(qid.toLowerCase());
+        studentsOut.push({ qid, name: name.toUpperCase() });
+    });
+
+    const subjectsOut = [];
+    const subjectSet = new Set();
+    subjectRows.slice(1).forEach(row => {
+        const name = normalize(row[0]);
+        if (!name) return;
+        const key = name.toLowerCase();
+        if (!subjectSet.has(key)) {
+            subjectSet.add(key);
+            subjectsOut.push(name);
+        }
+    });
+
+    return {
+        students: studentsOut,
+        subjects: subjectsOut,
+        duplicateCount,
+        invalidCount,
+        fileName: file.name
+    };
+}
+
+function renderSectionExcelPreview(prefix, parsedData) {
+    const previewEl = document.getElementById(prefix ? `${prefix}ExcelPreview` : "sectionExcelPreview");
+    if (!previewEl) return;
+
+    const badge = document.getElementById(prefix ? `${prefix}SuccessBadge` : "sectionExcelSuccessBadge");
+    const fileNameEl = document.getElementById(prefix ? `${prefix}FileName` : "sectionExcelFileName");
+    if (badge && fileNameEl) {
+        fileNameEl.textContent = parsedData.fileName || "section_data.xlsx";
+        badge.classList.remove("hidden");
+    }
+
+    const studentCountEl = document.getElementById(prefix ? `${prefix}StudentCount` : "excelStudentCount");
+    const subjectCountEl = document.getElementById(prefix ? `${prefix}SubjectCount` : "excelSubjectCount");
+    const duplicateCountEl = document.getElementById(prefix ? `${prefix}DuplicateCount` : "excelDuplicateCount");
+    const invalidCountEl = document.getElementById(prefix ? `${prefix}InvalidCount` : "excelInvalidCount");
+
+    if (studentCountEl) studentCountEl.textContent = parsedData.students.length;
+    if (subjectCountEl) subjectCountEl.textContent = parsedData.subjects.length;
+    if (duplicateCountEl) duplicateCountEl.textContent = parsedData.duplicateCount;
+    if (invalidCountEl) invalidCountEl.textContent = parsedData.invalidCount;
+
+    // Subjects Preview
+    const subjectsBox = document.getElementById(prefix ? `${prefix}SubjectsBox` : "sectionExcelSubjectsBox");
+    const subjectsList = document.getElementById(prefix ? `${prefix}SubjectsList` : "excelSubjectsList");
+    if (subjectsBox && subjectsList) {
+        subjectsList.innerHTML = "";
+        if (parsedData.subjects.length > 0) {
+            parsedData.subjects.forEach(sub => {
+                const pill = document.createElement("span");
+                pill.className = "subject-pill-tag";
+                pill.textContent = sub;
+                subjectsList.appendChild(pill);
+            });
+            subjectsBox.classList.remove("hidden");
+        } else {
+            subjectsBox.classList.add("hidden");
+        }
+    }
+
+    // Students Preview (first 10)
+    const studentsBox = document.getElementById(prefix ? `${prefix}StudentsBox` : "sectionExcelStudentsBox");
+    const tableBody = document.getElementById(prefix ? `${prefix}StudentsTableBody` : "excelStudentsTableBody");
+    const moreText = document.getElementById(prefix ? `${prefix}MoreStudentsText` : "excelMoreStudentsText");
+    if (studentsBox && tableBody) {
+        tableBody.innerHTML = "";
+        const previewRows = parsedData.students.slice(0, 10);
+        previewRows.forEach((st, idx) => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `<td>${idx + 1}</td><td>${escapeHtml(st.qid)}</td><td>${escapeHtml(st.name)}</td>`;
+            tableBody.appendChild(tr);
+        });
+
+        if (moreText) {
+            const remaining = parsedData.students.length - 10;
+            if (remaining > 0) {
+                moreText.textContent = `+ ${remaining} more students`;
+                moreText.classList.remove("hidden");
+            } else {
+                moreText.textContent = "";
+                moreText.classList.add("hidden");
+            }
+        }
+        studentsBox.classList.remove("hidden");
+    }
+
+    previewEl.classList.remove("hidden");
 }
 
 
@@ -138,6 +406,7 @@ function escapeHtml(value) {
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
 }
+window.escapeHtml = escapeHtml;
 
 
 // NAME COMPARISON
@@ -189,8 +458,9 @@ let students = [];
 let subjects = [];
 
 let recordsCache = {};
-let requestFilter = "all";
+let requestFilter = "pending";
 let selectedRequestIds = new Set();
+let sectionCourseMap = {};
 
 
 // HTML ELEMENTS
@@ -204,6 +474,24 @@ const appPage =
     document.getElementById(
         "appPage"
     );
+
+const pageName = document.body.dataset.page || "login";
+
+if (pageName === "login") {
+    appPage?.remove();
+} else {
+    loginPage?.remove();
+    document.getElementById("contactAdminModal")?.remove();
+    document.getElementById("addSectionRequestModal")?.remove();
+}
+
+if (pageName === "admin") {
+    document.querySelectorAll(".cr-only, #requestModal, #adminSidebar").forEach(element => element.remove());
+}
+
+if (pageName === "cr") {
+    document.querySelectorAll(".admin-only, #adminSidebar, #adminDashboard, #adminCoursesView, #adminSectionsView, #adminPanel, #adminAddSectionModal, #courseModal, #addStudentsModal, #addSubjectsModal, #approveConfirmModal, #approveSuccessModal, #adminRequestTabs, #bulkRequestToolbar, #adminRequestsTableWrapper").forEach(element => element.remove());
+}
 
 
 const loginForm =
@@ -262,18 +550,6 @@ const backToLoginLink =
         "backToLoginLink"
     );
 
-const contactAdminLink = document.getElementById("contactAdminLink");
-const contactAdminModal = document.getElementById("contactAdminModal");
-const closeContactAdminModal = document.getElementById("closeContactAdminModal");
-const cancelContactAdminBtn = document.getElementById("cancelContactAdminBtn");
-const contactAdminForm = document.getElementById("contactAdminForm");
-
-const requestSectionLink = document.getElementById("requestSectionLink");
-const addSectionRequestModal = document.getElementById("addSectionRequestModal");
-const closeAddSectionRequestModal = document.getElementById("closeAddSectionRequestModal");
-const cancelAddSectionRequestBtn = document.getElementById("cancelAddSectionRequestBtn");
-const addSectionRequestForm = document.getElementById("addSectionRequestForm");
-
 
 const logoutBtn =
     document.getElementById(
@@ -305,6 +581,9 @@ const sectionLabel =
     document.getElementById(
         "sectionLabel"
     );
+
+const attendanceCourseLabel = document.getElementById("attendanceCourseLabel");
+const attendanceCourseSelect = document.getElementById("attendanceCourseSelect");
 
 
 const sectionSwitchBox =
@@ -468,15 +747,17 @@ const refreshRecordsBtn =
 
 // TODAY DATE
 
-attendanceDate.value =
-    new Date()
-        .toISOString()
-        .split("T")[0];
+if (attendanceDate) {
+    attendanceDate.value =
+        new Date()
+            .toISOString()
+            .split("T")[0];
+}
 
 
 // PASSWORD SHOW / HIDE
 
-togglePassword.addEventListener(
+togglePassword?.addEventListener(
     "click",
     function () {
 
@@ -505,7 +786,7 @@ togglePassword.addEventListener(
 
 // LOGIN
 
-loginForm.addEventListener(
+loginForm?.addEventListener(
     "submit",
     async function (event) {
 
@@ -521,6 +802,8 @@ loginForm.addEventListener(
             "Logging in...";
 
         try {
+
+            await authPersistenceReady;
 
             await signInWithEmailAndPassword(
                 auth,
@@ -542,9 +825,224 @@ loginForm.addEventListener(
 );
 
 
+// LOGIN-PAGE ACCESS MODALS
+
+const contactAdminLink = document.getElementById("contactAdminLink");
+const contactAdminModal = document.getElementById("contactAdminModal");
+const closeContactAdminModal = document.getElementById("closeContactAdminModal");
+const cancelContactAdminBtn = document.getElementById("cancelContactAdminBtn");
+const contactAdminForm = document.getElementById("contactAdminForm");
+const contactAdminMessage = document.getElementById("contactAdminMessage");
+const requestSectionLink = document.getElementById("requestSectionLink");
+const addSectionRequestModal = document.getElementById("addSectionRequestModal");
+const closeAddSectionRequestModal = document.getElementById("closeAddSectionRequestModal");
+const cancelAddSectionRequestBtn = document.getElementById("cancelAddSectionRequestBtn");
+const addSectionRequestForm = document.getElementById("addSectionRequestForm");
+const sectionExcelFile = document.getElementById("sectionExcelFile");
+const sectionExcelFileLabel = document.getElementById("sectionExcelFileLabel");
+const sectionExcelPreview = document.getElementById("sectionExcelPreview");
+const sectionRequestMessage = document.getElementById("sectionRequestMessage");
+const submitAddSectionRequestBtn = document.getElementById("submitAddSectionRequestBtn");
+
+let sectionExcelPayload = null;
+
+function openLoginModal(modal) {
+    modal?.classList.remove("hidden");
+    document.body.classList.add("modal-open");
+}
+function closeLoginModal(modal) {
+    modal?.classList.add("hidden");
+    if (!document.querySelector(".modal-backdrop:not(.hidden)")) document.body.classList.remove("modal-open");
+}
+
+contactAdminLink?.addEventListener("click", () => {
+    contactAdminMessage.textContent = "";
+    openLoginModal(contactAdminModal);
+});
+closeContactAdminModal?.addEventListener("click", () => closeLoginModal(contactAdminModal));
+cancelContactAdminBtn?.addEventListener("click", () => closeLoginModal(contactAdminModal));
+
+contactAdminForm?.addEventListener("submit", async event => {
+    event.preventDefault();
+    const name = document.getElementById("contactName").value.trim();
+    const email = document.getElementById("contactEmail").value.trim();
+    const mobile = document.getElementById("contactMobile").value.trim();
+    const type = document.getElementById("contactType")?.value.trim() || "Access / Support Request";
+    const message = document.getElementById("contactMessage").value.trim();
+
+    if (!/^\d{10}$/.test(mobile)) {
+        contactAdminMessage.textContent = "Mobile number must be exactly 10 digits.";
+        contactAdminMessage.className = "form-feedback error";
+        return;
+    }
+
+    contactAdminMessage.textContent = "Sending email to Admin...";
+    contactAdminMessage.className = "form-feedback";
+
+    try {
+        await addDoc(collection(db, "requests"), {
+            type: "contact_admin",
+            status: "pending",
+            name,
+            email,
+            mobile,
+            message,
+            requestedBy: email,
+            requestedByRole: "guest",
+            createdAt: new Date().toISOString()
+        });
+
+        await sendDirectEmail({
+            toEmail: EMAILJS_CONFIG.adminEmail,
+            subject: `QAttend Access Request - ${name}`,
+            message: `New Contact Admin Request\n\nName: ${name}\nEmail: ${email}\nMobile: ${mobile}\nRequest Type: ${type}\n\nMessage:\n${message}`,
+            replyTo: email
+        });
+
+        contactAdminMessage.textContent = "Email sent successfully to Admin.";
+        contactAdminMessage.className = "form-feedback success";
+        contactAdminForm.reset();
+        setTimeout(() => closeLoginModal(contactAdminModal), 1000);
+    } catch (error) {
+        console.error("Contact Admin email error:", error);
+        contactAdminMessage.textContent = error.message || "Could not send email. Please try again.";
+        contactAdminMessage.className = "form-feedback error";
+    }
+});
+
+requestSectionLink?.addEventListener("click", () => {
+    sectionRequestMessage.textContent = "";
+    sectionExcelPayload = null;
+    if (sectionExcelFile) sectionExcelFile.value = "";
+    if (sectionExcelFileLabel) sectionExcelFileLabel.textContent = "Click to upload Excel file";
+    sectionExcelPreview?.classList.add("hidden");
+    openLoginModal(addSectionRequestModal);
+});
+closeAddSectionRequestModal?.addEventListener("click", () => closeLoginModal(addSectionRequestModal));
+cancelAddSectionRequestBtn?.addEventListener("click", () => closeLoginModal(addSectionRequestModal));
+
+sectionExcelFile?.addEventListener("change", async () => {
+    const file = sectionExcelFile.files?.[0];
+    if (!file) return;
+    if (!/\.(xlsx|xls)$/i.test(file.name)) {
+        sectionRequestMessage.textContent = "Please upload an .xlsx or .xls file.";
+        sectionRequestMessage.className = "section-request-message error";
+        sectionExcelFile.value = "";
+        return;
+    }
+    sectionExcelFileLabel.textContent = file.name;
+    sectionRequestMessage.textContent = "Reading Excel file...";
+    sectionRequestMessage.className = "section-request-message";
+    try {
+        await ensureXLSXLoaded();
+        const buffer = await file.arrayBuffer();
+        const workbook = XLSX.read(buffer, {type:"array"});
+        const normalize = v => String(v ?? "").trim();
+        const findSheet = name => workbook.Sheets[name] || workbook.Sheets[name.toLowerCase()] || null;
+        const studentsSheet = findSheet("Students") || workbook.Sheets[workbook.SheetNames[0]];
+        const subjectsSheet = findSheet("Subjects") || (workbook.SheetNames[1] ? workbook.Sheets[workbook.SheetNames[1]] : null);
+        const studentRows = studentsSheet ? XLSX.utils.sheet_to_json(studentsSheet, {header:1, defval:""}) : [];
+        const subjectRows = subjectsSheet ? XLSX.utils.sheet_to_json(subjectsSheet, {header:1, defval:""}) : [];
+
+        const studentsOut = [];
+        const qids = new Set();
+        let invalid = 0;
+        studentRows.slice(1).forEach(row => {
+            const qid = normalize(row[0]);
+            const name = normalize(row[1]);
+            if (!qid && !name) return;
+            if (!qid || !name || qids.has(qid.toLowerCase())) { invalid++; return; }
+            qids.add(qid.toLowerCase());
+            studentsOut.push({qid, name: name.toUpperCase()});
+        });
+
+        const subjectsOut = [];
+        const subjectSet = new Set();
+        subjectRows.slice(1).forEach(row => {
+            const name = normalize(row[0]);
+            if (!name) return;
+            const key = name.toLowerCase();
+            if (!subjectSet.has(key)) { subjectSet.add(key); subjectsOut.push(name); }
+        });
+
+        sectionExcelPayload = {students:studentsOut, subjects:subjectsOut, duplicateCount:0, invalidCount:invalid};
+        document.getElementById("excelStudentCount").textContent = studentsOut.length;
+        document.getElementById("excelSubjectCount").textContent = subjectsOut.length;
+        document.getElementById("excelDuplicateCount").textContent = 0;
+        document.getElementById("excelInvalidCount").textContent = invalid;
+        sectionExcelPreview.classList.remove("hidden");
+        sectionRequestMessage.textContent = studentsOut.length ? "Excel validated. You can submit the request." : "No valid students found in the Excel file.";
+        sectionRequestMessage.className = `section-request-message ${studentsOut.length ? "success" : "error"}`;
+    } catch (error) {
+        console.error(error);
+        sectionExcelPayload = null;
+        sectionExcelPreview?.classList.add("hidden");
+        sectionRequestMessage.textContent = "Could not read the Excel file. Please use the provided template.";
+        sectionRequestMessage.className = "section-request-message error";
+    }
+});
+
+addSectionRequestForm?.addEventListener("submit", async event => {
+    event.preventDefault();
+    const get = id => document.getElementById(id)?.value.trim() || "";
+    const crQid=get("reqCrQid"), crName=get("reqCrName"), crMobile=get("reqCrMobile"), crEmail=get("reqCrEmail").toLowerCase();
+    const mentorName=get("reqMentorName"), mentorMobile=get("reqMentorMobile"), course=get("reqCourse"), sectionName=get("reqSectionName"), semester=get("reqSemester"), year=get("reqYear");
+    if (!/^\d{10}$/.test(crMobile) || !/^\d{10}$/.test(mentorMobile)) {
+        sectionRequestMessage.textContent = "CR Mobile and Mentor No. must be exactly 10 digits.";
+        sectionRequestMessage.className = "section-request-message error";
+        return;
+    }
+    if (!sectionExcelPayload || !sectionExcelPayload.students.length) {
+        sectionRequestMessage.textContent = "Please download, fill and upload the Excel template before submitting.";
+        sectionRequestMessage.className = "section-request-message error";
+        return;
+    }
+    submitAddSectionRequestBtn.disabled = true;
+    sectionRequestMessage.textContent = "Sending request to Admin...";
+    sectionRequestMessage.className = "section-request-message";
+    const sectionId = `${course}-${sectionName}`.toUpperCase().replace(/[^A-Z0-9]+/g,"-").replace(/^-|-$/g,"");
+    const data = {
+        type:"add_section", status:"pending", requestedBy:crEmail, requestedByRole:"guest",
+        crQid, crName, crMobile, crEmail, mentorName, mentorMobile, course, section:sectionId,
+        sectionLabel:sectionName, semester, year, students:sectionExcelPayload.students, subjects:sectionExcelPayload.subjects,
+        excelStats:{students:sectionExcelPayload.students.length,subjects:sectionExcelPayload.subjects.length,duplicates:sectionExcelPayload.duplicateCount,invalid:sectionExcelPayload.invalidCount},
+        createdAt:new Date().toISOString()
+    };
+    try {
+        await addDoc(collection(db,"requests"),data);
+        const subject=`QAttend - New Section Request - ${sectionName}`;
+        const body=`New Section Request\n\nCR Q.ID: ${crQid}\nCR Name: ${crName}\nCR Mobile: ${crMobile}\nCR Email: ${crEmail}\n\nMentor Name: ${mentorName}\nMentor No.: ${mentorMobile}\n\nCourse: ${course}\nSection: ${sectionName}\nSemester: ${semester}\nYear: ${year}\n\nStudents: ${data.students.length}\nSubjects: ${data.subjects.join(", ")}\n\nPlease review this request in QAttend Admin Request Center.`;
+
+        sectionRequestMessage.textContent = "Request saved. Sending email to Admin...";
+        sectionRequestMessage.className = "section-request-message";
+
+        try {
+            await sendDirectEmail({
+                toEmail: EMAILJS_CONFIG.adminEmail,
+                subject,
+                message: body,
+                replyTo: crEmail
+            });
+            sectionRequestMessage.textContent = "Request submitted and email sent to Admin.";
+            sectionRequestMessage.className = "section-request-message success";
+            setTimeout(() => closeLoginModal(addSectionRequestModal), 1000);
+        } catch (emailError) {
+            console.error("New Section email error:", emailError);
+            sectionRequestMessage.textContent = `Request was saved, but email could not be sent. ${emailError.message || "Please try again."}`;
+            sectionRequestMessage.className = "section-request-message error";
+        }
+    } catch (error) {
+        console.error(error);
+        sectionRequestMessage.textContent = "Could not submit request. Check Firestore Rules and try again.";
+        sectionRequestMessage.className = "section-request-message error";
+    } finally { submitAddSectionRequestBtn.disabled = false; }
+});
+
+[contactAdminModal, addSectionRequestModal].forEach(modal => modal?.addEventListener("click", e => { if(e.target===modal) closeLoginModal(modal); }));
+
 // FORGOT PASSWORD
 
-forgotPasswordLink.addEventListener(
+forgotPasswordLink?.addEventListener(
     "click",
     function (event) {
 
@@ -581,7 +1079,7 @@ forgotPasswordLink.addEventListener(
 
 // BACK TO LOGIN
 
-backToLoginLink.addEventListener(
+backToLoginLink?.addEventListener(
     "click",
     function (event) {
 
@@ -611,7 +1109,7 @@ backToLoginLink.addEventListener(
 
 // SEND RESET LINK
 
-sendResetBtn.addEventListener(
+sendResetBtn?.addEventListener(
     "click",
     async function () {
 
@@ -706,252 +1204,6 @@ sendResetBtn.addEventListener(
 );
 
 
-// CONTACT ADMIN & REQUEST NEW SECTION (login page, no account needed)
-// Both build a pre-filled `mailto:` link and hand off to the user's own
-// mail app — no backend/Firestore write needed, and it works before login.
-
-function openModal(modal) {
-    modal.classList.remove("hidden");
-}
-
-function closeModal(modal) {
-    modal.classList.add("hidden");
-}
-
-contactAdminLink.addEventListener("click", function (event) {
-    event.preventDefault();
-    openModal(contactAdminModal);
-});
-
-closeContactAdminModal.addEventListener("click", () => closeModal(contactAdminModal));
-cancelContactAdminBtn.addEventListener("click", () => closeModal(contactAdminModal));
-contactAdminModal.addEventListener("click", function (event) {
-    if (event.target === contactAdminModal) closeModal(contactAdminModal);
-});
-
-contactAdminForm.addEventListener("submit", async function (event) {
-    event.preventDefault();
-
-    const name = document.getElementById("contactName").value.trim();
-    const email = document.getElementById("contactEmail").value.trim();
-    const mobile = document.getElementById("contactMobile").value.trim();
-    const type = document.getElementById("contactType").value;
-    const message = document.getElementById("contactMessage").value.trim();
-
-    const subject = `QAttend — ${type} (${name})`;
-    const body =
-        `Name: ${name}\n` +
-        `Email: ${email}\n` +
-        `Mobile: ${mobile}\n` +
-        `Request Type: ${type}\n\n` +
-        `Message:\n${message}`;
-
-    try {
-        await addDoc(collection(db, "requests"), {
-            type: "contact_admin",
-            status: "pending",
-            requestedBy: email.toLowerCase(),
-            requestedByRole: "guest",
-            name, email, mobile, requestType: type, reason: message,
-            createdAt: new Date().toISOString()
-        });
-    } catch (firestoreError) {
-        console.warn("Contact request could not be saved to Firestore:", firestoreError);
-    }
-
-    window.location.href =
-        `mailto:${ADMIN_CONTACT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-
-    closeModal(contactAdminModal);
-    contactAdminForm.reset();
-});
-
-requestSectionLink.addEventListener("click", function (event) {
-    event.preventDefault();
-    resetSectionRequestForm();
-    openModal(addSectionRequestModal);
-});
-
-closeAddSectionRequestModal.addEventListener("click", () => closeModal(addSectionRequestModal));
-cancelAddSectionRequestBtn.addEventListener("click", () => closeModal(addSectionRequestModal));
-addSectionRequestModal.addEventListener("click", function (event) {
-    if (event.target === addSectionRequestModal) closeModal(addSectionRequestModal);
-});
-
-let sectionExcelPayload = null;
-
-function resetSectionRequestForm(){
-    addSectionRequestForm.reset();
-    sectionExcelPayload = null;
-    const preview = document.getElementById("sectionExcelPreview");
-    preview?.classList.add("hidden");
-    document.getElementById("sectionExcelFileLabel").textContent = "Click to upload Excel file";
-    document.getElementById("sectionRequestMessage").textContent = "";
-    ["excelStudentCount","excelSubjectCount","excelDuplicateCount","excelInvalidCount"].forEach(id=>{
-        const el=document.getElementById(id); if(el) el.textContent="0";
-    });
-}
-
-function normalizeExcelValue(value){
-    return String(value ?? "").trim();
-}
-
-async function parseSectionExcel(file){
-    await ensureXLSXLoaded();
-    const buffer = await file.arrayBuffer();
-    const workbook = XLSX.read(buffer, {type:"array"});
-    const sheetName = workbook.SheetNames[0];
-    if(!sheetName) throw new Error("No worksheet found in the Excel file.");
-
-    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], {header:1, defval:""});
-    if(!rows.length) throw new Error("The Excel file is empty.");
-
-    const headers = rows[0].map(normalizeExcelValue).map(x=>x.toLowerCase());
-    const qidIndex = headers.findIndex(x=>x === "qid" || x === "q.id" || x === "q id");
-    const nameIndex = headers.findIndex(x=>x === "student name" || x === "student name ");
-    const subjectIndexes = headers.map((x,i)=>({x,i})).filter(({x})=>/^subject\s*\d+$/i.test(x));
-
-    if(qidIndex < 0 || nameIndex < 0 || subjectIndexes.length === 0){
-        throw new Error("Invalid template. Required columns: Qid, Student Name, Subject1, Subject2, Subject3...");
-    }
-
-    const students=[];
-    const subjectSet=new Set();
-    const seenQids=new Set();
-    let duplicateCount=0;
-    let invalidCount=0;
-
-    for(let r=1;r<rows.length;r++){
-        const row=rows[r] || [];
-        const qid=normalizeExcelValue(row[qidIndex]);
-        const name=normalizeExcelValue(row[nameIndex]);
-        const subjects=subjectIndexes.map(({i})=>normalizeExcelValue(row[i])).filter(Boolean);
-        const rowEmpty=!qid && !name && subjects.length===0;
-        if(rowEmpty) continue;
-        if(!qid || !name){ invalidCount++; continue; }
-        const qidKey=qid.toLowerCase();
-        if(seenQids.has(qidKey)){ duplicateCount++; continue; }
-        seenQids.add(qidKey);
-        students.push({qid,name:name.toUpperCase()});
-        subjects.forEach(s=>subjectSet.add(s));
-    }
-
-    return {
-        students,
-        subjects:[...subjectSet].sort((a,b)=>a.localeCompare(b)),
-        duplicateCount,
-        invalidCount
-    };
-}
-
-document.getElementById("sectionExcelFile")?.addEventListener("change", async function(){
-    const file=this.files?.[0];
-    if(!file) return;
-    const label=document.getElementById("sectionExcelFileLabel");
-    const message=document.getElementById("sectionRequestMessage");
-    label.textContent=file.name;
-    message.textContent="Reading Excel file...";
-    try{
-        sectionExcelPayload=await parseSectionExcel(file);
-        document.getElementById("sectionExcelPreview")?.classList.remove("hidden");
-        document.getElementById("excelStudentCount").textContent=sectionExcelPayload.students.length;
-        document.getElementById("excelSubjectCount").textContent=sectionExcelPayload.subjects.length;
-        document.getElementById("excelDuplicateCount").textContent=sectionExcelPayload.duplicateCount;
-        document.getElementById("excelInvalidCount").textContent=sectionExcelPayload.invalidCount;
-        message.textContent=sectionExcelPayload.students.length
-            ? "Excel validated. You can submit the request."
-            : "No valid students were found in the Excel file.";
-        message.style.color = sectionExcelPayload.students.length ? "var(--green)" : "var(--red)";
-    }catch(err){
-        sectionExcelPayload=null;
-        document.getElementById("sectionExcelPreview")?.classList.add("hidden");
-        message.textContent=err.message || "Could not read the Excel file.";
-        message.style.color="var(--red)";
-    }
-});
-
-addSectionRequestForm.addEventListener("submit", async function(event){
-    event.preventDefault();
-    const message=document.getElementById("sectionRequestMessage");
-    const submitButton=document.getElementById("submitAddSectionRequestBtn");
-
-    const crQid=document.getElementById("reqCrQid").value.trim();
-    const crName=document.getElementById("reqCrName").value.trim();
-    const crMobile=document.getElementById("reqCrMobile").value.trim();
-    const crEmail=document.getElementById("reqCrEmail").value.trim().toLowerCase();
-    const mentorName=document.getElementById("reqMentorName").value.trim();
-    const mentorMobile=document.getElementById("reqMentorMobile").value.trim();
-    const course=document.getElementById("reqCourse").value.trim();
-    const sectionName=document.getElementById("reqSectionName").value.trim();
-    const semester=document.getElementById("reqSemester").value.trim();
-    const year=document.getElementById("reqYear").value.trim();
-
-    if(!/^\d{10}$/.test(crMobile) || !/^\d{10}$/.test(mentorMobile)){
-        message.style.color="var(--red)";
-        message.textContent="CR Mobile and Mentor No. must be exactly 10 digits.";
-        return;
-    }
-    if(!sectionExcelPayload || !sectionExcelPayload.students.length){
-        message.style.color="var(--red)";
-        message.textContent="Please download, fill and upload the Excel template before submitting.";
-        return;
-    }
-
-    submitButton.disabled=true;
-    message.style.color="var(--gray)";
-    message.textContent="Sending request to Admin...";
-
-    const data={
-        type:"add_section",
-        status:"pending",
-        requestedBy:crEmail,
-        requestedByRole:"cr",
-        crQid, crName, crMobile, crEmail,
-        mentorName, mentorMobile,
-        course, section:sectionName,
-        sectionLabel:sectionName,
-        semester, year,
-        students:sectionExcelPayload.students,
-        subjects:sectionExcelPayload.subjects,
-        excelStats:{
-            students:sectionExcelPayload.students.length,
-            subjects:sectionExcelPayload.subjects.length,
-            duplicates:sectionExcelPayload.duplicateCount,
-            invalid:sectionExcelPayload.invalidCount
-        },
-        createdAt:new Date().toISOString()
-    };
-
-    try{
-        await addDoc(collection(db,"requests"),data);
-
-        // Also prepare an email so the request can be sent directly from the user's mail app.
-        const subject=`QAttend — New Section Request: ${sectionName}`;
-        const body=
-            `CR Q.ID: ${crQid}\nCR Name: ${crName}\nCR Mobile: ${crMobile}\nCR Email: ${crEmail}\n\n`+
-            `Mentor Name: ${mentorName}\nMentor No.: ${mentorMobile}\n\n`+
-            `Course: ${course}\nSection: ${sectionName}\nSemester: ${semester}\nYear: ${year}\n\n`+
-            `Students: ${data.students.length}\nSubjects: ${data.subjects.join(", ")}\n\n`+
-            `The completed Excel data has been uploaded with this request in QAttend. Please review it from the Admin Request Center.`;
-
-        message.style.color="var(--green)";
-        message.textContent="Request sent successfully. Admin will review it.";
-        window.setTimeout(()=>{
-            window.location.href=`mailto:${ADMIN_CONTACT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-        },150);
-        window.setTimeout(()=>{
-            closeModal(addSectionRequestModal);
-            resetSectionRequestForm();
-        },350);
-    }catch(err){
-        console.error(err);
-        message.style.color="var(--red)";
-        message.textContent=`Could not send request: ${err.message || err}. Publish the latest Firestore Rules first.`;
-    }finally{
-        submitButton.disabled=false;
-    }
-});
-
 // AUTH STATE
 
 onAuthStateChanged(
@@ -960,11 +1212,19 @@ onAuthStateChanged(
 
         if (!user) {
 
-            appPage.classList.add(
+            const currentPage =
+                (window.location.pathname.split("/").pop() || "login.html").toLowerCase();
+
+            if (currentPage === "admin.html" || currentPage === "cr.html") {
+                window.location.replace("login.html");
+                return;
+            }
+
+            appPage?.classList.add(
                 "hidden"
             );
 
-            loginPage.classList.remove(
+            loginPage?.classList.remove(
                 "hidden"
             );
 
@@ -976,19 +1236,19 @@ onAuthStateChanged(
             );
 
 
-            resetPasswordBox.classList.add(
+            resetPasswordBox?.classList.add(
                 "hidden"
             );
 
-            loginForm.classList.remove(
+            loginForm?.classList.remove(
                 "hidden"
             );
 
-            forgotPasswordLink.parentElement.classList.remove(
+            forgotPasswordLink?.parentElement?.classList.remove(
                 "hidden"
             );
 
-            loginMessage.classList.remove(
+            loginMessage?.classList.remove(
                 "hidden"
             );
 
@@ -1027,8 +1287,28 @@ onAuthStateChanged(
             profile =
                 profileSnap.data();
 
+            // Separate page routing: login.html -> admin.html / cr.html.
+            // admin.html and cr.html also reject the wrong role.
+            const currentPage =
+                (window.location.pathname.split("/").pop() || "login.html").toLowerCase();
+
+            if (currentPage === "login.html" || currentPage === "index.html" || currentPage === "") {
+                window.location.replace(profile.role === "admin" ? "admin.html" : "cr.html");
+                return;
+            }
+
+            if (currentPage === "admin.html" && profile.role !== "admin") {
+                window.location.replace("cr.html");
+                return;
+            }
+
+            if (currentPage === "cr.html" && profile.role === "admin") {
+                window.location.replace("admin.html");
+                return;
+            }
+
             // Record the successful login. Logging failures must never block the app.
-            await writeActivityLog("LOGIN", "User signed in to QAttend.");
+            void writeActivityLog("LOGIN", "User signed in to QAttend.");
 
 
         } catch (error) {
@@ -1047,23 +1327,24 @@ onAuthStateChanged(
         }
 
 
-        loginPage.classList.add(
+        loginPage?.classList.add(
             "hidden"
         );
 
-        appPage.classList.remove(
+        appPage?.classList.remove(
             "hidden"
         );
 
 
-        loggedUser.textContent =
-            user.email;
+        if (loggedUser) loggedUser.textContent = user.email;
 
 
-        roleBadge.textContent =
-            profile.role === "admin"
-                ? "ADMIN"
-                : "CLASS REPRESENTATIVE";
+        if (roleBadge) {
+            roleBadge.textContent =
+                profile.role === "admin"
+                    ? "ADMIN"
+                    : "CLASS REPRESENTATIVE";
+        }
 
         const drawerRequestsTitle =
             document.getElementById("drawerRequestsTitle");
@@ -1117,27 +1398,34 @@ onAuthStateChanged(
 
             // Admin lands on the Admin Dashboard after login.
             // Mark Attendance is opened explicitly from the hamburger menu.
-            populateSectionDropdowns();
+            showAdminDashboard();
 
             activeSection = null;
             managementSection = null;
-
-            sectionSelect.value = "";
+            if (sectionSelect) sectionSelect.value = "";
             if (manageSectionSelect) manageSectionSelect.value = "";
 
-            showAdminDashboard();
+            void (async () => {
+                try {
+                    await ensureLegacyBtechCourse();
+                    await populateSectionDropdowns();
+                    await populateAttendanceCourseDropdown();
+                } catch (migrationError) {
+                    console.warn("Could not prepare admin course data:", migrationError);
+                }
+            })();
 
         } else {
 
             showAttendanceView();
 
-            welcomeTitle.textContent =
+            if (welcomeTitle) welcomeTitle.textContent =
                 `${sectionLabelOf(
                     profile.section
                 )} Attendance Portal`;
 
 
-            welcomeSubtitle.textContent =
+            if (welcomeSubtitle) welcomeSubtitle.textContent =
                 "Mark, save and download attendance for your section.";
 
 
@@ -1155,15 +1443,13 @@ onAuthStateChanged(
             );
 
 
-            sectionLabel.textContent =
+            if (sectionLabel) sectionLabel.textContent =
                 sectionLabelOf(
                     activeSection
                 );
 
 
-            await loadSubjects();
-
-            await loadStudents();
+            await Promise.all([loadSubjects(), loadStudents()]);
         }
     }
 );
@@ -1171,79 +1457,135 @@ onAuthStateChanged(
 
 // SECTION DROPDOWNS
 
-function populateSectionDropdowns() {
+async function populateSectionDropdowns() {
+    const allSections = [...SECTIONS];
+    sectionCourseMap = Object.fromEntries(SECTIONS.map(section => [section.id, "BTECH"]));
+    try {
+        const snap = await getDocs(collection(db,"sections"));
+        snap.docs.forEach(d=>{
+            const x=d.data()||{};
+            sectionCourseMap[d.id] = "BTECH";
+            if(!d.id || allSections.some(s=>s.id===d.id)) return;
+            const item={id:d.id,label:x.label||x.section||d.id};
+            allSections.push(item);
+            SECTIONS.push(item);
+        });
+    }catch(e){console.warn("Could not load dynamic sections:",e);}
 
-    sectionSelect.innerHTML =
-        `<option value="">
-            -- Select Section --
-        </option>`;
-
-
-    if (newCrSection) {
-        newCrSection.innerHTML = "";
+    if (sectionSelect) {
+        sectionSelect.innerHTML=`<option value="">-- Select Section --</option>`;
+        sectionSelect.disabled = true;
     }
+    if(newCrSection)newCrSection.innerHTML="";
+    const manageSection=document.getElementById("manageSectionSelect");
+    if(manageSection)manageSection.innerHTML=`<option value="">-- Select Section --</option>`;
 
-    const manageSection = document.getElementById("manageSectionSelect");
-    if (manageSection) {
-        manageSection.innerHTML =
-            `<option value="">-- Select Section --</option>`;
-    }
-
-
-    SECTIONS.forEach(
-        function (section) {
-
-            const option1 =
-                document.createElement(
-                    "option"
-                );
-
-
-            option1.value =
-                section.id;
-
-
-            option1.textContent =
-                section.label;
-
-
-            sectionSelect.appendChild(
-                option1
-            );
-
-
-            const option2 =
-                document.createElement(
-                    "option"
-                );
-
-
-            option2.value =
-                section.id;
-
-
-            option2.textContent =
-                section.label;
-
-
-            if (newCrSection) {
-                newCrSection.appendChild(option2);
-            }
-
-            if (manageSection) {
-                const option3 = document.createElement("option");
-                option3.value = section.id;
-                option3.textContent = section.label;
-                manageSection.appendChild(option3);
-            }
-        }
-    );
+    allSections.forEach(section=>{
+        if (sectionSelect) { const option1=document.createElement("option");option1.value=section.id;option1.textContent=section.label;sectionSelect.appendChild(option1); }
+        if(newCrSection){const option2=document.createElement("option");option2.value=section.id;option2.textContent=section.label;newCrSection.appendChild(option2);}
+        if(manageSection){const option3=document.createElement("option");option3.value=section.id;option3.textContent=section.label;manageSection.appendChild(option3);}
+    });
 }
+
+async function populateAttendanceCourseDropdown() {
+    if (!attendanceCourseSelect) return;
+    attendanceCourseSelect.innerHTML = `<option value="">-- Select Course --</option>`;
+    const visibleCourses = new Set(["b.tech"]);
+    const btechOption = document.createElement("option");
+    btechOption.value = "BTECH";
+    btechOption.textContent = "B.Tech";
+    attendanceCourseSelect.appendChild(btechOption);
+
+    try {
+        const snap = await getDocs(collection(db, "courses"));
+        snap.docs.forEach(courseDoc => {
+            const course = courseDoc.data() || {};
+            const courseName = String(course.name || course.code || courseDoc.id).trim();
+            const courseKey = courseName.toLowerCase() === "b.tech ai & ml" ? "b.tech" : courseName.toLowerCase();
+            if (visibleCourses.has(courseKey)) return;
+            visibleCourses.add(courseKey);
+            const option = document.createElement("option");
+            option.value = courseDoc.id;
+            option.textContent = courseKey === "b.tech" ? "B.Tech" : courseName;
+            attendanceCourseSelect.appendChild(option);
+        });
+    } catch (error) {
+        console.warn("Could not load attendance courses:", error);
+    }
+}
+
+async function ensureLegacyBtechCourse() {
+    if (profile?.role !== "admin") return;
+    const coursesSnap = await getDocs(collection(db, "courses"));
+    const existingCourse = coursesSnap.docs.find(courseDoc => {
+        const course = courseDoc.data() || {};
+        const name = String(course.name || "").trim().toLowerCase();
+        const code = String(course.code || "").trim().toLowerCase();
+        return name === "b.tech" || name === "b.tech ai & ml" || code === "btech" || code === "btech-ai-ml";
+    });
+    const courseId = existingCourse?.id || "BTECH";
+    const courseRef = doc(db, "courses", courseId);
+    await setDoc(courseRef, {
+        name: "B.Tech",
+        code: "BTECH",
+        department: existingCourse?.data()?.department || "Computer Science",
+        duration: existingCourse?.data()?.duration || "4 Years",
+        updatedAt: new Date().toISOString()
+    }, { merge: true });
+
+    const sectionWrites = SECTIONS.map(section => setDoc(
+        doc(db, "sections", section.id),
+        {
+            label: section.label,
+            course: courseId,
+            courseName: "B.Tech",
+            updatedAt: new Date().toISOString()
+        },
+        { merge: true }
+    ));
+    await Promise.all(sectionWrites);
+
+    const sectionsSnap = await getDocs(collection(db, "sections"));
+    await Promise.all(sectionsSnap.docs.map(sectionDoc => {
+        return setDoc(sectionDoc.ref, {
+            course: "BTECH",
+            courseName: "B.Tech",
+            updatedAt: new Date().toISOString()
+        }, { merge: true });
+    }));
+}
+
+function filterAttendanceSections(courseId) {
+    if (!sectionSelect) return;
+    sectionSelect.disabled = !courseId;
+    const selectedSection = sectionSelect.value;
+    [...sectionSelect.options].forEach(option => {
+        if (!option.value) {
+            option.hidden = false;
+            return;
+        }
+        const mappedCourse = String(sectionCourseMap[option.value] || "").toUpperCase();
+        option.hidden = !courseId || Boolean(mappedCourse && mappedCourse !== String(courseId).toUpperCase());
+    });
+    if (selectedSection && !sectionSelect.selectedOptions[0]?.hidden) return;
+    sectionSelect.value = "";
+    activeSection = null;
+    attendanceCourseLabel.textContent = courseId
+        ? attendanceCourseSelect.selectedOptions[0]?.textContent || "--"
+        : "--";
+    workArea?.classList.add("hidden");
+    noSectionMessage?.classList.remove("hidden");
+}
+
+attendanceCourseSelect?.addEventListener("change", () => {
+    const courseId = attendanceCourseSelect.value;
+    filterAttendanceSections(courseId);
+});
 
 
 // SECTION CHANGE
 
-sectionSelect.addEventListener(
+sectionSelect?.addEventListener(
     "change",
     async function () {
 
@@ -1264,6 +1606,7 @@ sectionSelect.addEventListener(
 
             sectionLabel.textContent =
                 "-- Not selected --";
+            if (attendanceCourseLabel) attendanceCourseLabel.textContent = "--";
 
             headerTotalStudents.textContent =
                 "0";
@@ -1300,6 +1643,12 @@ sectionSelect.addEventListener(
             sectionLabelOf(
                 activeSection
             );
+
+        if (attendanceCourseLabel && attendanceCourseSelect) {
+            const courseId = sectionCourseMap[activeSection];
+            if (courseId) attendanceCourseSelect.value = courseId;
+            attendanceCourseLabel.textContent = attendanceCourseSelect.selectedOptions[0]?.textContent || sectionCourseMap[activeSection] || "--";
+        }
 
 
         subjectSelect.value =
@@ -1558,7 +1907,7 @@ function displayStudents() {
 
 // STUDENT CLICK HANDLER
 
-studentList.addEventListener(
+studentList?.addEventListener(
     "click",
     function (event) {
 
@@ -1697,6 +2046,7 @@ studentList.addEventListener(
 
 
             updateStats();
+            saveAttendanceDraft();
 
 
             return;
@@ -1819,7 +2169,7 @@ document.addEventListener(
 
 // ADD STUDENT
 
-addStudentForm.addEventListener(
+addStudentForm?.addEventListener(
     "submit",
     async function (event) {
 
@@ -2163,7 +2513,7 @@ function updateStats() {
 
 // SEARCH
 
-searchStudent.addEventListener(
+searchStudent?.addEventListener(
     "input",
     displayStudents
 );
@@ -2171,7 +2521,7 @@ searchStudent.addEventListener(
 
 // MARK ALL PRESENT
 
-markAllPresentBtn.addEventListener(
+markAllPresentBtn?.addEventListener(
     "click",
     function () {
 
@@ -2195,13 +2545,14 @@ markAllPresentBtn.addEventListener(
 
 
         displayStudents();
+        saveAttendanceDraft();
     }
 );
 
 
 // MARK ALL ABSENT
 
-markAllAbsentBtn.addEventListener(
+markAllAbsentBtn?.addEventListener(
     "click",
     function () {
 
@@ -2225,6 +2576,7 @@ markAllAbsentBtn.addEventListener(
 
 
         displayStudents();
+        saveAttendanceDraft();
     }
 );
 
@@ -2381,7 +2733,7 @@ async function loadSubjects() {
 
 // ADD SUBJECT
 
-addSubjectForm.addEventListener(
+addSubjectForm?.addEventListener(
     "submit",
     async function (event) {
 
@@ -2654,7 +3006,7 @@ async function refreshManageData() {
 
 // ASSIGN CR
 
-addCrForm.addEventListener(
+addCrForm?.addEventListener(
     "submit",
     async function (event) {
 
@@ -2691,27 +3043,44 @@ addCrForm.addEventListener(
 
 
         try {
+            const sectionSnap = await getDoc(doc(db, "sections", section));
+            const sectionData = sectionSnap.exists() ? sectionSnap.data() : {};
+            const tempPassword = `QA@${Math.random().toString(36).slice(2, 8)}${Math.floor(10 + Math.random() * 90)}`;
+            try {
+                await createUserWithEmailAndPassword(provisioningAuth, email, tempPassword);
+            } catch (authError) {
+                if (authError.code !== "auth/email-already-in-use") throw authError;
+            } finally {
+                try { await signOut(provisioningAuth); } catch (_) {}
+            }
 
-            await setDoc(
+            await setDoc(doc(db, "users", email), {
+                role: "cr",
+                email,
+                qid: sectionData.crQid || "",
+                name: sectionData.crName || "",
+                mobile: sectionData.crMobile || "",
+                section,
+                sectionLabel: sectionData.label || section,
+                course: sectionData.course || "",
+                semester: sectionData.semester || "",
+                year: sectionData.year || "",
+                mentorName: sectionData.mentorName || "",
+                mentorMobile: sectionData.mentorMobile || "",
+                passwordIssued: tempPassword,
+                createdAt: new Date().toISOString()
+            }, { merge: true });
 
-                doc(
-                    db,
-                    "users",
-                    email
-                ),
-
-                {
-                    role:
-                        "cr",
-
-                    section:
-                        section,
-
-                    createdAt:
-                        new Date()
-                            .toISOString()
-                }
-            );
+            try {
+                await sendDirectEmail({
+                    toEmail: email,
+                    subject: `QAttend - CR Account Assigned - ${sectionData.label || section}`,
+                    message: `You have been assigned as a Class Representative.\n\nLogin Email: ${email}\nTemporary Password: ${tempPassword}\nCourse: ${sectionData.course || ""}\nSection: ${sectionData.label || section}\nSemester: ${sectionData.semester || ""}\nYear: ${sectionData.year || ""}`,
+                    replyTo: EMAILJS_CONFIG.adminEmail
+                });
+            } catch (emailError) {
+                console.warn("CR invitation email failed:", emailError);
+            }
 
 
             newCrEmail.value =
@@ -2727,10 +3096,7 @@ addCrForm.addEventListener(
             );
 
 
-            alert(
-                `${email} is assigned as CR for ${sectionLabelOf(section)}.\n` +
-                `Make sure their Firebase Auth login uses this exact (lowercase) email.`
-            );
+            alert(`${email} is assigned as CR for ${sectionLabelOf(section)}.\n\nTemporary password: ${tempPassword}`);
 
 
         } catch (error) {
@@ -2832,6 +3198,44 @@ function getAttendanceId() {
     return `${date}_${cleanSubject}`;
 }
 
+function getAttendanceDraftKey() {
+    const email = String(auth.currentUser?.email || "guest").toLowerCase();
+    return `qattend-draft:${email}:${activeSection || ""}:${getAttendanceId()}`;
+}
+
+function saveAttendanceDraft() {
+    if (!activeSection || !attendanceDate?.value || !subjectSelect?.value || !students.length) return;
+    try {
+        localStorage.setItem(getAttendanceDraftKey(), JSON.stringify({
+            date: attendanceDate.value,
+            subject: subjectSelect.value,
+            students: students.map(student => ({ qid: student.qid, status: student.status }))
+        }));
+    } catch (error) {
+        console.warn("Could not save attendance draft:", error);
+    }
+}
+
+function restoreAttendanceDraft() {
+    if (!activeSection || !attendanceDate?.value || !subjectSelect?.value) return false;
+    try {
+        const draft = JSON.parse(localStorage.getItem(getAttendanceDraftKey()) || "null");
+        if (!draft?.students) return false;
+        const statusByQid = new Map(draft.students.map(student => [student.qid, student.status]));
+        students.forEach(student => {
+            if (statusByQid.has(student.qid)) student.status = statusByQid.get(student.qid);
+        });
+        return true;
+    } catch (error) {
+        console.warn("Could not restore attendance draft:", error);
+        return false;
+    }
+}
+
+function clearAttendanceDraft() {
+    try { localStorage.removeItem(getAttendanceDraftKey()); } catch (_) {}
+}
+
 
 // LOAD ATTENDANCE
 
@@ -2913,6 +3317,8 @@ async function loadAttendance() {
             );
         }
 
+        restoreAttendanceDraft();
+
 
         displayStudents();
 
@@ -2931,7 +3337,7 @@ async function loadAttendance() {
 
 // SUBJECT CHANGE
 
-subjectSelect.addEventListener(
+subjectSelect?.addEventListener(
     "change",
     function () {
 
@@ -2960,7 +3366,7 @@ subjectSelect.addEventListener(
 
 // DATE CHANGE
 
-attendanceDate.addEventListener(
+attendanceDate?.addEventListener(
     "change",
     function () {
 
@@ -2977,7 +3383,7 @@ attendanceDate.addEventListener(
 
 // SAVE ATTENDANCE
 
-saveBtn.addEventListener(
+saveBtn?.addEventListener(
     "click",
     async function () {
 
@@ -3093,6 +3499,8 @@ saveBtn.addEventListener(
                             .toISOString()
                 }
             );
+
+            clearAttendanceDraft();
 
 
             void writeActivityLog("SAVE_ATTENDANCE",`${sectionLabelOf(activeSection)} · ${subject} · ${date}`);
@@ -3894,7 +4302,7 @@ async function deleteRecord(
 
 // REFRESH
 
-refreshRecordsBtn.addEventListener(
+refreshRecordsBtn?.addEventListener(
     "click",
     loadRecords
 );
@@ -3902,7 +4310,7 @@ refreshRecordsBtn.addEventListener(
 
 // DOWNLOAD XLSX
 
-downloadBtn.addEventListener(
+downloadBtn?.addEventListener(
     "click",
     async function () {
 
@@ -4226,7 +4634,7 @@ document.addEventListener("keydown", e => {
 });
 
 function hideMainViews(){
-    document.querySelectorAll(".welcome-section,.control-section,#adminPanel,#noSectionMessage,#workArea").forEach(el => {
+    document.querySelectorAll(".welcome-section,.control-section,#adminPanel,#adminCoursesView,#adminSectionsView,#noSectionMessage,#workArea").forEach(el => {
         el?.classList.add("hidden");
     });
     requestsPanel?.classList.add("hidden");
@@ -4303,13 +4711,29 @@ async function loadAdminDashboardData(){
     if(profile?.role !== "admin") return;
 
     try{
+        const [coursesSnap, sectionsSnap, requestsSnap] = await Promise.all([
+            getDocs(collection(db, "courses")),
+            getDocs(collection(db, "sections")),
+            getDocs(collection(db, "requests"))
+        ]);
         const usersSnap = await getDocs(collection(db,"users"));
         const crCount = usersSnap.docs.filter(d => d.data()?.role === "cr").length;
 
-        const sectionTasks = SECTIONS.map(async section => {
+        document.getElementById("dashTotalCourses")?.replaceChildren(String(coursesSnap.size));
+        document.getElementById("dashTotalSections")?.replaceChildren(String(sectionsSnap.size));
+        document.getElementById("dashPendingRequests")?.replaceChildren(String(requestsSnap.docs.filter(d => d.data()?.status === "pending").length));
+
+        const allSectionIds = new Set(SECTIONS.map(section => section.id));
+        try {
+            const dynamicSections = await getDocs(collection(db,"sections"));
+            dynamicSections.docs.forEach(d => allSectionIds.add(d.id));
+        } catch (e) {
+            console.warn("Could not read dynamic sections for dashboard:", e);
+        }
+        const sectionTasks = [...allSectionIds].map(async sectionId => {
             const [studentSnap, subjectSnap] = await Promise.all([
-                getDocs(collection(db,"sections",section.id,"students")),
-                getDocs(collection(db,"sections",section.id,"subjects"))
+                getDocs(collection(db,"sections",sectionId,"students")),
+                getDocs(collection(db,"sections",sectionId,"subjects"))
             ]);
             return {students: studentSnap.size, subjects: subjectSnap.size};
         });
@@ -4427,6 +4851,11 @@ document.querySelectorAll(".drawer-item").forEach(btn => {
         closeFeatureDrawerFn();
 
         if(feature === "dashboard" && profile?.role === "admin") showAdminDashboard();
+        if(feature === "courses" && profile?.role === "admin") {
+            hideMainViews();
+            document.getElementById("adminCoursesView")?.classList.remove("hidden");
+            await loadCourses();
+        }
         if(feature === "attendance") showAttendanceView();
         if(feature === "requests") showRequestsPanel();
         if(feature === "manage" && profile?.role === "admin") showManageData();
@@ -4456,7 +4885,8 @@ function friendlyLogAction(action){
         DELETE_ATTENDANCE:"Attendance record deleted",
         REQUEST_SUBMITTED:"Request submitted",
         REQUEST_APPROVED:"Request approved",
-        REQUEST_REJECTED:"Request rejected"
+        REQUEST_REJECTED:"Request rejected",
+        ADD_SECTION:"Section added"
     }[action] || action;
 }
 
@@ -4517,7 +4947,8 @@ async function loadAdminActivityLogs(){
 }
 
 async function loadAdminRequestPreview(){
-    if(profile?.role !== "admin" || !dashboardRequestList) return;
+    const previewTarget = dashboardRequestList || document.getElementById("dashboardRequestTableBody");
+    if(profile?.role !== "admin" || !previewTarget) return;
     try{
         const snap=await getDocs(collection(db,"requests"));
         const rows=snap.docs
@@ -4526,24 +4957,30 @@ async function loadAdminRequestPreview(){
             .sort((a,b)=>String(b.createdAt||"").localeCompare(String(a.createdAt||"")))
             .slice(0,5);
 
-        dashboardRequestList.innerHTML="";
+        previewTarget.innerHTML="";
         if(!rows.length){
-            dashboardRequestList.innerHTML=`<p class="empty-record">No pending requests.</p>`;
+            previewTarget.innerHTML=`<tr><td colspan="7" class="empty-record">No pending requests.</td></tr>`;
             return;
         }
 
         rows.forEach(r=>{
-            const el=document.createElement("div");
-            el.className="activity-item";
+            const el=document.createElement(previewTarget.tagName === "TBODY" ? "tr" : "div");
+            el.className=previewTarget.tagName === "TBODY" ? "" : "activity-item";
             const title = r.type?.includes("student")
                 ? (r.type==="add_student"?"Add Student":"Delete Student")
-                : (r.type==="add_subject"?"Add Subject":"Delete Subject");
-            el.innerHTML=`<span class="activity-icon">↗</span><div><b>${escapeHtml(title||"Request")}</b><small>${escapeHtml(r.requestedBy||"")} · ${escapeHtml(r.sectionLabel||sectionLabelOf(r.section||""))}</small><small>${escapeHtml(r.reason||"")}</small></div>`;
-            dashboardRequestList.appendChild(el);
+                : r.type?.includes("subject")
+                    ? (r.type==="add_subject"?"Add Subject":"Delete Subject")
+                    : r.type === "add_section" ? "Add New Section" : "Request";
+            el.innerHTML=previewTarget.tagName === "TBODY"
+                ? `<td>${escapeHtml(r.crName || r.requestedBy || "")}</td><td>${escapeHtml(r.sectionLabel || sectionLabelOf(r.section || ""))}</td><td>${escapeHtml(r.course || "")}</td><td>${r.students?.length || "-"}</td><td>${r.subjects?.length || "-"}</td><td>${escapeHtml(r.createdAt ? new Date(r.createdAt).toLocaleDateString() : "")}</td><td>${escapeHtml(String(r.status || "pending"))}</td>`
+                : `<span class="activity-icon">↗</span><div><b>${escapeHtml(title||"Request")}</b><small>${escapeHtml(r.requestedBy||"")} · ${escapeHtml(r.sectionLabel||sectionLabelOf(r.section||""))}</small><small>${escapeHtml(r.reason||"")}</small></div>`;
+            previewTarget.appendChild(el);
         });
     }catch(e){
         console.error(e);
-        dashboardRequestList.innerHTML=`<p class="empty-record">Could not load requests. Make sure the latest Firestore Rules are published.</p>`;
+        previewTarget.innerHTML=previewTarget.tagName === "TBODY"
+            ? `<tr><td colspan="7" class="empty-record">Could not load requests.</td></tr>`
+            : `<p class="empty-record">Could not load requests. Make sure the latest Firestore Rules are published.</p>`;
     }
 }
 
@@ -4552,10 +4989,46 @@ document.getElementById("openLogsBtn")?.addEventListener("click",loadAdminActivi
 document.getElementById("openRequestsFromDashboard")?.addEventListener("click",showRequestsPanel);
 document.getElementById("backFromRequestsBtn")?.addEventListener("click",()=> profile?.role === "admin" ? showAdminDashboard() : showAttendanceView());
 
-async function loadRequestCenter(){
-    if(!requestList || !profile) return;
+function showRequestDetails(request) {
+    const modal = document.getElementById("viewRequestDetailModal");
+    const content = document.getElementById("viewRequestDetailContent");
+    if (!modal || !content) return;
+    const values = request.type === "contact_admin"
+        ? [
+            ["Type", "Contact Admin"], ["Name", request.name], ["Email", request.email],
+            ["Mobile", request.mobile], ["Message", request.message], ["Status", request.status]
+        ]
+        : [
+            ["Type", request.type === "add_section" ? "New Section" : friendlyRequestType(request.type)],
+            ["Requested By", request.crName || request.requestedBy], ["Course", request.course],
+            ["Section", request.sectionLabel || request.section], ["Reason", request.reason],
+            ["Students", request.students?.length || request.name || request.qid || "-"],
+            ["Subjects", request.subjects?.length || request.subject || "-"], ["Status", request.status]
+        ];
+    document.getElementById("viewRequestDetailTitle").textContent = "Request Details";
+    content.innerHTML = values.map(([label, value]) => `<div class="summary-row"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value || "-")}</strong></div>`).join("");
+    modal.classList.remove("hidden");
+    document.body.classList.add("modal-open");
+}
 
-    requestList.innerHTML=`<p class="empty-record">Loading requests...</p>`;
+function closeRequestDetails() {
+    document.getElementById("viewRequestDetailModal")?.classList.add("hidden");
+    document.body.classList.remove("modal-open");
+}
+
+document.getElementById("closeViewRequestDetailModal")?.addEventListener("click", closeRequestDetails);
+document.getElementById("closeViewRequestDetailBtn")?.addEventListener("click", closeRequestDetails);
+
+async function loadRequestCenter(){
+    const adminTableBody = document.getElementById("adminRequestsTableBody");
+    const target = profile?.role === "admin" ? adminTableBody : requestList;
+    if(!target || !profile) return;
+
+    if(profile.role === "admin") {
+        target.innerHTML = `<tr><td colspan="9" class="empty-record">Loading requests...</td></tr>`;
+    } else {
+        target.innerHTML=`<p class="empty-record">Loading requests...</p>`;
+    }
 
     try{
         let snap;
@@ -4580,26 +5053,63 @@ async function loadRequestCenter(){
             if(requestFilter==="pending") return r.status==="pending";
             if(requestFilter==="student") return String(r.type||"").includes("student");
             if(requestFilter==="subject") return String(r.type||"").includes("subject");
+            if(requestFilter==="section") return r.type === "add_section";
             return true;
         });
 
         const visiblePendingIds = new Set(filtered.filter(r=>profile.role === "admin" && r.status === "pending").map(r=>r.id));
         selectedRequestIds = new Set([...selectedRequestIds].filter(id=>visiblePendingIds.has(id)));
         updateBulkRequestToolbar(filtered);
-        requestList.innerHTML="";
+        target.innerHTML="";
+
+        if(profile.role === "admin") {
+            const pendingCount = rows.filter(row => row.status === "pending").length;
+            const pendingBadge = document.getElementById("tabCountPending");
+            if (pendingBadge) pendingBadge.textContent = pendingCount;
+
+            if (!filtered.length) {
+                target.innerHTML = `<tr><td colspan="9" class="empty-record">No requests found.</td></tr>`;
+            } else {
+                filtered.forEach(request => {
+                    const row = document.createElement("tr");
+                    const requestTitle = request.type === "add_section" ? "New Section" : request.type === "contact_admin" ? "Contact Admin" : friendlyRequestType(request.type);
+                    const requester = request.crName || request.name || request.requestedBy || request.email || "Guest";
+                    const course = request.course || "-";
+                    const section = request.sectionLabel || request.section || "-";
+                    const detail = request.type === "contact_admin"
+                        ? `${request.email || ""} · ${request.mobile || ""}`
+                        : request.type.includes("student")
+                            ? `${request.qid || ""} ${request.name || ""}`
+                            : request.subject || `${request.students?.length || 0} students, ${request.subjects?.length || 0} subjects`;
+                    const checkbox = request.status === "pending" ? `<input type="checkbox" class="request-checkbox" data-request-id="${escapeHtml(request.id)}" ${selectedRequestIds.has(request.id) ? "checked" : ""} aria-label="Select request">` : "";
+                    row.innerHTML = `<td>${checkbox}</td><td><strong>${escapeHtml(requester)}</strong><small class="request-table-detail">${escapeHtml(requestTitle)} · ${escapeHtml(detail)}</small></td><td>${escapeHtml(course)}</td><td>${escapeHtml(section)}</td><td>${request.type === "add_section" ? request.students?.length || 0 : "-"}</td><td>${request.type === "add_section" ? request.subjects?.length || 0 : "-"}</td><td>${escapeHtml(request.createdAt ? new Date(request.createdAt).toLocaleDateString() : "")}</td><td><span class="status-pill status-${escapeHtml(request.status || "pending")}">${escapeHtml(String(request.status || "pending").toUpperCase())}</span></td><td><button type="button" class="text-btn view-request-btn">View</button>${request.status === "pending" ? ` <button type="button" class="approve-btn request-table-action">Approve</button> <button type="button" class="reject-btn request-table-action">Reject</button>` : ""}</td>`;
+
+                    row.querySelector(".request-checkbox")?.addEventListener("change", event => {
+                        if (event.target.checked) selectedRequestIds.add(request.id);
+                        else selectedRequestIds.delete(request.id);
+                        updateBulkRequestToolbar(filtered);
+                    });
+                    row.querySelector(".view-request-btn")?.addEventListener("click", () => showRequestDetails(request));
+                    row.querySelector(".approve-btn")?.addEventListener("click", () => processChangeRequest(request, true));
+                    row.querySelector(".reject-btn")?.addEventListener("click", () => processChangeRequest(request, false));
+                    target.appendChild(row);
+                });
+            }
+            return;
+        }
 
         if(profile.role === "cr"){
             const intro=document.createElement("div");
             intro.className="request-card request-intro-card";
             intro.innerHTML=`<div class="request-top"><div class="request-main"><b>Send a change request to Admin</b><small>Your request will be reviewed by an Admin. You do not receive Admin access.</small></div><span class="status-pill status-pending">REQUEST</span></div>`;
-            requestList.appendChild(intro);
+            target.appendChild(intro);
         }
 
         if(!filtered.length){
             const empty=document.createElement("p");
             empty.className="empty-record";
             empty.textContent=profile.role === "cr" ? "No requests submitted yet." : "No requests found.";
-            requestList.appendChild(empty);
+            target.appendChild(empty);
         }else{
             filtered.forEach(r=>{
                 const card=document.createElement("div");
@@ -4631,12 +5141,14 @@ async function loadRequestCenter(){
                     card.appendChild(actions);
                 }
 
-                requestList.appendChild(card);
+                target.appendChild(card);
             });
         }
     }catch(e){
         console.error(e);
-        requestList.innerHTML=`<p class="empty-record">Could not load requests. Make sure the latest Firestore Rules are published.</p>`;
+        target.innerHTML=profile.role === "admin"
+            ? `<tr><td colspan="9" class="empty-record">Could not load requests. Publish Firestore rules and try again.</td></tr>`
+            : `<p class="empty-record">Could not load requests. Make sure the latest Firestore Rules are published.</p>`;
     }
 
     if(profile.role === "admin") await loadAdminRequestPreview();
@@ -4697,6 +5209,7 @@ async function processBulkRequests(approve){
         }
         await loadRequestCenter();
         await loadAdminDashboardData();
+        await populateSectionDropdowns();
         alert(`${approve?"✅ Accepted":"✅ Rejected"} ${success} request${success===1?"":"s"}${failed?` · ${failed} failed`:""}.`);
     }finally{
         if(bulkApproveRequestsBtn && approveBtnState===false) bulkApproveRequestsBtn.disabled=false;
@@ -4743,15 +5256,35 @@ function setInputRequired(id, required){
     if(el) el.required = required;
 }
 
-function openRequestModal(){
+function openRequestModal(requestType=""){
     if(profile?.role !== "cr") return;
     populateRequestStudentOptions();
     populateRequestSubjectOptions();
     requestModal?.classList.remove("hidden");
+    document.body.classList.add("modal-open");
+
+    const choicePanel=document.getElementById("requestChoicePanel");
+    const form=document.getElementById("requestForm");
+    if(choicePanel) choicePanel.classList.toggle("hidden",!!requestType);
+    if(form) form.classList.toggle("hidden",!requestType);
+
     const type=document.getElementById("requestType");
-    if(type) type.value="add_student";
-    syncRequestForm();
+    if(type) type.value=requestType || "add_student";
+    if(requestType) syncRequestForm();
 }
+
+function closeRequestModal(){
+    requestModal?.classList.add("hidden");
+    document.body.classList.remove("modal-open");
+    document.getElementById("requestChoicePanel")?.classList.remove("hidden");
+    document.getElementById("requestForm")?.classList.add("hidden");
+}
+
+document.querySelectorAll("[data-request-type]").forEach(button=>{
+    button.addEventListener("click",()=>openRequestModal(button.dataset.requestType||"add_student"));
+});
+
+document.getElementById("requestBackBtn")?.addEventListener("click",()=>openRequestModal());
 
 function syncRequestForm(){
     const type=document.getElementById("requestType")?.value || "add_student";
@@ -4760,6 +5293,10 @@ function syncRequestForm(){
     const deleteStudent=type === "delete_student";
     const addSubject=type === "add_subject";
     const deleteSubject=type === "delete_subject";
+
+    const titleMap={add_student:"Add Student Request",delete_student:"Delete Student Request",add_subject:"Add Subject Request",delete_subject:"Delete Subject Request"};
+    const formTitle=document.getElementById("requestFormTitle");
+    if(formTitle) formTitle.textContent=titleMap[type] || "Send Request";
 
     document.getElementById("requestStudentFields")?.classList.toggle("hidden",!student);
     document.getElementById("requestSubjectFields")?.classList.toggle("hidden",student);
@@ -4779,11 +5316,11 @@ function syncRequestForm(){
 }
 
 document.getElementById("requestType")?.addEventListener("change",syncRequestForm);
-document.getElementById("crSendRequestBtn")?.addEventListener("click",openRequestModal);
-document.getElementById("closeRequestModal")?.addEventListener("click",()=>requestModal?.classList.add("hidden"));
-document.getElementById("cancelRequestBtn")?.addEventListener("click",()=>requestModal?.classList.add("hidden"));
+document.getElementById("crSendRequestBtn")?.addEventListener("click",()=>openRequestModal());
+document.getElementById("closeRequestModal")?.addEventListener("click",closeRequestModal);
+document.getElementById("cancelRequestBtn")?.addEventListener("click",closeRequestModal);
 requestModal?.addEventListener("click",e=>{
-    if(e.target===requestModal) requestModal.classList.add("hidden");
+    if(e.target===requestModal) closeRequestModal();
 });
 
 document.getElementById("requestForm")?.addEventListener("submit",async e=>{
@@ -4836,7 +5373,7 @@ document.getElementById("requestForm")?.addEventListener("submit",async e=>{
             {requestType:type,section:activeSection}
         );
 
-        requestModal?.classList.add("hidden");
+        closeRequestModal();
         e.target.reset();
         syncRequestForm();
         await loadRequestCenter();
@@ -4854,7 +5391,9 @@ function friendlyRequestType(type){
         add_student:"Add Student",
         delete_student:"Delete Student",
         add_subject:"Add Subject",
-        delete_subject:"Delete Subject"
+        delete_subject:"Delete Subject",
+        add_section:"Add New Section",
+        contact_admin:"Contact Admin"
     })[type] || type;
 }
 
@@ -4871,750 +5410,354 @@ async function findSubjectByName(section,name){
 async function processChangeRequest(request,approve,options={}){
     const silent=options.silent===true;
     if(profile?.role!=="admin") return false;
-
     try{
-        // IMPORTANT: only an approved request changes the actual students/subjects data.
-        // A rejected request only changes the request status, leaving all section data untouched.
         if(approve){
             if(request.type === "add_student"){
                 if(!request.qid || !request.name) throw new Error("Student details are incomplete.");
-                const existing=await findStudentByQid(request.section,request.qid);
-                if(existing) throw new Error("A student with this Q.ID already exists.");
-                await addDoc(collection(db,"sections",request.section,"students"),{
-                    qid:request.qid,
-                    name:String(request.name||"").toUpperCase()
+                if(await findStudentByQid(request.section,request.qid)) throw new Error("A student with this Q.ID already exists.");
+                await addDoc(collection(db,"sections",request.section,"students"),{qid:request.qid,name:String(request.name).toUpperCase()});
+            }
+            if(request.type === "delete_student"){const d=await findStudentByQid(request.section,request.qid);if(!d)throw new Error("Student not found.");await deleteDoc(d.ref);}
+            if(request.type === "add_subject"){if(await findSubjectByName(request.section,request.subject))throw new Error("This subject already exists in the section.");await addDoc(collection(db,"sections",request.section,"subjects"),{name:request.subject});}
+            if(request.type === "delete_subject"){const d=await findSubjectByName(request.section,request.subject);if(!d)throw new Error("Subject not found.");await deleteDoc(d.ref);}
+
+            if(request.type === "add_section"){
+                const sectionId=request.section;
+                if(!sectionId) throw new Error("Section ID is missing.");
+                const requestedCourse = String(request.course || "").trim();
+                const courseSnap = await getDocs(collection(db, "courses"));
+                const existingCourse = courseSnap.docs.find(courseDoc => {
+                    const course = courseDoc.data() || {};
+                    return String(course.name || "").trim().toLowerCase() === requestedCourse.toLowerCase()
+                        || String(course.code || "").trim().toLowerCase() === requestedCourse.toLowerCase();
                 });
-            }
+                const courseId = existingCourse?.id || requestedCourse.toUpperCase().replace(/[^A-Z0-9]+/g, "-").replace(/^-|-$/g, "") || `COURSE-${Date.now()}`;
+                if (!existingCourse) {
+                    await setDoc(doc(db, "courses", courseId), {
+                        name: requestedCourse || courseId,
+                        code: courseId,
+                        department: request.department || "",
+                        duration: request.duration || "",
+                        createdAt: new Date().toISOString()
+                    }, { merge: true });
+                }
+                await setDoc(doc(db,"sections",sectionId),{
+                    label:request.sectionLabel||sectionId, course:courseId, courseName:requestedCourse, semester:request.semester||"", year:request.year||"",
+                    crQid:request.crQid||"", crName:request.crName||"", crMobile:request.crMobile||"", crEmail:request.crEmail||"",
+                    mentorName:request.mentorName||"", mentorMobile:request.mentorMobile||"", createdAt:new Date().toISOString()
+                },{merge:true});
+                const batch=writeBatch(db);
+                (request.students||[]).forEach(st=>{const ref=doc(collection(db,"sections",sectionId,"students"));batch.set(ref,{qid:String(st.qid||""),name:String(st.name||"").toUpperCase()});});
+                (request.subjects||[]).forEach(name=>{const ref=doc(collection(db,"sections",sectionId,"subjects"));batch.set(ref,{name:String(name)});});
+                await batch.commit();
 
-            if(request.type === "delete_student"){
-                const d=await findStudentByQid(request.section,request.qid);
-                if(!d) throw new Error("Student not found.");
-                await deleteDoc(d.ref);
-            }
-
-            if(request.type === "add_subject"){
-                const existing=await findSubjectByName(request.section,request.subject);
-                if(existing) throw new Error("This subject already exists in the section.");
-                await addDoc(collection(db,"sections",request.section,"subjects"),{
-                    name:request.subject
-                });
-            }
-
-            if(request.type === "delete_subject"){
-                const d=await findSubjectByName(request.section,request.subject);
-                if(!d) throw new Error("Subject not found.");
-                await deleteDoc(d.ref);
+                let tempPassword=request.generatedPassword||`QA@${Math.random().toString(36).slice(2,8)}${Math.floor(10+Math.random()*90)}`;
+                try{await createUserWithEmailAndPassword(provisioningAuth,request.crEmail,tempPassword);}
+                catch(authError){if(authError.code!=="auth/email-already-in-use")throw authError;}
+                finally{try{await signOut(provisioningAuth);}catch(_) {}}
+                await setDoc(doc(db,"users",request.crEmail),{
+                    role:"cr",email:request.crEmail,qid:request.crQid,name:request.crName,mobile:request.crMobile,section:sectionId,sectionLabel:request.sectionLabel||sectionId,
+                    course:request.course||"",semester:request.semester||"",year:request.year||"",mentorName:request.mentorName||"",mentorMobile:request.mentorMobile||"",passwordIssued:tempPassword,createdAt:new Date().toISOString()
+                },{merge:true});
+                // Send the CR invitation directly by email. Bulk/silent processing keeps the previous behavior and skips the invitation email.
+                if(!silent) {
+                    const mailSubject=`QAttend - CR Account Assigned - ${request.sectionLabel||sectionId}`;
+                    const mailBody=`Hello ${request.crName},\n\nYou have been assigned as the Class Representative (CR) for ${request.sectionLabel||sectionId}.\n\nLogin Email: ${request.crEmail}\nTemporary Password: ${tempPassword}\nCourse: ${request.course||""}\nSemester: ${request.semester||""}\nYear: ${request.year||""}\n\nPlease change your password after your first login.`;
+                    try {
+                        await sendDirectEmail({
+                            toEmail: request.crEmail,
+                            subject: mailSubject,
+                            message: mailBody,
+                            replyTo: EMAILJS_CONFIG.adminEmail
+                        });
+                    } catch(emailError) {
+                        console.error("CR invitation email error:", emailError);
+                        alert(`CR account was created, but the invitation email could not be sent. ${emailError.message || "Please try again."}`);
+                    }
+                }
             }
         }
 
-        // Mark the request only after the requested data operation succeeded.
-        await updateDoc(doc(db,"requests",request.id),{
-            status:approve ? "approved" : "rejected",
-            reviewedBy:String(auth.currentUser?.email||"").toLowerCase(),
-            reviewedAt:new Date().toISOString()
-        });
-
-        await writeActivityLog(
-            approve ? "REQUEST_APPROVED" : "REQUEST_REJECTED",
-            `${friendlyRequestType(request.type)} · ${request.qid || request.subject || ""}`,
-            {requestId:request.id,section:request.section}
-        );
-
+        await updateDoc(doc(db,"requests",request.id),{status:approve?"approved":"rejected",reviewedBy:String(auth.currentUser?.email||"").toLowerCase(),reviewedAt:new Date().toISOString()});
+        await writeActivityLog(approve?"REQUEST_APPROVED":"REQUEST_REJECTED",`${friendlyRequestType(request.type)} · ${request.qid||request.subject||request.sectionLabel||""}`,{requestId:request.id,section:request.section});
         if(approve){
-            if(request.type === "add_student"){
-                await writeActivityLog("ADD_STUDENT",`${request.qid||""} · ${request.name||""}`,{section:request.section});
-            }
-            if(request.type === "delete_student"){
-                await writeActivityLog("DELETE_STUDENT",`${request.qid||""} · ${request.name||""}`,{section:request.section});
-            }
-            if(request.type === "add_subject"){
-                await writeActivityLog("ADD_SUBJECT",request.subject||"",{section:request.section});
-            }
-            if(request.type === "delete_subject"){
-                await writeActivityLog("DELETE_SUBJECT",request.subject||"",{section:request.section});
-            }
-
-            // Refresh the currently open section so approved student/subject changes
-            // become visible immediately without requiring a page reload.
-            if(activeSection === request.section){
-                if(request.type.includes("student")) await loadStudents();
-                if(request.type.includes("subject")) await loadSubjects();
+            if(request.type==="add_student")await writeActivityLog("ADD_STUDENT",`${request.qid||""} · ${request.name||""}`,{section:request.section});
+            if(request.type==="delete_student")await writeActivityLog("DELETE_STUDENT",`${request.qid||""} · ${request.name||""}`,{section:request.section});
+            if(request.type==="add_subject")await writeActivityLog("ADD_SUBJECT",request.subject||"",{section:request.section});
+            if(request.type==="delete_subject")await writeActivityLog("DELETE_SUBJECT",request.subject||"",{section:request.section});
+            if(request.type==="add_section")await writeActivityLog("ADD_SECTION",`${request.sectionLabel||request.section} · ${request.course||""}`,{section:request.section});
+            if(activeSection===request.section){
+                if(request.type.includes("student")||request.type==="add_section")await loadStudents();
+                if(request.type.includes("subject")||request.type==="add_section")await loadSubjects();
             }
         }
-
-        if(!silent){
-            await loadRequestCenter();
-            await loadAdminDashboardData();
-            alert(approve ? "✅ Request approved and change applied." : "Request rejected.");
-        }
-
+        if(!silent){await loadRequestCenter();await loadAdminDashboardData();await populateSectionDropdowns();await populateAttendanceCourseDropdown();alert(approve?"✅ Request approved and change applied.":"Request rejected. No data was changed.");}
         return true;
-    }catch(e){
-        console.error(e);
-        if(!silent){
-            alert(`Could not ${approve ? "approve" : "reject"} request: ${e.message || e}`);
-        }
-        // Let bulk processing count the request as failed instead of falsely reporting success.
-        throw e;
-    }
+    }catch(e){console.error(e);if(!silent)alert(`Could not ${approve?"approve":"reject"} request: ${e.message||e}`);throw e;}
 }
+
 
 // Admin opens Mark Attendance by default. Dashboard is explicit from the hamburger menu.
 // CR opens its assigned attendance section directly and cannot switch sections.
 
+const courseModal = document.getElementById("courseModal");
+const courseForm = document.getElementById("courseForm");
+const courseTableBody = document.getElementById("coursesTableBody");
+const sectionTableBody = document.getElementById("sectionsTableBody");
+const courseFilter = document.getElementById("manageSectionsCourseFilter");
+const adminSectionForm = document.getElementById("adminAddSectionForm");
+const adminSectionFile = document.getElementById("adminSecExcelFile");
+let adminSectionExcelPayload = null;
 
-/* Dynamic section labels for sections created by Admin. */
-sectionLabelOf = function(id){
-    const found=dynamicSectionCatalog.find(x=>x.id===id);
-    if(found) return found.label;
-    const fixed=SECTIONS.find(x=>x.id===id);
-    return fixed ? fixed.label : id;
-};
-
-/* =========================================================
-   ADMIN PANEL V3
-   Additive admin-only layer. Existing login, CR and attendance UI is kept.
-   ========================================================= */
-
-const adminSectionsPanel = document.getElementById("adminSectionsPanel");
-const adminUsersPanel = document.getElementById("adminUsersPanel");
-const adminReportsPanel = document.getElementById("adminReportsPanel");
-const adminSectionModal = document.getElementById("adminSectionModal");
-const adminUserModal = document.getElementById("adminUserModal");
-const adminRequestDetailModal = document.getElementById("adminRequestDetailModal");
-const adminRequestDetailBody = document.getElementById("adminRequestDetailBody");
-let adminDetailRequest = null;
-let dynamicSectionCatalog = [];
-
-function adminSlug(value){
-    return String(value || "")
-        .trim()
-        .toUpperCase()
-        .replace(/[^A-Z0-9]+/g,"-")
-        .replace(/^-+|-+$/g,"")
-        .slice(0,80);
+function openModalById(id) {
+    const modal = document.getElementById(id);
+    modal?.classList.remove("hidden");
+    document.body.classList.add("modal-open");
 }
 
-function adminSectionLabel(section){
-    const found = dynamicSectionCatalog.find(x => x.id === section);
-    return found?.label || sectionLabelOf(section);
+function closeModalById(id) {
+    document.getElementById(id)?.classList.add("hidden");
+    if (!document.querySelector(".modal-backdrop:not(.hidden)")) document.body.classList.remove("modal-open");
 }
 
-function getAdminSections(){
-    const base = SECTIONS.map(s => ({...s}));
-    const map = new Map(base.map(s => [s.id,s]));
-    dynamicSectionCatalog.forEach(s => map.set(s.id,s));
-    return [...map.values()];
-}
-
-async function loadDynamicSectionCatalog(){
-    if(profile?.role !== "admin") return getAdminSections();
-    try{
-        const snap = await getDocs(collection(db,"sections"));
-        snap.docs.forEach(d => {
-            const data=d.data()||{};
-            if(!d.id) return;
-            const item={
-                id:d.id,
-                label:String(data.label || data.section || d.id),
-                course:String(data.course || ""),
-                semester:String(data.semester || ""),
-                year:String(data.year || ""),
-                mentorName:String(data.mentorName || ""),
-                mentorMobile:String(data.mentorMobile || "")
-            };
-            const existing=dynamicSectionCatalog.findIndex(x=>x.id===item.id);
-            if(existing>=0) dynamicSectionCatalog[existing]=item;
-            else dynamicSectionCatalog.push(item);
+async function loadCourses() {
+    if (profile?.role !== "admin" || !courseTableBody) return;
+    courseTableBody.innerHTML = `<tr><td colspan="6" class="empty-record">Loading courses...</td></tr>`;
+    try {
+        const snap = await getDocs(collection(db, "courses"));
+        courseTableBody.innerHTML = "";
+        if (!snap.size) {
+            courseTableBody.innerHTML = `<tr><td colspan="6" class="empty-record">No courses found.</td></tr>`;
+        }
+        snap.docs.forEach((courseDoc, index) => {
+        const course = courseDoc.data();
+        const row = document.createElement("tr");
+        row.innerHTML = `<td>${index + 1}</td><td>${escapeHtml(course.code || courseDoc.id)}</td><td>${escapeHtml(course.name || "")}</td><td>${escapeHtml(course.department || "")}</td><td>${escapeHtml(course.duration || "")}</td><td><button type="button" class="text-btn" data-edit-course="${escapeHtml(courseDoc.id)}">Edit</button> <button type="button" class="text-btn danger-text" data-delete-course="${escapeHtml(courseDoc.id)}">Delete</button></td>`;
+        row.querySelector("[data-edit-course]")?.addEventListener("click", () => {
+            document.getElementById("courseEditId").value = courseDoc.id;
+            document.getElementById("courseNameInput").value = course.name || "";
+            document.getElementById("courseCodeInput").value = course.code || courseDoc.id;
+            document.getElementById("courseDeptInput").value = course.department || "";
+            document.getElementById("courseDurationInput").value = course.duration || "";
+            document.getElementById("courseModalTitle").textContent = "Edit Course";
+            document.getElementById("saveCourseBtn").textContent = "Save Changes";
+            openModalById("courseModal");
         });
-    }catch(e){
-        console.warn("Could not load dynamic section catalog:",e);
-    }
-    return getAdminSections();
-}
-
-function fillAdminSectionSelect(select, includeNone=true){
-    if(!select) return;
-    const current=select.value;
-    select.innerHTML=includeNone ? `<option value="">-- Select Section --</option>` : "";
-    getAdminSections().forEach(section=>{
-        const o=document.createElement("option");
-        o.value=section.id;
-        o.textContent=section.label;
-        select.appendChild(o);
-    });
-    if(current && [...select.options].some(o=>o.value===current)) select.value=current;
-}
-
-async function refreshAllAdminSectionSelects(){
-    await loadDynamicSectionCatalog();
-    fillAdminSectionSelect(sectionSelect,true);
-    fillAdminSectionSelect(manageSectionSelect,true);
-    fillAdminSectionSelect(document.getElementById("adminUserSection"),true);
-}
-
-function adminFriendlyRequestType(type){
-    return ({
-        add_student:"Add Student",
-        delete_student:"Delete Student",
-        add_subject:"Add Subject",
-        delete_subject:"Delete Subject",
-        add_section:"New Section",
-        contact_admin:"Contact Admin"
-    })[type] || "Request";
-}
-
-function adminRequestTarget(r){
-    if(r.type?.includes("student")) return r.qid ? `${r.qid}${r.name ? ` · ${r.name}` : ""}` : "Student change";
-    if(r.type?.includes("subject")) return r.subject || "Subject change";
-    if(r.type === "add_section") return `${r.course || "Course"} · ${r.section || r.sectionLabel || "New Section"}`;
-    if(r.type === "contact_admin") return r.requestType || "Access / support";
-    return "Request";
-}
-
-function adminRequestStatusClass(status){
-    return `status-pill status-${escapeHtml(status || "pending")}`;
-}
-
-function hideAdminPanels(){
-    [adminSectionsPanel,adminUsersPanel,adminReportsPanel].forEach(el=>el?.classList.add("hidden"));
-}
-
-function showAdminSections(){
-    if(profile?.role!=="admin") return;
-    hideMainViews();
-    hideAdminPanels();
-    adminSectionsPanel?.classList.remove("hidden");
-    void loadAdminSectionsTable();
-}
-
-function showAdminUsers(){
-    if(profile?.role!=="admin") return;
-    hideMainViews();
-    hideAdminPanels();
-    adminUsersPanel?.classList.remove("hidden");
-    void loadAdminUsersTable();
-}
-
-function showAdminReports(){
-    if(profile?.role!=="admin") return;
-    hideMainViews();
-    hideAdminPanels();
-    adminReportsPanel?.classList.remove("hidden");
-}
-
-async function loadAdminSectionsTable(){
-    if(profile?.role!=="admin") return;
-    const body=document.getElementById("adminSectionsTableBody");
-    if(!body) return;
-    body.innerHTML=`<tr><td colspan="8" class="empty-cell">Loading sections...</td></tr>`;
-    const sections=await refreshAllAdminSectionSelects();
-    const usersSnap=await getDocs(collection(db,"users"));
-    const rows=[];
-    for(const s of sections){
-        try{
-            const [st,sub]=await Promise.all([
-                getDocs(collection(db,"sections",s.id,"students")),
-                getDocs(collection(db,"sections",s.id,"subjects"))
-            ]);
-            const cr=usersSnap.docs.find(d=>d.data()?.role==="cr" && String(d.data()?.section||"")===s.id);
-            const meta=dynamicSectionCatalog.find(x=>x.id===s.id)||{};
-            rows.push({
-                ...s,
-                ...meta,
-                students:st.size,
-                subjects:sub.size,
-                cr:cr?.id || "(Not Assigned)"
-            });
-        }catch(e){
-            rows.push({...s,students:0,subjects:0,cr:"(Not available)"});
-        }
-    }
-    body.innerHTML="";
-    if(!rows.length){body.innerHTML=`<tr><td colspan="8" class="empty-cell">No sections found.</td></tr>`;return;}
-    rows.forEach(r=>{
-        const tr=document.createElement("tr");
-        tr.innerHTML=`<td>${escapeHtml(r.course||"B.Tech")}</td><td>${escapeHtml(r.label||r.id)}</td><td>${escapeHtml(r.semester||"-")}</td><td>${escapeHtml(r.year||"-")}</td><td>${r.students}</td><td>${r.subjects}</td><td>${escapeHtml(r.cr)}</td><td><div class="admin-row-actions"><button class="admin-icon-btn edit" data-edit-section="${escapeHtml(r.id)}">✎</button><button class="admin-icon-btn delete" data-delete-section="${escapeHtml(r.id)}">🗑</button></div></td>`;
-        body.appendChild(tr);
-    });
-    body.querySelectorAll("[data-edit-section]").forEach(b=>b.onclick=()=>openAdminSectionEditor(b.dataset.editSection));
-    body.querySelectorAll("[data-delete-section]").forEach(b=>b.onclick=()=>deleteAdminSection(b.dataset.deleteSection));
-}
-
-async function openAdminSectionEditor(id=""){
-    const section=getAdminSections().find(x=>x.id===id);
-    document.getElementById("adminSectionModalTitle").textContent=section ? "Edit Section" : "Add Section";
-    document.getElementById("adminSectionCourse").value=section?.course||"";
-    document.getElementById("adminSectionName").value=section?.label||"";
-    document.getElementById("adminSectionSemester").value=section?.semester||"";
-    document.getElementById("adminSectionYear").value=section?.year||"";
-    document.getElementById("adminSectionMentor").value=section?.mentorName||"";
-    document.getElementById("adminSectionMentorMobile").value=section?.mentorMobile||"";
-    adminSectionModal.dataset.editId=id;
-    adminSectionModal?.classList.remove("hidden");
-}
-
-document.getElementById("adminAddSectionBtn")?.addEventListener("click",()=>openAdminSectionEditor(""));
-document.getElementById("closeAdminSectionModal")?.addEventListener("click",()=>adminSectionModal?.classList.add("hidden"));
-document.getElementById("cancelAdminSectionBtn")?.addEventListener("click",()=>adminSectionModal?.classList.add("hidden"));
-
-async function deleteAdminSection(id){
-    if(profile?.role!=="admin") return;
-    if(SECTIONS.some(s=>s.id===id) && !dynamicSectionCatalog.some(s=>s.id===id)){
-        alert("This is an existing system section. Use Update / Manage Data instead of deleting it here.");
-        return;
-    }
-    if(!confirm(`Delete section ${adminSectionLabel(id)}? This removes the section profile only. Student/subject/attendance subcollections are not automatically deleted.`)) return;
-    try{
-        await deleteDoc(doc(db,"sections",id));
-        await writeActivityLog("DELETE_SECTION",adminSectionLabel(id),{section:id});
-        await loadAdminSectionsTable();
-    }catch(e){alert(`Could not delete section: ${e.message||e}`);}
-}
-
-document.getElementById("adminSectionForm")?.addEventListener("submit",async e=>{
-    e.preventDefault();
-    if(profile?.role!=="admin") return;
-    const course=document.getElementById("adminSectionCourse").value.trim();
-    const label=document.getElementById("adminSectionName").value.trim();
-    const semester=document.getElementById("adminSectionSemester").value.trim();
-    const year=document.getElementById("adminSectionYear").value.trim();
-    const mentorName=document.getElementById("adminSectionMentor").value.trim();
-    const mentorMobile=document.getElementById("adminSectionMentorMobile").value.trim();
-    const oldId=adminSectionModal.dataset.editId||"";
-    const id=oldId || adminSlug(label);
-    if(!id) return alert("Enter a section name.");
-    try{
-        const sectionData={course,label,section:label,semester,year,mentorName,mentorMobile,updatedAt:new Date().toISOString()};
-        if(!oldId) sectionData.createdAt=new Date().toISOString();
-        await setDoc(doc(db,"sections",id),sectionData,{merge:true});
-        if(!oldId) dynamicSectionCatalog.push({id,label,course,semester,year,mentorName,mentorMobile});
-        await writeActivityLog(oldId?"EDIT_SECTION":"ADD_SECTION",`${course} · ${label}`,{section:id});
-        adminSectionModal?.classList.add("hidden");
-        await loadAdminSectionsTable();
-        await refreshAllAdminSectionSelects();
-    }catch(err){console.error(err);alert(`Could not save section: ${err.message||err}`);}
-});
-
-async function loadAdminUsersTable(){
-    if(profile?.role!=="admin") return;
-    const body=document.getElementById("adminUsersTableBody");
-    if(!body) return;
-    body.innerHTML=`<tr><td colspan="6" class="empty-cell">Loading users...</td></tr>`;
-    try{
-        const snap=await getDocs(collection(db,"users"));
-        body.innerHTML="";
-        snap.docs.sort((a,b)=>String(a.id).localeCompare(String(b.id))).forEach(d=>{
-            const x=d.data()||{};
-            const tr=document.createElement("tr");
-            const active=x.active!==false;
-            tr.innerHTML=`<td>${escapeHtml(x.name||d.id)}</td><td>${escapeHtml(d.id)}</td><td>${escapeHtml(x.role||"-")}</td><td>${escapeHtml(adminSectionLabel(x.section||"-"))}</td><td><span class="admin-status ${active?"active":"inactive"}">${active?"Active":"Inactive"}</span></td><td><div class="admin-row-actions"><button class="admin-icon-btn edit" data-edit-user="${escapeHtml(d.id)}">✎</button><button class="admin-icon-btn delete" data-toggle-user="${escapeHtml(d.id)}">${active?"⏸":"▶"}</button></div></td>`;
-            body.appendChild(tr);
+        row.querySelector("[data-delete-course]")?.addEventListener("click", async () => {
+            if (!confirm(`Delete ${course.name || courseDoc.id}?`)) return;
+            await deleteDoc(courseDoc.ref);
+            await loadCourses();
+            await populateCourseOptions();
+            await populateAttendanceCourseDropdown();
         });
-        if(!snap.size) body.innerHTML=`<tr><td colspan="6" class="empty-cell">No users found.</td></tr>`;
-        body.querySelectorAll("[data-edit-user]").forEach(b=>b.onclick=()=>openAdminUserEditor(b.dataset.editUser));
-        body.querySelectorAll("[data-toggle-user]").forEach(b=>b.onclick=()=>toggleAdminUser(b.dataset.toggleUser));
-    }catch(e){body.innerHTML=`<tr><td colspan="6" class="empty-cell">Could not load users.</td></tr>`;}
+        courseTableBody.appendChild(row);
+        });
+        await loadCourseSectionRequests();
+    } catch (error) {
+        console.error("Could not load courses:", error);
+        courseTableBody.innerHTML = `<tr><td colspan="6" class="empty-record">Could not load courses. Check Firestore rules and try again.</td></tr>`;
+    }
 }
 
-async function openAdminUserEditor(email=""){
-    const role=document.getElementById("adminUserRole");
-    const section=document.getElementById("adminUserSection");
-    await refreshAllAdminSectionSelects();
-    if(email){
-        const snap=await getDoc(doc(db,"users",email));
-        if(snap.exists()){
-            const x=snap.data()||{};
-            document.getElementById("adminUserName").value=x.name||"";
-            document.getElementById("adminUserEmail").value=email;
-            role.value=x.role||"cr";
-            section.value=x.section||"";
-            document.getElementById("adminUserEmail").disabled=true;
-        }
-    }else{
-        document.getElementById("adminUserForm").reset();
-        document.getElementById("adminUserEmail").disabled=false;
-    }
-    adminUserModal?.classList.remove("hidden");
-}
+async function loadCourseSectionRequests() {
+    const container = document.getElementById("courseRequestList");
+    if (!container || profile?.role !== "admin") return;
+    container.innerHTML = `<p class="empty-record">Loading section requests...</p>`;
+    try {
+        const snap = await getDocs(collection(db, "requests"));
+        const requests = snap.docs
+            .map(requestDoc => ({ id: requestDoc.id, ...requestDoc.data() }))
+            .filter(request => request.type === "add_section" && request.status === "pending")
+            .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
 
-document.getElementById("adminAddUserBtn")?.addEventListener("click",()=>openAdminUserEditor(""));
-document.getElementById("closeAdminUserModal")?.addEventListener("click",()=>adminUserModal?.classList.add("hidden"));
-document.getElementById("cancelAdminUserBtn")?.addEventListener("click",()=>adminUserModal?.classList.add("hidden"));
-
-document.getElementById("adminUserForm")?.addEventListener("submit",async e=>{
-    e.preventDefault();
-    if(profile?.role!=="admin") return;
-    const email=document.getElementById("adminUserEmail").value.trim().toLowerCase();
-    const name=document.getElementById("adminUserName").value.trim();
-    const role=document.getElementById("adminUserRole").value;
-    const section=document.getElementById("adminUserSection").value||null;
-    if(!email||!name) return alert("Name and email are required.");
-    try{
-        await setDoc(doc(db,"users",email),{name,email,role,section,active:true,updatedAt:new Date().toISOString()},{merge:true});
-        await writeActivityLog("MANAGE_USER",`${email} · ${role}`,{section:section||""});
-        adminUserModal?.classList.add("hidden");
-        await loadAdminUsersTable();
-    }catch(err){alert(`Could not save user: ${err.message||err}`);}
-});
-
-async function toggleAdminUser(email){
-    try{
-        const ref=doc(db,"users",email); const snap=await getDoc(ref); if(!snap.exists()) return;
-        const active=snap.data()?.active!==false;
-        await updateDoc(ref,{active:!active,updatedAt:new Date().toISOString()});
-        await writeActivityLog(active?"DEACTIVATE_USER":"ACTIVATE_USER",email);
-        await loadAdminUsersTable();
-    }catch(e){alert(`Could not update user: ${e.message||e}`);}
-}
-
-function renderAdminRequestDetail(r){
-    if(!adminRequestDetailBody) return;
-    const rows=[];
-    const add=(label,val)=>rows.push(`<div><span>${escapeHtml(label)}</span><b>${escapeHtml(val||"-")}</b></div>`);
-    add("Request Type",adminFriendlyRequestType(r.type));
-    add("Status",String(r.status||"pending").toUpperCase());
-    add("Requested By",r.requestedBy||r.email||"");
-    add("Submitted",r.createdAt?new Date(r.createdAt).toLocaleString():"");
-    if(r.type==="add_section"){
-        add("CR Q.ID",r.crQid);add("CR Name",r.crName);add("CR Email",r.crEmail);add("CR Mobile",r.crMobile);add("Course",r.course);add("Section",r.sectionLabel||r.section);add("Semester",r.semester);add("Year",r.year);add("Mentor Name",r.mentorName);add("Mentor Number",r.mentorMobile);add("Students",r.excelStats?.students || r.students?.length || 0);add("Subjects",r.excelStats?.subjects || r.subjects?.length || 0);
-    }else if(r.type==="contact_admin"){
-        add("Name",r.name);add("Email",r.email);add("Mobile",r.mobile);add("Request",r.requestType);
-    }else if(r.type?.includes("student")){
-        add("Q.ID",r.qid);add("Student Name",r.name);add("Section",r.sectionLabel||r.section);
-    }else if(r.type?.includes("subject")){
-        add("Subject",r.subject);add("Section",r.sectionLabel||r.section);
-    }
-    adminRequestDetailBody.innerHTML=`<div class="admin-detail-section"><div class="admin-detail-title">Request Information</div><div class="admin-detail-grid">${rows.join("")}</div></div><div class="admin-detail-section"><div class="admin-detail-title">Reason / Message</div><div class="admin-detail-message">${escapeHtml(r.reason||r.message||"No reason provided.")}</div></div>`;
-    const canAct=r.status==="pending";
-    document.getElementById("detailApproveBtn").classList.toggle("hidden",!canAct);
-    document.getElementById("detailRejectBtn").classList.toggle("hidden",!canAct);
-}
-
-function openAdminRequestDetail(r){
-    adminDetailRequest=r;
-    renderAdminRequestDetail(r);
-    adminRequestDetailModal?.classList.remove("hidden");
-}
-
-document.getElementById("closeAdminRequestDetail")?.addEventListener("click",()=>adminRequestDetailModal?.classList.add("hidden"));
-adminRequestDetailModal?.addEventListener("click",e=>{if(e.target===adminRequestDetailModal) adminRequestDetailModal.classList.add("hidden")});
-document.getElementById("detailApproveBtn")?.addEventListener("click",async()=>{if(adminDetailRequest){await processChangeRequest(adminDetailRequest,true);adminRequestDetailModal?.classList.add("hidden");}});
-document.getElementById("detailRejectBtn")?.addEventListener("click",async()=>{if(adminDetailRequest){await processChangeRequest(adminDetailRequest,false);adminRequestDetailModal?.classList.add("hidden");}});
-
-async function processNewSectionApproval(r){
-    const id=adminSlug(r.section || r.sectionLabel);
-    if(!id) throw new Error("Section name is missing.");
-    const existing=await getDoc(doc(db,"sections",id));
-    if(existing.exists()) throw new Error("A section with this ID already exists.");
-    await setDoc(doc(db,"sections",id),{
-        course:r.course||"",
-        label:r.sectionLabel||r.section||id,
-        section:r.sectionLabel||r.section||id,
-        semester:r.semester||"",
-        year:r.year||"",
-        mentorName:r.mentorName||"",
-        mentorMobile:r.mentorMobile||"",
-        crQid:r.crQid||"",
-        createdAt:new Date().toISOString(),
-        updatedAt:new Date().toISOString()
-    });
-    for(const student of (r.students||[])){
-        if(!student?.qid) continue;
-        const existingStudent=await findStudentByQid(id,student.qid);
-        if(!existingStudent) await addDoc(collection(db,"sections",id,"students"),{qid:String(student.qid),name:String(student.name||"").toUpperCase()});
-    }
-    for(const subject of (r.subjects||[])){
-        if(!subject) continue;
-        const existingSubject=await findSubjectByName(id,subject);
-        if(!existingSubject) await addDoc(collection(db,"sections",id,"subjects"),{name:String(subject)});
-    }
-    if(r.crEmail){
-        await setDoc(doc(db,"users",String(r.crEmail).toLowerCase()),{
-            name:r.crName||"",email:String(r.crEmail).toLowerCase(),role:"cr",section:id,crQid:r.crQid||"",mobile:r.crMobile||"",active:true,updatedAt:new Date().toISOString()
-        },{merge:true});
-    }
-    dynamicSectionCatalog.push({id,label:r.sectionLabel||r.section||id,course:r.course||"",semester:r.semester||"",year:r.year||"",mentorName:r.mentorName||"",mentorMobile:r.mentorMobile||""});
-}
-
-/* Override the request processor with New Section + Contact Admin support. */
-const originalProcessChangeRequest = processChangeRequest;
-processChangeRequest = async function(request,approve,options={}){
-    if(profile?.role!=="admin") return false;
-    if(approve && request.type==="add_section"){
-        try{
-            await processNewSectionApproval(request);
-            await updateDoc(doc(db,"requests",request.id),{status:"approved",reviewedBy:String(auth.currentUser?.email||"").toLowerCase(),reviewedAt:new Date().toISOString()});
-            await writeActivityLog("REQUEST_APPROVED",`New Section · ${request.sectionLabel||request.section||""}`,{requestId:request.id,section:adminSlug(request.section||request.sectionLabel)});
-            await writeActivityLog("ADD_SECTION",`${request.course||""} · ${request.sectionLabel||request.section||""}`);
-            if(options.silent) return true;
-            await loadRequestCenter(); await loadAdminDashboardData(); await refreshAllAdminSectionSelects();
-            alert("✅ New section approved and created successfully.");
-            return true;
-        }catch(e){
-            if(!options.silent) alert(`Could not approve new section: ${e.message||e}`);
-            throw e;
-        }
-    }
-    if(request.type==="contact_admin"){
-        try{
-            await updateDoc(doc(db,"requests",request.id),{status:approve?"approved":"rejected",reviewedBy:String(auth.currentUser?.email||"").toLowerCase(),reviewedAt:new Date().toISOString()});
-            await writeActivityLog(approve?"REQUEST_APPROVED":"REQUEST_REJECTED",`Contact Admin · ${request.requestedBy||request.email||""}`,{requestId:request.id});
-            if(!options.silent){await loadRequestCenter();await loadAdminDashboardData();alert(approve?"✅ Contact request approved.":"Request rejected.");}
-            return true;
-        }catch(e){if(!options.silent) alert(`Could not process request: ${e.message||e}`);throw e;}
-    }
-    return await originalProcessChangeRequest(request,approve,options);
-};
-
-/* Override Request Center rendering so Admin gets the table-style UI shown in the reference. */
-loadRequestCenter = async function(){
-    if(!requestList || !profile) return;
-    requestList.innerHTML=`<p class="empty-record">Loading requests...</p>`;
-    try{
-        let snap;
-        if(profile.role==="cr"){
-            snap=await getDocs(query(collection(db,"requests"),where("requestedBy","==",String(auth.currentUser?.email||"").trim())));
-        }else snap=await getDocs(collection(db,"requests"));
-        const rows=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>String(b.createdAt||"").localeCompare(String(a.createdAt||"")));
-        window.__qattendRequestCache=Object.fromEntries(rows.map(r=>[r.id,r]));
-        let filtered=rows;
-        if(profile.role==="admin"){
-            if(requestFilter==="pending") filtered=rows.filter(r=>r.status==="pending");
-            else if(requestFilter==="student") filtered=rows.filter(r=>String(r.type||"").includes("student"));
-            else if(requestFilter==="subject") filtered=rows.filter(r=>String(r.type||"").includes("subject"));
-            else if(requestFilter==="section") filtered=rows.filter(r=>r.type==="add_section");
-            else if(requestFilter==="contact") filtered=rows.filter(r=>r.type==="contact_admin");
-        }
-        const pendingIds=new Set(filtered.filter(r=>r.status==="pending").map(r=>r.id));
-        selectedRequestIds=new Set([...selectedRequestIds].filter(id=>pendingIds.has(id)));
-        updateBulkRequestToolbar(filtered);
-        requestList.innerHTML="";
-        if(profile.role!=="admin"){
-            if(!filtered.length){requestList.innerHTML=`<p class="empty-record">No requests submitted yet.</p>`;return;}
-            filtered.forEach(r=>{
-                const card=document.createElement("div");card.className="request-card";
-                card.innerHTML=`<div class="request-top"><div class="request-main"><b>${escapeHtml(adminFriendlyRequestType(r.type))} · ${escapeHtml(adminRequestTarget(r))}</b><small>${escapeHtml(r.sectionLabel||adminSectionLabel(r.section||""))}</small><small>${escapeHtml(r.reason||r.message||"")}</small><small>${escapeHtml(r.createdAt?new Date(r.createdAt).toLocaleString():"")}</small></div><span class="${adminRequestStatusClass(r.status||"pending")}">${escapeHtml(String(r.status||"pending").toUpperCase())}</span></div>`;
-                requestList.appendChild(card);
-            });
+        container.innerHTML = "";
+        if (!requests.length) {
+            container.innerHTML = `<p class="empty-record">No pending section requests.</p>`;
             return;
         }
-        if(!filtered.length){requestList.innerHTML=`<p class="empty-record">No requests found.</p>`;return;}
-        const table=document.createElement("div");table.className="admin-table-card";
-        table.innerHTML=`<div class="admin-table-wrap"><table class="admin-data-table request-admin-table"><thead><tr><th></th><th>Type</th><th>Details</th><th>User</th><th>Status</th><th>Date</th><th>Action</th></tr></thead><tbody></tbody></table></div>`;
-        const body=table.querySelector("tbody");
-        filtered.forEach(r=>{
-            const tr=document.createElement("tr");
-            const pending=r.status==="pending";
-            tr.innerHTML=`<td>${pending?`<input type="checkbox" class="request-checkbox" data-request-id="${escapeHtml(r.id)}" ${selectedRequestIds.has(r.id)?"checked":""}>`:""}</td><td>${escapeHtml(adminFriendlyRequestType(r.type))}</td><td>${escapeHtml(adminRequestTarget(r))}<br><small>${escapeHtml(r.sectionLabel||adminSectionLabel(r.section||""))}</small></td><td>${escapeHtml(r.requestedBy||r.email||"")}</td><td><span class="${adminRequestStatusClass(r.status||"pending")}">${escapeHtml(String(r.status||"pending").toUpperCase())}</span></td><td>${escapeHtml(r.createdAt?new Date(r.createdAt).toLocaleDateString():"")}</td><td><div class="request-table-actions"><button class="request-view-btn" data-view-request="${escapeHtml(r.id)}">👁</button>${pending?`<button class="admin-icon-btn edit" data-approve-request="${escapeHtml(r.id)}">✓</button><button class="admin-icon-btn delete" data-reject-request="${escapeHtml(r.id)}">✕</button>`:""}</div></td>`;
-            body.appendChild(tr);
-        });
-        requestList.appendChild(table);
-        body.querySelectorAll(".request-checkbox").forEach(cb=>cb.onchange=()=>{if(cb.checked)selectedRequestIds.add(cb.dataset.requestId);else selectedRequestIds.delete(cb.dataset.requestId);updateBulkRequestToolbar(filtered)});
-        body.querySelectorAll("[data-view-request]").forEach(b=>b.onclick=()=>openAdminRequestDetail(window.__qattendRequestCache[b.dataset.viewRequest]));
-        body.querySelectorAll("[data-approve-request]").forEach(b=>b.onclick=async()=>{const r=window.__qattendRequestCache[b.dataset.approveRequest];await processChangeRequest(r,true)});
-        body.querySelectorAll("[data-reject-request]").forEach(b=>b.onclick=async()=>{const r=window.__qattendRequestCache[b.dataset.rejectRequest];await processChangeRequest(r,false)});
-    }catch(e){console.error(e);requestList.innerHTML=`<p class="empty-record">Could not load requests: ${escapeHtml(e.message||e)}</p>`;}
-};
 
-/* Dashboard stats: read only the known sections, and include dynamically-created sections. */
-loadAdminDashboardData = async function(){
-    if(profile?.role!=="admin") return;
-    try{
-        const sections=await refreshAllAdminSectionSelects();
-        const usersSnap=await getDocs(collection(db,"users"));
-        const crCount=usersSnap.docs.filter(d=>d.data()?.role==="cr" && d.data()?.active!==false).length;
-        let totalStudentsCount=0,totalSubjectsCount=0;
-        for(const s of sections){
-            const [st,sub]=await Promise.all([getDocs(collection(db,"sections",s.id,"students")),getDocs(collection(db,"sections",s.id,"subjects"))]);
-            totalStudentsCount+=st.size; totalSubjectsCount+=sub.size;
-        }
-        const reqSnap=await getDocs(collection(db,"requests"));
-        const pending=reqSnap.docs.filter(d=>d.data()?.status==="pending").length;
-        document.getElementById("dashTotalStudents").textContent=totalStudentsCount;
-        document.getElementById("dashTotalCRs").textContent=crCount;
-        document.getElementById("dashTotalSubjects").textContent=totalSubjectsCount;
-        document.getElementById("dashPendingRequests").textContent=pending;
-        await Promise.allSettled([loadAdminActivityLogs(),loadAdminRequestPreview()]);
-    }catch(e){console.error("Dashboard data failed:",e);}
-};
-
-/* Extend hideMainViews/showAdminDashboard so new admin pages never disturb CR screens. */
-hideMainViews = function(){
-    document.querySelectorAll(".welcome-section,.control-section,#adminPanel,#noSectionMessage,#workArea").forEach(el=>el?.classList.add("hidden"));
-    requestsPanel?.classList.add("hidden");adminDashboard?.classList.add("hidden");hideAdminPanels();
-};
-showAdminDashboard = function(){document.body.classList.remove("records-only-view");hideMainViews();adminDashboard?.classList.remove("hidden");void loadAdminDashboardData();};
-showManageData = function(){
-    if(profile?.role!=="admin") return;hideMainViews();adminPanel?.classList.remove("hidden");populateSectionDropdowns();if(manageSectionSelect)manageSectionSelect.value=managementSection||"";if(managementSection)void refreshManageData();
-};
-showRequestsPanel = function(){if(!profile)return;document.body.classList.remove("records-only-view");hideMainViews();requestsPanel?.classList.remove("hidden");void loadRequestCenter();};
-
-/* Wire the additional Admin drawer items. */
-document.querySelectorAll('.drawer-item[data-feature="sections"]').forEach(btn=>btn.addEventListener("click",()=>{closeFeatureDrawerFn();showAdminSections();}));
-document.querySelectorAll('.drawer-item[data-feature="users"]').forEach(btn=>btn.addEventListener("click",()=>{closeFeatureDrawerFn();showAdminUsers();}));
-document.querySelectorAll('.drawer-item[data-feature="reports"]').forEach(btn=>btn.addEventListener("click",()=>{closeFeatureDrawerFn();showAdminReports();}));
-
-/* Reports are generated only when clicked. */
-function downloadAdminCsv(filename,headers,rows){
-    const csv=[headers,...rows].map(row=>row.map(v=>`"${String(v??"").replace(/"/g,'""')}"`).join(",")).join("\n");
-    const blob=new Blob([csv],{type:"text/csv;charset=utf-8;"});
-    const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=filename;a.click();URL.revokeObjectURL(url);
-}
-async function runAdminReport(type){
-    if(profile?.role!=="admin") return;
-    try{
-        const sections=await refreshAllAdminSectionSelects();
-        if(type==="requests"){
-            const snap=await getDocs(collection(db,"requests"));
-            downloadAdminCsv("QAttend_Requests.csv",["Type","Status","User","Section","Details","Reason","Created At","Reviewed At"],snap.docs.map(d=>{const r=d.data();return[adminFriendlyRequestType(r.type),r.status,r.requestedBy||r.email||"",r.sectionLabel||r.section||"",adminRequestTarget(r),r.reason||r.message||"",r.createdAt||"",r.reviewedAt||""]}));
-        }else if(type==="students"){
-            const rows=[];for(const s of sections){const snap=await getDocs(collection(db,"sections",s.id,"students"));snap.docs.forEach(d=>{const x=d.data();rows.push([s.course||"",s.label||s.id,x.qid||d.id,x.name||""])});}downloadAdminCsv("QAttend_Students.csv",["Course","Section","Q.ID","Student Name"],rows);
-        }else if(type==="subjects"){
-            const rows=[];for(const s of sections){const snap=await getDocs(collection(db,"sections",s.id,"subjects"));snap.docs.forEach(d=>rows.push([s.course||"",s.label||s.id,d.data()?.name||""]));}downloadAdminCsv("QAttend_Subjects.csv",["Course","Section","Subject"],rows);
-        }else if(type==="attendance"){
-            const rows=[];for(const s of sections){const snap=await getDocs(collection(db,"sections",s.id,"attendance"));snap.docs.forEach(d=>{const r=d.data();(r.students||[]).forEach(st=>rows.push([r.course||s.course||"",r.section||s.label||s.id,r.subject||"",r.date||"",st.qid||"",st.name||"",st.status||""]));});}downloadAdminCsv("QAttend_Attendance.csv",["Course","Section","Subject","Date","Q.ID","Student Name","Status"],rows);
-        }
-    }catch(e){alert(`Could not generate report: ${e.message||e}`);}
-}
-document.querySelectorAll(".admin-report-card[data-report]").forEach(b=>b.addEventListener("click",()=>runAdminReport(b.dataset.report)));
-
-/* On Admin login, refresh the dynamic section catalog once. */
-if(typeof auth !== "undefined"){
-    onAuthStateChanged(auth, async user=>{
-        if(user && profile?.role==="admin") await refreshAllAdminSectionSelects();
-    });
-}
-
-/* =========================================================
-   ADMIN FINAL COMPATIBILITY PATCH
-   Restores missing V3 HTML wiring without changing CR behavior.
-   ========================================================= */
-(function(){
-    const manageSubjectsBtn = document.querySelector('.sidebar-btn[data-feature="manage-subjects"]');
-    manageSubjectsBtn?.addEventListener('click',()=>{
-        if(profile?.role !== 'admin') return;
-        hideMainViews();
-        adminPanel?.classList.remove('hidden');
-        populateSectionDropdowns();
-        if(managementSection) manageSectionSelect.value=managementSection;
-        if(managementSection) void refreshManageData();
-    });
-
-    document.querySelectorAll('.sidebar-btn[data-feature="dashboard"]').forEach(b=>b.addEventListener('click',()=>showAdminDashboard()));
-    document.querySelectorAll('.sidebar-btn[data-feature="sections"]').forEach(b=>b.addEventListener('click',()=>showAdminSections()));
-    document.querySelectorAll('.sidebar-btn[data-feature="users"]').forEach(b=>b.addEventListener('click',()=>showAdminUsers()));
-    document.querySelectorAll('.sidebar-btn[data-feature="requests"]').forEach(b=>b.addEventListener('click',()=>showRequestsPanel()));
-    document.querySelectorAll('.sidebar-btn[data-feature="logs"]').forEach(b=>b.addEventListener('click',()=>loadAdminActivityLogs()));
-    document.querySelectorAll('.sidebar-btn[data-feature="attendance"]').forEach(b=>b.addEventListener('click',()=>showAttendanceView()));
-    document.querySelectorAll('.sidebar-btn[data-feature="profile"]').forEach(b=>b.addEventListener('click',()=>{
-        alert(`Logged in as ${auth.currentUser?.email || ''}\nRole: ${profile?.role || ''}`);
-    }));
-
-    /* Keep active state visually synchronized with the selected admin page. */
-    const syncActive = feature=>document.querySelectorAll('.sidebar-btn').forEach(b=>b.classList.toggle('active',b.dataset.feature===feature));
-    const oldShowDashboard=showAdminDashboard;
-    showAdminDashboard=function(){syncActive('dashboard');return oldShowDashboard();};
-    const oldShowSections=showAdminSections;
-    showAdminSections=function(){syncActive('sections');return oldShowSections();};
-    const oldShowUsers=showAdminUsers;
-    showAdminUsers=function(){syncActive('users');return oldShowUsers();};
-    const oldShowRequests=showRequestsPanel;
-    showRequestsPanel=function(){syncActive('requests');return oldShowRequests();};
-    const oldShowAttendance=showAttendanceView;
-    showAttendanceView=function(){syncActive('attendance');return oldShowAttendance();};
-
-    /* Course list is backed by Firestore courses/{courseCode}. Existing sections
-       are also converted into fallback course rows so old data remains visible. */
-    async function getCourseRows(){
-        const map=new Map();
-        try{
-            const snap=await getDocs(collection(db,'courses'));
-            snap.docs.forEach(d=>{const x=d.data()||{};map.set(d.id,{id:d.id,code:x.code||d.id,name:x.name||d.id,department:x.department||'',duration:x.duration||''});});
-        }catch(e){console.warn('Courses collection unavailable; using section data.',e);}
-        await loadDynamicSectionCatalog();
-        const sections=getAdminSections();
-        sections.forEach(s=>{
-            const code=String(s.course||'').trim();
-            if(code && !map.has(code)) map.set(code,{id:adminSlug(code),code,name:code,department:'',duration:''});
-        });
-        return [...map.values()];
-    }
-    async function loadCoursesTable(){
-        const body=document.getElementById('coursesTableBody'); if(!body||profile?.role!=='admin') return;
-        body.innerHTML='<tr><td colspan="6" class="empty-cell">Loading courses...</td></tr>';
-        try{
-            const rows=await getCourseRows();body.innerHTML='';
-            if(!rows.length){body.innerHTML='<tr><td colspan="6" class="empty-cell">No courses found.</td></tr>';return;}
-            rows.forEach((r,i)=>{
-                const tr=document.createElement('tr');
-                tr.innerHTML=`<td>${i+1}</td><td>${escapeHtml(r.code)}</td><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.department||'-')}</td><td>${escapeHtml(r.duration||'-')}</td><td><div class="admin-row-actions"><button class="admin-icon-btn edit" data-edit-course="${escapeHtml(r.id)}">✎</button><button class="admin-icon-btn delete" data-delete-course="${escapeHtml(r.id)}">🗑</button></div></td>`;
-                body.appendChild(tr);
+        requests.forEach(request => {
+            const card = document.createElement("div");
+            card.className = "request-card";
+            card.innerHTML = `<div class="request-top"><div class="request-main"><b>${escapeHtml(request.course || "New Course")} · ${escapeHtml(request.sectionLabel || request.section || "New Section")}</b><small>CR: ${escapeHtml(request.crName || request.crEmail || "")} · ${escapeHtml(request.crMobile || "")}</small><small>${request.students?.length || 0} students · ${request.subjects?.length || 0} subjects</small></div><span class="status-pill status-pending">PENDING</span></div>`;
+            const actions = document.createElement("div");
+            actions.className = "request-actions";
+            const viewButton = document.createElement("button");
+            viewButton.className = "text-btn";
+            viewButton.textContent = "View";
+            viewButton.addEventListener("click", () => showRequestDetails(request));
+            const approveButton = document.createElement("button");
+            approveButton.className = "approve-btn";
+            approveButton.textContent = "Approve & Add";
+            approveButton.addEventListener("click", async () => {
+                await processChangeRequest(request, true);
+                await loadCourses();
             });
-            body.querySelectorAll('[data-edit-course]').forEach(b=>b.onclick=async()=>openCourseEditor(b.dataset.editCourse));
-            body.querySelectorAll('[data-delete-course]').forEach(b=>b.onclick=async()=>{
-                const row=rows.find(x=>x.id===b.dataset.deleteCourse);if(!row)return;
-                if(!confirm(`Delete course ${row.code}? Existing sections are not deleted.`))return;
-                try{await deleteDoc(doc(db,'courses',row.id));await writeActivityLog('DELETE_COURSE',row.code);await loadCoursesTable();await refreshAllAdminSectionSelects();}catch(e){alert(`Could not delete course: ${e.message||e}`);}
-            });
-        }catch(e){body.innerHTML=`<tr><td colspan="6" class="empty-cell">Could not load courses.</td></tr>`;}
+            actions.append(viewButton, approveButton);
+            card.appendChild(actions);
+            container.appendChild(card);
+        });
+    } catch (error) {
+        console.error("Could not load section requests for courses:", error);
+        container.innerHTML = `<p class="empty-record">Could not load section requests.</p>`;
     }
-    async function openCourseEditor(id=''){
-        const modal=document.getElementById('courseModal');if(!modal)return;
-        document.getElementById('courseEditId').value=id;
-        if(id){
-            const snap=await getDoc(doc(db,'courses',id));const x=snap.exists()?snap.data():{};
-            document.getElementById('courseNameInput').value=x.name||id;document.getElementById('courseCodeInput').value=x.code||id;document.getElementById('courseDeptInput').value=x.department||'';document.getElementById('courseDurationInput').value=x.duration||'';
-        }else document.getElementById('courseForm')?.reset();
-        document.getElementById('courseModalTitle').textContent=id?'Edit Course':'Add New Course';document.getElementById('saveCourseBtn').textContent=id?'Save Changes':'Create Course';modal.classList.remove('hidden');
+}
+
+async function populateCourseOptions() {
+    let courses = [];
+    try {
+        const snap = await getDocs(collection(db, "courses"));
+        courses = snap.docs;
+    } catch (error) {
+        console.warn("Could not load course options:", error);
     }
-    document.getElementById('openAddCourseBtn')?.addEventListener('click',()=>openCourseEditor(''));
-    document.getElementById('closeCourseModal')?.addEventListener('click',()=>document.getElementById('courseModal')?.classList.add('hidden'));
-    document.getElementById('cancelCourseBtn')?.addEventListener('click',()=>document.getElementById('courseModal')?.classList.add('hidden'));
-    document.getElementById('courseForm')?.addEventListener('submit',async e=>{
-        e.preventDefault();if(profile?.role!=='admin')return;
-        const code=document.getElementById('courseCodeInput').value.trim().toUpperCase();const name=document.getElementById('courseNameInput').value.trim();const department=document.getElementById('courseDeptInput').value.trim();const duration=document.getElementById('courseDurationInput').value.trim();const old=document.getElementById('courseEditId').value.trim();const id=old||adminSlug(code);
-        if(!id||!code||!name)return alert('Course code and name are required.');
-        try{await setDoc(doc(db,'courses',id),{code,name,department,duration,updatedAt:new Date().toISOString()},{merge:true});await writeActivityLog(old?'EDIT_COURSE':'ADD_COURSE',`${code} · ${name}`);document.getElementById('courseModal')?.classList.add('hidden');await loadCoursesTable();await refreshAllAdminSectionSelects();}catch(err){alert(`Could not save course: ${err.message||err}`);}
+
+    [courseFilter, document.getElementById("adminSecCourse")].forEach(select => {
+        if (!select) return;
+        const selected = select.value;
+        select.innerHTML = `<option value="">-- Select Course --</option>`;
+        const btechOption = document.createElement("option");
+        btechOption.value = "BTECH";
+        btechOption.textContent = "B.Tech";
+        select.appendChild(btechOption);
+        courses.forEach(courseDoc => {
+            const course = courseDoc.data();
+            const courseName = String(course.name || courseDoc.id);
+            if (courseName.trim().toLowerCase() === "b.tech" || courseName.trim().toLowerCase() === "b.tech ai & ml") return;
+            const option = document.createElement("option");
+            option.value = courseDoc.id;
+            option.textContent = `${course.name || courseDoc.id} (${course.code || courseDoc.id})`;
+            select.appendChild(option);
+        });
+        if (selected) select.value = selected;
     });
+}
 
-    /* Course navigation. */
-    document.querySelectorAll('.sidebar-btn[data-feature="courses"]').forEach(b=>b.addEventListener('click',()=>{
-        if(profile?.role!=='admin')return;syncActive('courses');hideMainViews();document.getElementById('adminCoursesView')?.classList.remove('hidden');void loadCoursesTable();
-    }));
+async function loadSectionsForCourse(courseId = courseFilter?.value) {
+    if (!sectionTableBody) return;
+    sectionTableBody.innerHTML = "";
+    if (!courseId) {
+        sectionTableBody.innerHTML = `<tr><td colspan="7" class="empty-record">Select a course to view sections.</td></tr>`;
+        return;
+    }
+    const snap = await getDocs(collection(db, "sections"));
+    const rows = snap.docs.filter(sectionDoc => sectionDoc.data()?.course === courseId);
+    if (!rows.length) sectionTableBody.innerHTML = `<tr><td colspan="7" class="empty-record">No sections found for this course.</td></tr>`;
+    for (const [index, sectionDoc] of rows.entries()) {
+        const section = sectionDoc.data();
+        const [studentsSnap, subjectsSnap] = await Promise.all([
+            getDocs(collection(db, "sections", sectionDoc.id, "students")),
+            getDocs(collection(db, "sections", sectionDoc.id, "subjects"))
+        ]);
+        const row = document.createElement("tr");
+        row.innerHTML = `<td>${index + 1}</td><td>${escapeHtml(section.label || section.section || sectionDoc.id)}</td><td>${escapeHtml(section.semester || "")}</td><td>${escapeHtml(section.year || "")}</td><td>${studentsSnap.size}</td><td>${subjectsSnap.size}</td><td><button type="button" class="text-btn" data-open-section="${escapeHtml(sectionDoc.id)}">Open</button> <button type="button" class="text-btn danger-text" data-delete-section="${escapeHtml(sectionDoc.id)}">Delete</button></td>`;
+        row.querySelector("[data-open-section]")?.addEventListener("click", () => {
+            managementSection = sectionDoc.id;
+            showManageData();
+            if (manageSectionSelect) manageSectionSelect.value = sectionDoc.id;
+        });
+        row.querySelector("[data-delete-section]")?.addEventListener("click", async () => {
+            if (!confirm(`Delete ${section.label || sectionDoc.id}?`)) return;
+            await deleteDoc(sectionDoc.ref);
+            await loadSectionsForCourse(courseId);
+        });
+        sectionTableBody.appendChild(row);
+    }
+}
 
-    /* Admin section form uses the same section catalog as the rest of the app. */
-    const originalRefresh=refreshAllAdminSectionSelects;
-    refreshAllAdminSectionSelects=async function(){
-        const result=await originalRefresh();
-        const courseSelect=document.getElementById('adminSectionCourse');
-        if(courseSelect){
-            const courses=await getCourseRows().catch(()=>[]);
-            const current=courseSelect.value;courseSelect.innerHTML='<option value="">-- Select Course --</option>';
-            courses.forEach(c=>{const o=document.createElement('option');o.value=c.name||c.code;o.textContent=c.name||c.code;courseSelect.appendChild(o);});
-            if(current)courseSelect.value=current;
-        }
-        return result;
-    };
+document.querySelectorAll(".sidebar-btn").forEach(button => button.addEventListener("click", async () => {
+    const feature = button.dataset.feature;
+    if (feature === "dashboard") showAdminDashboard();
+    if (feature === "courses") { hideMainViews(); document.getElementById("adminCoursesView")?.classList.remove("hidden"); await loadCourses(); }
+    if (feature === "sections") { hideMainViews(); document.getElementById("adminSectionsView")?.classList.remove("hidden"); await populateCourseOptions(); await loadSectionsForCourse(); }
+    if (feature === "manage") showManageData();
+    if (feature === "manage-subjects") showManageData();
+    if (feature === "requests") showRequestsPanel();
+    if (feature === "attendance") showAttendanceView();
+    if (feature === "logs") { showAdminDashboard(); await loadAdminActivityLogs(); }
+    if (feature === "logout") await logoutFromApp();
+}));
 
-    /* Update dashboard with the two cards present in the current HTML. */
-    const dashboardOriginal=loadAdminDashboardData;
-    loadAdminDashboardData=async function(){
-        await dashboardOriginal();
-        if(profile?.role!=='admin')return;
-        try{
-            const sections=await refreshAllAdminSectionSelects();
-            const uniqueCourses=new Set(sections.map(s=>String(s.course||'').trim()).filter(Boolean));
-            const courseSnap=await getDocs(collection(db,'courses')).catch(()=>null);
-            const courseCount=Math.max(uniqueCourses.size,courseSnap?.size||0);
-            document.getElementById('dashTotalCourses')?.replaceChildren(document.createTextNode(String(courseCount)));
-            document.getElementById('dashTotalSections')?.replaceChildren(document.createTextNode(String(sections.length)));
-        }catch(e){console.warn('Course/section stats unavailable',e);}
-    };
+document.getElementById("openAddCourseBtn")?.addEventListener("click", () => {
+    courseForm?.reset();
+    document.getElementById("courseEditId").value = "";
+    document.getElementById("courseModalTitle").textContent = "Add New Course";
+    document.getElementById("saveCourseBtn").textContent = "Create Course";
+    openModalById("courseModal");
+});
+document.getElementById("refreshCourseRequestsBtn")?.addEventListener("click", loadCourseSectionRequests);
+document.getElementById("closeCourseModal")?.addEventListener("click", () => closeModalById("courseModal"));
+document.getElementById("cancelCourseBtn")?.addEventListener("click", () => closeModalById("courseModal"));
+courseForm?.addEventListener("submit", async event => {
+    event.preventDefault();
+    const message = document.getElementById("courseFormMessage");
+    const saveButton = document.getElementById("saveCourseBtn");
+    const editId = document.getElementById("courseEditId")?.value.trim();
+    const name = document.getElementById("courseNameInput")?.value.trim();
+    const code = document.getElementById("courseCodeInput")?.value.trim().toUpperCase();
+    const department = document.getElementById("courseDeptInput")?.value.trim();
+    const duration = document.getElementById("courseDurationInput")?.value.trim();
+    const id = editId || code?.replace(/[^A-Z0-9]+/g, "-");
 
-    /* If a sidebar item is clicked, hide other admin screens first. */
-    document.querySelectorAll('.sidebar-btn').forEach(btn=>btn.addEventListener('click',()=>{
-        if(profile?.role==='admin') document.querySelectorAll('.sidebar-btn').forEach(x=>x.classList.remove('active'));
-        btn.classList.add('active');
-    }));
-})();
+    if (!name || !code || !department || !duration || !id) {
+        if (message) message.textContent = "Please fill all course fields.";
+        return;
+    }
+
+    if (saveButton) saveButton.disabled = true;
+    if (message) message.textContent = "Saving course...";
+    try {
+        await setDoc(doc(db, "courses", id), { name, code, department, duration, updatedAt: new Date().toISOString() }, { merge: true });
+        closeModalById("courseModal");
+        await loadCourses();
+        await populateCourseOptions();
+        await populateAttendanceCourseDropdown();
+    } catch (error) {
+        console.error("Could not save course:", error);
+        if (message) message.textContent = "Could not save course. Check Firestore rules and try again.";
+    } finally {
+        if (saveButton) saveButton.disabled = false;
+    }
+});
+
+courseFilter?.addEventListener("change", () => loadSectionsForCourse(courseFilter.value));
+document.getElementById("openAddSectionBtn")?.addEventListener("click", async () => {
+    await populateCourseOptions();
+    adminSectionExcelPayload = null;
+    adminSectionForm?.reset();
+    document.getElementById("adminSecExcelPreview")?.classList.add("hidden");
+    openModalById("adminAddSectionModal");
+});
+document.getElementById("closeAdminAddSectionModal")?.addEventListener("click", () => closeModalById("adminAddSectionModal"));
+document.getElementById("cancelAdminAddSectionBtn")?.addEventListener("click", () => closeModalById("adminAddSectionModal"));
+adminSectionFile?.addEventListener("change", async () => {
+    const file = adminSectionFile.files?.[0];
+    if (!file) return;
+    adminSectionExcelPayload = await parseSectionExcelFile(file);
+    renderSectionExcelPreview("adminSec", adminSectionExcelPayload);
+    document.getElementById("adminSecMessage").textContent = "Excel preview ready.";
+});
+adminSectionForm?.addEventListener("submit", async event => {
+    event.preventDefault();
+    const courseId = document.getElementById("adminSecCourse").value;
+    const sectionLabelValue = document.getElementById("adminSecName").value.trim();
+    if (!courseId || !sectionLabelValue || !adminSectionExcelPayload) return;
+    const sectionId = `${courseId}-${sectionLabelValue}`.toUpperCase().replace(/[^A-Z0-9]+/g, "-").replace(/^-|-$/g, "");
+    await setDoc(doc(db, "sections", sectionId), {
+        course: courseId,
+        label: sectionLabelValue,
+        semester: document.getElementById("adminSecSemester").value.trim(),
+        year: document.getElementById("adminSecYear").value.trim(),
+        mentorName: document.getElementById("adminSecMentorName").value.trim(),
+        mentorMobile: document.getElementById("adminSecMentorMobile").value.trim(),
+        createdAt: new Date().toISOString()
+    }, { merge: true });
+    const batch = writeBatch(db);
+    adminSectionExcelPayload.students.forEach(student => batch.set(doc(collection(db, "sections", sectionId, "students")), { qid: student.qid, name: student.name }));
+    adminSectionExcelPayload.subjects.forEach(subject => batch.set(doc(collection(db, "sections", sectionId, "subjects")), { name: subject }));
+    await batch.commit();
+    closeModalById("adminAddSectionModal");
+    await populateSectionDropdowns();
+    await loadSectionsForCourse(courseId);
+});
+

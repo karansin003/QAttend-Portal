@@ -1,19 +1,20 @@
-# QAttend Attendance Management System
+# QAttend Structured Pages
 
-This package contains the separated source files from the current QAttend project.
+- `login.html` - dedicated login page, Forgot Password, Contact Admin and Request New Section.
+- `admin.html` - admin portal.
+- `cr.html` - CR portal.
+- `style.css` - single shared stylesheet.
+- `script.js` - shared Firebase/auth/attendance/request/admin logic.
+- `logo.png` - QAttend logo.
+- `firebase.json` - Firebase Hosting configuration.
+- `firestore.rules` - Firestore security rules.
+- `index.html` - redirects to `login.html`.
 
-## Files
-- `index.html` - UI/HTML
-- `style.css` - styling/responsive layout
-- `script.js` - Firebase Auth/Firestore logic and request flows
-- `firestore.rules` - Firestore security rules
+The existing UI/features are retained. The only structural change is page separation and role-based routing after login.
 
-## Run locally
-Open the folder with VS Code and use Live Server (recommended), then open the local URL.
-Do not open `index.html` directly with `file://` because Firebase modules and browser security can cause issues.
+## Local test
+Use a local static server (for example VS Code Live Server) rather than opening HTML with `file://`.
+Open `login.html`.
 
-## Firebase
-The Firebase project configuration already present in `script.js` is retained. Publish `firestore.rules` to the same Firebase project before testing request submission.
-
-## Important
-`index.html` references `logo.png`. Keep your existing QAttend `logo.png` in this same folder.
+## Firebase Hosting
+Deploy the folder as the Hosting public directory. The Firebase project configuration remains the same.
