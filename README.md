@@ -1,136 +1,153 @@
-# QAttend Attendance Management System
+<div align="center">
 
-> A Firebase-powered attendance management portal for Quantum University
-> with separate Login, Admin, and Class Representative (CR) interfaces.
+<img src="logo.png" alt="QAttend Logo" width="120" height="126" />
 
-------------------------------------------------------------------------
+# QAttend
 
-## 1. Project Overview
+### Attendance Management System — Quantum University
 
-**QAttend** is an attendance management system designed to manage
-university courses, sections, students, subjects, Class Representatives
-(CRs), attendance records, requests, and activity history.
+A Firebase-powered attendance portal with dedicated **Login**, **Admin**, and **Class Representative (CR)** interfaces.
 
-The project is structured into separate pages so that each role gets
-only the interface and features relevant to that role.
+[![Firebase](https://img.shields.io/badge/Firebase-Auth%20%2B%20Firestore-FFCA28?logo=firebase&logoColor=black)](https://firebase.google.com/)
+[![Hosting](https://img.shields.io/badge/Firebase-Hosting-orange?logo=firebase)](https://firebase.google.com/products/hosting)
+[![HTML5](https://img.shields.io/badge/HTML5-E34F26?logo=html5&logoColor=white)](https://developer.mozilla.org/en-US/docs/Web/HTML)
+[![CSS3](https://img.shields.io/badge/CSS3-1572B6?logo=css3&logoColor=white)](https://developer.mozilla.org/en-US/docs/Web/CSS)
+[![JavaScript](https://img.shields.io/badge/JavaScript-ES%20Modules-F7DF1E?logo=javascript&logoColor=black)](https://developer.mozilla.org/en-US/docs/Web/JavaScript)
+[![License](https://img.shields.io/badge/License-Private-lightgrey)]()
 
-### Main roles
+</div>
 
--   **Guest / Login User**
-    -   Login
-    -   Forgot Password
-    -   Contact Admin
-    -   Request a New Section
--   **Admin**
-    -   Dashboard
-    -   Course management
-    -   Section management
-    -   Student management
-    -   Subject management
-    -   Section / CR requests
-    -   Attendance management
-    -   Activity logs
-    -   Profile
-    -   Logout
--   **Class Representative (CR)**
-    -   Assigned-section attendance
-    -   Previous attendance records
-    -   Send Request
-    -   Help & Support
-    -   Logout
+---
 
-------------------------------------------------------------------------
+## 📖 Table of Contents
 
-# 2. Project Structure
+- [Overview](#-overview)
+- [Roles at a Glance](#-roles-at-a-glance)
+- [Project Structure](#-project-structure)
+- [Tech Stack](#-tech-stack)
+- [Authentication Flow](#-authentication-flow)
+- [Feature Highlights](#-feature-highlights)
+  - [Login Page](#login-page)
+  - [Admin Portal](#admin-portal)
+  - [CR Portal](#cr-portal)
+- [Firestore Data Model](#-firestore-data-model)
+- [Excel Import/Export](#-excel-importexport)
+- [Getting Started](#-getting-started)
+- [First Admin Setup](#-first-admin-setup)
+- [One-Time Data Import](#-one-time-data-import)
+- [EmailJS Configuration](#-emailjs-configuration)
+- [Deployment](#-deployment)
+- [Security Notes](#-security-notes)
+- [Troubleshooting](#-troubleshooting)
+- [Testing Checklist](#-testing-checklist)
 
-``` text
+---
+
+## 🧭 Overview
+
+**QAttend** manages university courses, sections, students, subjects, Class
+Representatives (CRs), attendance records, requests, and activity history —
+all backed by **Firebase Authentication** and **Cloud Firestore**.
+
+The project is split into role-specific pages so every user only sees the
+interface relevant to them:
+
+| Page | Role | Purpose |
+|---|---|---|
+| `login.html` | Guest | Login, Forgot Password, Contact Admin, Request New Section |
+| `admin.html` | Admin | Full system management |
+| `cr.html` | Class Representative | Attendance for their assigned section only |
+
+---
+
+## 👥 Roles at a Glance
+
+<table>
+<tr>
+<td valign="top" width="33%">
+
+### 🔑 Guest
+- Login
+- Forgot Password
+- Contact Admin
+- Request a New Section
+
+</td>
+<td valign="top" width="33%">
+
+### 🛡️ Admin
+- Dashboard & stats
+- Manage Courses / Sections
+- Manage Students / Subjects
+- Requests & approvals
+- Manage Users / CR assignment
+- Attendance (any section)
+- Activity Logs & Reports (CSV)
+
+</td>
+<td valign="top" width="33%">
+
+### 🎓 Class Representative (CR)
+- Fixed, assigned section only
+- Mark / Save / Download attendance
+- View previous records
+- Send change requests
+- Help & Support
+
+</td>
+</tr>
+</table>
+
+---
+
+## 🗂 Project Structure
+
+```text
 QAttend/
 │
-├── index.html
-├── login.html
-├── admin.html
-├── cr.html
+├── index.html              # Redirects to login.html
+├── login.html               # Guest entry point
+├── admin.html                # Admin portal
+├── cr.html                    # CR portal
 │
-├── style.css
-├── script.js
+├── style.css                 # Shared styling for all pages
+├── script.js                 # Firebase Auth, Firestore, Excel, admin/CR logic
 │
-├── logo.png
-├── firebase.json
-├── firestore.rules
-├── Section_Template.xlsx        # optional/static template if included
+├── logo.png                  # QAttend logo
+├── firebase.json             # Firebase Hosting configuration
+├── firestore.rules           # Firestore security rules
+│
+├── seed.html                 # One-time roster/subject import UI
+├── seed.js                   # One-time import script
+├── seed-backup.js            # Backup copy of import script
+│
+├── Section_Template.xlsx     # Excel template (Students / Subjects / Instructions)
 └── README.md
 ```
 
-### File responsibilities
+---
 
-  -----------------------------------------------------------------------
-  File                                Purpose
-  ----------------------------------- -----------------------------------
-  `index.html`                        Entry page that redirects users to
-                                      `login.html`
+## ⚙️ Tech Stack
 
-  `login.html`                        Login, Forgot Password, Contact
-                                      Admin and New Section Request
+**Frontend**
+- HTML5, CSS3, JavaScript (ES Modules)
+- Responsive, mobile-tested layout
 
-  `admin.html`                        Admin Portal
+**Backend / Cloud**
+- Firebase Authentication (Email/Password)
+- Cloud Firestore
+- Firebase Hosting
 
-  `cr.html`                           CR Portal
+**Libraries & Services**
+- Firebase Web SDK `12.18.0`
+- [SheetJS](https://sheetjs.com/) — Excel import/export
+- [EmailJS](https://www.emailjs.com/) — direct email sending (no mail-client popup)
 
-  `style.css`                         Shared styling for all pages
+---
 
-  `script.js`                         Firebase Authentication, Firestore,
-                                      Excel processing, requests,
-                                      attendance and admin/CR logic
+## 🔐 Authentication Flow
 
-  `logo.png`                          QAttend logo
-
-  `firebase.json`                     Firebase Hosting configuration
-
-  `firestore.rules`                   Firestore security rules
-
-  `README.md`                         Project documentation
-  -----------------------------------------------------------------------
-
-The current pages already reference the common stylesheet, and the
-Login/Admin/CR pages use page-specific `data-page` values for
-role/page-aware JavaScript. The project also keeps Firebase and Excel
-functionality in the shared JavaScript file.
-
-------------------------------------------------------------------------
-
-# 3. Technology Stack
-
-### Frontend
-
--   HTML5
--   CSS3
--   JavaScript ES Modules
--   Responsive design
-
-### Backend / Cloud
-
--   Firebase Authentication
--   Cloud Firestore
--   Firebase Hosting
-
-### Additional libraries/services
-
--   Firebase Web SDK `12.18.0`
--   SheetJS for Excel import/export
--   EmailJS for direct email sending
-
-Firebase is initialized in `script.js`, and the current project uses
-Firebase Authentication and Firestore from the Firebase CDN.
-
-------------------------------------------------------------------------
-
-# 4. Authentication
-
-QAttend uses Firebase Email/Password Authentication.
-
-### Login flow
-
-``` text
+```text
 login.html
      │
      ▼
@@ -144,703 +161,145 @@ Read users/{email}
      └── role = cr ─────► CR Portal
 ```
 
-The application uses browser-local Firebase Auth persistence so a valid
-login can remain available across page navigation/reloads.
+- Uses browser-local Firebase Auth persistence — login survives page reloads.
+- Admin/CR pages are **not public**; access is enforced through Firebase Auth
+  **and** the user's Firestore profile — never rely on hiding UI elements alone.
+- ⚠️ **All account emails must be lowercase.** Firebase does not enforce
+  casing, and a mismatch between the Auth login email and the Firestore role
+  document will leave the account unassigned.
 
-### Important
+---
 
-The Admin and CR pages should not be treated as public application
-pages. Access is checked through Firebase Authentication and the user's
-Firestore profile.
+## ✨ Feature Highlights
 
-------------------------------------------------------------------------
+### Login Page
 
-# 5. Login Page
+- QAttend branding, email/password fields, show/hide password
+- **Forgot Password** — Firebase `sendPasswordResetEmail()` flow
+- **Contact Admin** modal — Name, Email, Mobile, Message → stored in
+  `requests` (`type: contact_admin`, `status: pending`) and sent via EmailJS
+- **Request a New Section** modal — collects CR & Mentor details, course,
+  section, semester, year, plus an Excel upload for students/subjects
 
-`login.html` contains:
+### Admin Portal
 
--   QAttend branding
--   Email field
--   Password field
--   Show/hide password
--   Login
--   Forgot Password
--   Need access? Contact Admin
--   Request a new section
-
-The Login page also contains the Contact Admin and New Section request
-modals.
-
-------------------------------------------------------------------------
-
-# 6. Forgot Password
-
-The Forgot Password feature uses Firebase's password reset email flow.
-
-Basic flow:
-
-``` text
-Enter email
-   ↓
-Firebase sendPasswordResetEmail()
-   ↓
-Password reset email
-   ↓
-User changes password
+```text
+Dashboard → Manage Courses → Manage Sections → Manage Students
+→ Manage Subjects → Requests → Manage Users → Attendance → Reports → Logs → Profile
 ```
 
-------------------------------------------------------------------------
+- **Dashboard** — live stats (courses, sections, students, pending requests),
+  recent requests, and activity feed
+- **Requests table** — All / Pending / Students / Subjects / New Sections /
+  Contact Admin filters, with View / Approve / Reject and bulk selection
+- Approving **Add/Delete Student or Subject** applies the change directly
+- Approving **New Section** creates the section, imports its roster/subjects,
+  and assigns the requesting CR
+- Rejecting a request only updates its status — section data is untouched
+- **Manage Sections** — add/edit/delete section metadata (fixed system
+  sections are protected from deletion)
+- **Manage Users** — add/update profiles, activate/deactivate, assign/remove CRs
+  *(Firebase Auth accounts are intentionally created via Console, not client code)*
+- **Reports** — CSV export for attendance, requests, students, subjects
+  (loaded on demand)
 
-# 7. Contact Admin
+### CR Portal
 
-The Contact Admin form is available before login.
+- Locked to their **assigned section only**
+- Mark, save, and download attendance
+- View previous attendance records
+- **Send Request** for Add/Delete Student or Subject (Admin-approved)
+- Cannot add/delete students or subjects directly — enforced both in the UI
+  and in Firestore Security Rules
 
-### Fields
+---
 
--   Name
--   Email
--   Mobile Number
--   Message
+## 🗄 Firestore Data Model
 
-The request is stored in the Firestore `requests` collection with:
-
-``` text
-type: contact_admin
-status: pending
+```text
+users/{email}                     → { role: "admin" | "cr", section?, ... }
+courses/{courseId}                → { name, code, department, duration }
+sections/{sectionId}
+   ├── students/{studentId}       → { QID, name, ... }
+   └── attendance/...
+subjects/{subjectId}              → shared across sections
+requests/{requestId}              → { type, status, ... }
+activityLogs/{logId}              → Admin-visible history
 ```
 
-The configured Admin recipient is:
+> Publish `firestore.rules` **before** testing Contact Admin, New Section, or
+> any Firestore-backed feature — without it, access control is not enforced.
 
-``` text
-sonusin8672@gmail.com
+---
+
+## 📊 Excel Import/Export
+
+Used for bulk-creating a new section's roster and subject list.
+
+```text
+Download Template → Fill Students → Fill Subjects
+→ Upload Excel → Validate → Preview → Submit Request → Admin Request Center
 ```
 
-### Email
+`Section_Template.xlsx` contains three sheets:
 
-Direct email sending is intended to use EmailJS.
+| Sheet | Columns |
+|---|---|
+| **Students** | `QID` \| `Student Name` |
+| **Subjects** | `Subject Name` |
+| **Instructions** | Rules for QIDs, names, subjects, duplicates, file format |
 
-The current `script.js` contains placeholders for:
+Duplicate QIDs and invalid rows are automatically flagged/skipped during validation.
 
-``` text
-EMAILJS public key
-EMAILJS service ID
-EMAILJS template ID
+---
+
+## 🚀 Getting Started
+
+Do **not** open the project with `file://` — use a local HTTP server.
+
+**Option 1 — VS Code Live Server**
+1. Open the project folder in VS Code
+2. Right-click `login.html` → **Open with Live Server**
+
+**Option 2 — Python**
+```bash
+python3 -m http.server 5500
+```
+Then open:
+```text
+http://localhost:5500/login.html
 ```
 
-These values must be configured before direct email sending will work.
+---
 
-The application is specifically designed to send the email directly
-through the email service rather than opening Gmail or another
-mail-compose window.
+## 🏁 First Admin Setup
 
-------------------------------------------------------------------------
+1. **Enable Firestore** — Firebase Console → Build → Firestore Database → Create database (production mode, any region)
+2. **Publish security rules** — Firestore → Rules tab → paste `firestore.rules` → Publish
+3. **Create the first Admin account** *(manual, one-time)*:
+   - Authentication → Users → Add user → lowercase email + password
+   - Firestore → Data → new collection `users`, document ID = the same lowercase email, field `role` (string) = `admin`
+4. **Deploy site files** — `index.html`, `style.css`, `script.js`, `seed.html`, `seed.js`, `logo.png`, `firebase.json`
+5. Log in with the Admin account
 
-# 8. Request a New Section
+---
 
-A guest can request a new academic section before logging in.
+## 📥 One-Time Data Import
 
-### Section information
+While logged in as Admin, open `yoursite.com/seed.html` and click **Run Import**.
 
-The form collects:
+- Loads the full roster (539 students across Sections 1–8, AIML-1, AIML-2) and the 11 subjects
+- Safe to run more than once — only adds what's missing, never duplicates
+- After it finishes, `seed.html` / `seed.js` can be deleted — they're not linked from the main app
+- No roster exists yet for a **CSCQ** section — add those students manually via the Admin panel once available
 
--   CR Q.ID
--   CR Name
--   CR Mobile
--   CR Email
--   Mentor Name
--   Mentor Mobile
--   Course
--   Section
--   Semester
--   Year
+---
 
-### Excel workflow
+## ✉️ EmailJS Configuration
 
-``` text
-Download Template
-       ↓
-Fill Students
-       ↓
-Fill Subjects
-       ↓
-Upload Excel
-       ↓
-Validate
-       ↓
-Preview
-       ↓
-Submit Request
-       ↓
-Admin Request Center
-```
+In `script.js`:
 
-The current Excel generator creates:
-
-### Sheet 1: Students
-
-``` text
-QID | Student Name
-```
-
-### Sheet 2: Subjects
-
-``` text
-Subject Name
-```
-
-### Sheet 3: Instructions
-
-Contains rules for entering QIDs, student names, subjects, duplicate
-QIDs and file format.
-
-The current JavaScript also validates duplicate QIDs and invalid student
-rows and prepares student/subject preview data.
-
-------------------------------------------------------------------------
-
-# 9. Admin Portal
-
-`admin.html` is the Admin interface.
-
-### Main Admin areas
-
-``` text
-Dashboard
-Manage Courses
-Manage Sections
-Manage Students
-Manage Subjects
-Section Requests
-Attendance
-Logs
-Profile
-Logout
-```
-
-------------------------------------------------------------------------
-
-# 10. Admin Dashboard
-
-The Dashboard provides an overview of the system.
-
-### Main statistics
-
--   Total Courses
--   Total Sections
--   Total Students
--   Pending Requests
-
-### Dashboard sections
-
--   Recent Section Requests
--   Activity Logs
-
-The dashboard data is loaded from Firestore rather than being intended
-as static demo data.
-
-------------------------------------------------------------------------
-
-# 11. Manage Courses
-
-Admin can manage academic courses.
-
-### Course fields
-
--   Course Name
--   Course Code
--   Department
--   Duration
-
-Course data is stored under:
-
-``` text
-courses/{courseId}
-```
-
-Typical operations:
-
-``` text
-Create Course
-Edit Course
-Delete Course
-View Course
-```
-
-------------------------------------------------------------------------
-
-# 12. Manage Sections
-
-Admin can create and manage sections belonging to courses.
-
-### Section information
-
--   Course
--   Section
--   Semester
--   Year
--   Mentor Name
--   Mentor Mobile
-
-A section can also be populated from an Excel file so that students and
-subjects do not have to be entered manually one by one.
-
-### Section creation flow
-
-``` text
-Select Course
-     ↓
-Add Section
-     ↓
-Enter Section Details
-     ↓
-Upload Excel
-     ↓
-Preview Students + Subjects
-     ↓
-Create Section
-```
-
-------------------------------------------------------------------------
-
-# 13. Students
-
-Students belong to a section.
-
-Firestore structure:
-
-``` text
-sections
-   └── {sectionId}
-        └── students
-             └── {studentId}
-```
-
-Student data includes:
-
-``` text
-QID
-Name
-```
-
-Admin can:
-
--   View students
--   Add students
--   Edit students
--   Delete students
-
-------------------------------------------------------------------------
-
-# 14. Subjects
-
-Subjects also belong to a section.
-
-Firestore structure:
-
-``` text
-sections
-   └── {sectionId}
-        └── subjects
-             └── {subjectId}
-```
-
-Subject data includes:
-
-``` text
-name
-```
-
-Admin can:
-
--   View subjects
--   Add subjects
--   Delete subjects
-
-------------------------------------------------------------------------
-
-# 15. CR Assignment
-
-A CR is assigned to a section.
-
-The user profile stored under `users/{email}` contains role and section
-information.
-
-Example profile structure:
-
-``` text
-users/{crEmail}
-
-role: cr
-email: cr@example.com
-qid: ...
-name: ...
-mobile: ...
-section: ...
-sectionLabel: ...
-course: ...
-semester: ...
-year: ...
-mentorName: ...
-mentorMobile: ...
-```
-
-The project uses a secondary Firebase Authentication instance during CR
-provisioning so that creating a CR account does not unnecessarily sign
-the logged-in Admin out.
-
-------------------------------------------------------------------------
-
-# 16. CR Portal
-
-`cr.html` is dedicated to the Class Representative.
-
-### CR features
-
--   Mark Attendance
--   Previous Records
--   Send Request
--   Help & Support
--   Logout
-
-The CR is restricted to the section assigned in the CR's Firestore
-profile.
-
-------------------------------------------------------------------------
-
-# 17. CR Send Request
-
-The CR hamburger menu includes:
-
-``` text
-Mark Attendance
-Previous Records
-Send Request
-Help & Support
-Logout
-```
-
-### Send Request options
-
-``` text
-Add Student
-Delete Student
-Add Subject
-Delete Subject
-```
-
-### Add Student
-
-Fields:
-
--   Student Q.ID
--   Student Name
--   Reason
-
-### Delete Student
-
-Fields:
-
--   Select Student
--   Reason
-
-### Add Subject
-
-Fields:
-
--   Subject Name
--   Reason
-
-### Delete Subject
-
-Fields:
-
--   Select Subject
--   Reason
-
-All CR change requests are submitted as pending requests for Admin
-review.
-
-------------------------------------------------------------------------
-
-# 18. Request Approval System
-
-Requests are stored in:
-
-``` text
-requests/{requestId}
-```
-
-Request records can contain information such as:
-
-``` text
-type
-status
-requestedBy
-requestedByRole
-section
-sectionLabel
-reason
-createdAt
-```
-
-### Request types
-
-``` text
-contact_admin
-add_section
-add_student
-delete_student
-add_subject
-delete_subject
-```
-
-### Admin workflow
-
-``` text
-CR / Guest submits request
-          ↓
-       Pending
-          ↓
-    Admin reviews
-       ↙     ↘
-  Approve     Reject
-     ↓           ↓
-Apply change   No data change
-     ↓
-Status = approved
-```
-
-For academic change requests, the intended behavior is that the
-underlying student/subject/section change happens only after Admin
-approval.
-
-------------------------------------------------------------------------
-
-# 19. Attendance
-
-Attendance is stored under the selected section.
-
-Firestore structure:
-
-``` text
-sections
-   └── {sectionId}
-        └── attendance
-             └── {recordId}
-```
-
-### Attendance workflow
-
-``` text
-Select Section
-      ↓
-Select Date
-      ↓
-Select Subject
-      ↓
-Load Students
-      ↓
-Mark Present / Absent
-      ↓
-Save Attendance
-```
-
-CRs work only with their assigned section.
-
-Admin can manage attendance across sections.
-
-------------------------------------------------------------------------
-
-# 20. Previous Records
-
-Saved attendance records can be viewed from the attendance/records area.
-
-Typical record information includes:
-
--   Section
--   Subject
--   Date
--   Student attendance
--   Present/Absent status
-
-The project also contains Excel download/export functionality for
-attendance records.
-
-------------------------------------------------------------------------
-
-# 21. Excel Attendance Export
-
-The project uses SheetJS for Excel processing.
-
-To improve initial page speed, the Excel library is loaded lazily when
-Excel functionality is actually required rather than being loaded
-immediately on every page.
-
-The attendance export keeps the student row order and S.No. associated
-with the student's current row/order.
-
-The project also supports the attendance shortcut row used by the
-existing Excel workflow.
-
-------------------------------------------------------------------------
-
-# 22. Activity Logs
-
-Activity logs are stored in:
-
-``` text
-activityLogs/{logId}
-```
-
-Examples of logged actions include:
-
-``` text
-Logged in
-Logged out
-ADD_STUDENT
-EDIT_STUDENT
-DELETE_STUDENT
-ADD_SUBJECT
-DELETE_SUBJECT
-Attendance actions
-Request actions
-```
-
-The Admin can read the activity history.
-
-Regular users can append their own activity entries but cannot read or
-modify the complete Admin activity history.
-
-------------------------------------------------------------------------
-
-# 23. Firestore Data Model
-
-The main Firestore collections are:
-
-``` text
-users
-courses
-sections
-requests
-activityLogs
-```
-
-Section subcollections:
-
-``` text
-sections/{sectionId}/students
-sections/{sectionId}/subjects
-sections/{sectionId}/attendance
-```
-
-### Simplified structure
-
-``` text
-users/
-  admin@example.com
-  cr@example.com
-
-courses/
-  BTECH-CSE
-
-sections/
-  BTECH-CSE-CSE-1
-      students/
-      subjects/
-      attendance/
-
-requests/
-  requestId
-
-activityLogs/
-  logId
-```
-
-------------------------------------------------------------------------
-
-# 24. Firestore Security
-
-The current rules distinguish between Admin, CR and guest access.
-
-### Admin
-
-Admin has management access to:
-
--   Users
--   Courses
--   Sections
--   Students
--   Subjects
--   Attendance
--   Requests
--   Activity Logs
-
-### CR
-
-CR can access the section assigned to the CR.
-
-CR can:
-
--   Read assigned section data
--   Work with attendance for assigned section
--   Submit change requests
--   Read their own submitted requests
-
-CR cannot directly modify students or subjects.
-
-### Guest
-
-Before login, the rules permit only the intended request creation flows:
-
--   New Section request
--   Contact Admin request
-
-Guest users cannot read academic data.
-
-The current Firestore rules explicitly implement these role restrictions
-and request permissions.
-
-------------------------------------------------------------------------
-
-# 25. Firebase Configuration
-
-`firebase.json` configures Firebase Hosting.
-
-The current Hosting configuration uses:
-
-``` text
-target: qattend
-public: .
-```
-
-HTML, JavaScript and CSS are configured with no-cache headers, while
-common image formats are cached for one week.
-
-### Important
-
-Do not replace Firestore rules with:
-
-``` text
-allow read, write: if true;
-```
-
-That would remove the intended access restrictions.
-
-Always deploy the tested `firestore.rules`.
-
-------------------------------------------------------------------------
-
-# 26. EmailJS Configuration
-
-Open:
-
-``` text
-script.js
-```
-
-Find:
-
-``` javascript
+```javascript
 const EMAILJS_CONFIG = {
     publicKey: "YOUR_EMAILJS_PUBLIC_KEY",
     serviceId: "YOUR_EMAILJS_SERVICE_ID",
@@ -849,365 +308,120 @@ const EMAILJS_CONFIG = {
 };
 ```
 
-Replace only:
+Replace only the `YOUR_...` placeholders with values from your EmailJS
+project. Leave `adminEmail` unless the recipient is intentionally changing.
 
-``` text
-YOUR_EMAILJS_PUBLIC_KEY
-YOUR_EMAILJS_SERVICE_ID
-YOUR_EMAILJS_TEMPLATE_ID
-```
+---
 
-with the values from your EmailJS project.
+## ☁️ Deployment
 
-Do not change:
-
-``` text
-adminEmail
-```
-
-unless the Admin recipient is intentionally changed.
-
-------------------------------------------------------------------------
-
-# 27. Local Development
-
-Do not open the project using:
-
-``` text
-file://
-```
-
-Use a local HTTP server.
-
-### Option 1: VS Code Live Server
-
-1.  Open the QAttend folder in VS Code.
-2.  Install/use Live Server.
-3.  Right-click `login.html`.
-4.  Select **Open with Live Server**.
-5.  Open the displayed localhost address.
-
-### Option 2: Python
-
-From the project folder:
-
-``` bash
-python3 -m http.server 5500
-```
-
-Then open:
-
-``` text
-http://localhost:5500/login.html
-```
-
-------------------------------------------------------------------------
-
-# 28. Local Testing Checklist
-
-Before deploying, test:
-
-### Login
-
--   [ ] Admin login
--   [ ] CR login
--   [ ] Wrong password
--   [ ] Forgot password
--   [ ] Logout
-
-### Contact Admin
-
--   [ ] Open before login
--   [ ] Fill form
--   [ ] Submit
--   [ ] Firestore request appears
--   [ ] Email service sends mail
-
-### New Section
-
--   [ ] Open before login
--   [ ] Download template
--   [ ] Fill Students sheet
--   [ ] Fill Subjects sheet
--   [ ] Upload file
--   [ ] Student count appears
--   [ ] Subject count appears
--   [ ] Preview appears
--   [ ] Submit request
--   [ ] Admin can see request
-
-### Admin
-
--   [ ] Dashboard
--   [ ] Course create/edit/delete
--   [ ] Section create
--   [ ] Excel import
--   [ ] Student management
--   [ ] Subject management
--   [ ] CR assignment
--   [ ] Request approval
--   [ ] Request rejection
--   [ ] Attendance
--   [ ] Logs
-
-### CR
-
--   [ ] Assigned section loads
--   [ ] Subject selection works
--   [ ] Attendance saves
--   [ ] Previous records work
--   [ ] Hamburger opens
--   [ ] Send Request appears
--   [ ] Add Student request
--   [ ] Delete Student request
--   [ ] Add Subject request
--   [ ] Delete Subject request
--   [ ] Logout
-
-### Mobile
-
--   [ ] Login page
--   [ ] Contact Admin modal
--   [ ] New Section modal
--   [ ] CR Send Request modal
--   [ ] Admin sidebar
--   [ ] Buttons visible
--   [ ] Close/Cancel/Submit buttons visible
--   [ ] No horizontal overflow
-
-------------------------------------------------------------------------
-
-# 29. Deployment to Firebase Hosting
-
-The current project is configured for Firebase Hosting.
-
-Typical deployment:
-
-``` bash
+```bash
 firebase login
 firebase use <your-project>
-firebase deploy --only hosting
-```
-
-If Firestore rules were changed:
-
-``` bash
-firebase deploy --only firestore:rules
-```
-
-Or deploy both:
-
-``` bash
+firebase deploy --only hosting          # site files
+firebase deploy --only firestore:rules  # if rules changed
 firebase deploy --only hosting,firestore
 ```
 
-### Important
+If the repo is connected to Firebase Hosting via GitHub Actions, pushing to
+the configured branch triggers deployment automatically:
 
-If the GitHub repository is connected to Firebase Hosting through GitHub
-Actions, pushing changes to the configured branch can trigger the
-Firebase Hosting deployment workflow.
-
-Before pushing:
-
-``` bash
-git status
+```bash
 git add .
 git commit -m "Update QAttend"
 git push
 ```
 
-Then check the GitHub Actions workflow for the deployment result.
+---
 
-------------------------------------------------------------------------
+## 🔒 Security Notes
 
-# 30. Recommended Project Workflow
+- Never commit Firebase Admin SDK service-account keys, EmailJS secrets, or
+  any server-side credentials to this repo
+- Firestore Security Rules + Firebase Authentication are the real access
+  control — never rely on hiding buttons in HTML/CSS
+- Never replace rules with `allow read, write: if true;`
 
-Use this development order:
+---
 
-``` text
-1. Local Login Testing
-        ↓
-2. Firebase Authentication
-        ↓
-3. Firestore Rules
-        ↓
-4. Admin Dashboard
-        ↓
-5. Course Management
-        ↓
-6. Section Management
-        ↓
-7. Student / Subject Management
-        ↓
-8. CR Assignment
-        ↓
-9. CR Attendance
-        ↓
-10. CR Send Request
-        ↓
-11. Admin Request Approval
-        ↓
-12. Activity Logs
-        ↓
-13. Excel Testing
-        ↓
-14. Mobile Testing
-        ↓
-15. GitHub Push
-        ↓
-16. Firebase Hosting Deployment
-```
+## 🛠 Troubleshooting
 
-------------------------------------------------------------------------
+| Symptom | Check |
+|---|---|
+| Firestore permission errors | `firestore.rules` deployed via `firebase deploy --only firestore:rules` |
+| Login works, wrong portal opens | `users/{email}` document — correct `role`, and `section` for CRs |
+| Contact Admin email not sending | EmailJS config in `script.js` — values shouldn't start with `YOUR_` |
+| Excel won't load | Internet access — SheetJS loads from CDN on demand |
+| Changes not appearing after deploy | Hard refresh — HTML/JS/CSS are served with no-cache headers |
 
-# 31. Troubleshooting
+---
 
-### Firebase Rules Error
+## ✅ Testing Checklist
 
-Check:
+<details>
+<summary><strong>Login</strong></summary>
 
-``` text
-firestore.rules
-```
+- [ ] Admin login  
+- [ ] CR login  
+- [ ] Wrong password  
+- [ ] Forgot password  
+- [ ] Logout
+</details>
 
-Make sure the rules are deployed:
+<details>
+<summary><strong>Contact Admin</strong></summary>
 
-``` bash
-firebase deploy --only firestore:rules
-```
+- [ ] Opens before login  
+- [ ] Submits successfully  
+- [ ] Firestore request appears  
+- [ ] Email service sends mail
+</details>
 
-### Login works but wrong page opens
+<details>
+<summary><strong>New Section Request</strong></summary>
 
-Check the user's Firestore profile:
+- [ ] Template downloads  
+- [ ] Students/Subjects sheets fill correctly  
+- [ ] Upload validates counts  
+- [ ] Preview appears  
+- [ ] Admin sees the request
+</details>
 
-``` text
-users/{email}
-```
+<details>
+<summary><strong>Admin</strong></summary>
 
-Verify:
+- [ ] Dashboard loads  
+- [ ] Course CRUD  
+- [ ] Section create + Excel import  
+- [ ] Student/Subject management  
+- [ ] CR assignment  
+- [ ] Request approve/reject  
+- [ ] Attendance  
+- [ ] Logs
+</details>
 
-``` text
-role: admin
-```
+<details>
+<summary><strong>CR</strong></summary>
 
-or:
+- [ ] Assigned section loads  
+- [ ] Attendance marks & saves  
+- [ ] Previous records load  
+- [ ] Send Request modal works  
+- [ ] Logout
+</details>
 
-``` text
-role: cr
-```
+<details>
+<summary><strong>Mobile</strong></summary>
 
-For a CR, also verify the assigned:
+- [ ] All modals usable on small screens  
+- [ ] Admin sidebar responsive  
+- [ ] No horizontal overflow
+</details>
 
-``` text
-section
-```
+---
 
-### Contact Admin email does not send
+<div align="center">
 
-Check EmailJS configuration in `script.js`.
+**QAttend** · Built for structured course, section, student, subject, CR and attendance management with Firebase 🔥
 
-If the values still start with:
-
-``` text
-YOUR_
-```
-
-EmailJS is not configured.
-
-### Excel does not load
-
-Check internet access because SheetJS is loaded on demand from the
-SheetJS CDN.
-
-### Changes do not appear after deployment
-
-Hard refresh the browser and check Firebase Hosting deployment status.
-The current Hosting configuration deliberately uses no-cache headers for
-HTML, JS and CSS.
-
-------------------------------------------------------------------------
-
-# 32. Security Notes
-
-Never put:
-
--   Firebase Admin SDK service-account private keys
--   Service-account JSON files
--   EmailJS private secrets
--   Other server-side secrets
-
-inside the public frontend project.
-
-Firebase client configuration is intended for the web application, but
-access control must still be enforced through Firestore Security Rules
-and Firebase Authentication.
-
-Never rely only on hiding buttons in HTML/CSS for security.
-
-------------------------------------------------------------------------
-
-# 33. Project Status
-
-The project is organized around:
-
--   Separate Login page
--   Separate Admin page
--   Separate CR page
--   Shared CSS
--   Shared JavaScript
--   Firebase Authentication
--   Firestore
--   Role-based access
--   Attendance management
--   Excel import/export
--   Section requests
--   CR change requests
--   Admin approval workflow
--   Activity logging
--   Firebase Hosting
-
-The current project documentation identifies the same page separation
-and shared `style.css` / `script.js` structure.
-
-------------------------------------------------------------------------
-
-# 34. Quick Reference
-
-### Start locally
-
-``` bash
-python3 -m http.server 5500
-```
-
-Open:
-
-``` text
-http://localhost:5500/login.html
-```
-
-### Deploy Hosting
-
-``` bash
-firebase deploy --only hosting
-```
-
-### Deploy Firestore Rules
-
-``` bash
-firebase deploy --only firestore:rules
-```
-
-### Deploy both
-
-``` bash
-firebase deploy --only hosting,firestore
-```
-
-------------------------------------------------------------------------
-
-## QAttend
-
-**Attendance Management System**
-
-Built for structured course, section, student, subject, CR and
-attendance management with Firebase.
+</div>
