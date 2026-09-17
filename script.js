@@ -51,30 +51,51 @@ const authPersistenceReady = setPersistence(auth, browserLocalPersistence).catch
 // A secondary Firebase Auth instance is used only when Admin approves a
 // new-section request. It creates the CR account without signing the Admin out.
 const provisioningApp = initializeApp(firebaseConfig, "qattend-cr-provisioning");
-const provisioningAuth = getAuth(provisioningApp);
+let provisioningAuth = null;
+
+function getProvisioningAuth() {
+    if (!provisioningAuth) provisioningAuth = getAuth(provisioningApp);
+    return provisioningAuth;
+}
 
 // DIRECT EMAIL CONFIGURATION
 // Replace these three EmailJS values with your EmailJS account values.
 // Emails are sent directly. No Gmail/Apple Mail compose window is opened.
 const EMAILJS_CONFIG = {
-    publicKey: "YOUR_EMAILJS_PUBLIC_KEY",
-    serviceId: "YOUR_EMAILJS_SERVICE_ID",
+    publicKey: "SADNPvxpnkAk3gjv_",
+    serviceId: "service_ju470aa",
     templateId: "YOUR_EMAILJS_TEMPLATE_ID",
     adminEmail: "sonusin8672@gmail.com"
 };
 
-if (window.emailjs) {
-    window.emailjs.init({ publicKey: EMAILJS_CONFIG.publicKey });
+let emailJsLoadPromise = null;
+
+function ensureEmailJSLoaded() {
+    if (window.emailjs) return Promise.resolve(window.emailjs);
+    if (!emailJsLoadPromise) {
+        emailJsLoadPromise = new Promise((resolve, reject) => {
+            const script = document.createElement("script");
+            script.src = "https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js";
+            script.onload = () => {
+                window.emailjs.init({ publicKey: EMAILJS_CONFIG.publicKey });
+                resolve(window.emailjs);
+            };
+            script.onerror = () => {
+                emailJsLoadPromise = null;
+                reject(new Error("Email service could not be loaded. Check your internet connection."));
+            };
+            document.head.appendChild(script);
+        });
+    }
+    return emailJsLoadPromise;
 }
 
 async function sendDirectEmail({toEmail, subject, message, replyTo=""}) {
-    if (!window.emailjs) {
-        throw new Error("Email service could not be loaded. Check your internet connection.");
-    }
+    const emailjs = await ensureEmailJSLoaded();
     if (EMAILJS_CONFIG.publicKey.startsWith("YOUR_") || EMAILJS_CONFIG.serviceId.startsWith("YOUR_") || EMAILJS_CONFIG.templateId.startsWith("YOUR_")) {
         throw new Error("EmailJS is not configured yet. Add your EmailJS Public Key, Service ID and Template ID in script.js.");
     }
-    return window.emailjs.send(EMAILJS_CONFIG.serviceId, EMAILJS_CONFIG.templateId, {
+    return emailjs.send(EMAILJS_CONFIG.serviceId, EMAILJS_CONFIG.templateId, {
         to_email: toEmail,
         subject,
         message,
@@ -1212,7 +1233,7 @@ onAuthStateChanged(
 
         if (!user) {
 
-            const currentPage =
+            const earlyPage =
                 (window.location.pathname.split("/").pop() || "login.html").toLowerCase();
 
             if (currentPage === "admin.html" || currentPage === "cr.html") {
@@ -1258,6 +1279,21 @@ onAuthStateChanged(
 
         try {
 
+            const earlyPage =
+                (window.location.pathname.split("/").pop() || "login.html").toLowerCase();
+            let cachedProfile = null;
+            try {
+                const cached = JSON.parse(localStorage.getItem("qattend-profile") || "null");
+                if (cached?.email === String(user.email || "").toLowerCase() && cached.profile?.role) {
+                    cachedProfile = cached.profile;
+                }
+            } catch (_) {}
+
+            if (cachedProfile && (earlyPage === "login.html" || earlyPage === "index.html" || earlyPage === "")) {
+                window.location.replace(cachedProfile.role === "admin" ? "admin.html" : "cr.html");
+                return;
+            }
+
             const profileSnap =
                 await getDoc(
                     doc(
@@ -1286,6 +1322,14 @@ onAuthStateChanged(
 
             profile =
                 profileSnap.data();
+
+            try {
+                localStorage.setItem("qattend-profile", JSON.stringify({
+                    email: String(user.email || "").toLowerCase(),
+                    profile,
+                    cachedAt: Date.now()
+                }));
+            } catch (_) {}
 
             // Separate page routing: login.html -> admin.html / cr.html.
             // admin.html and cr.html also reject the wrong role.
@@ -1478,13 +1522,17 @@ async function populateSectionDropdowns() {
     }
     if(newCrSection)newCrSection.innerHTML="";
     const manageSection=document.getElementById("manageSectionSelect");
-    if(manageSection)manageSection.innerHTML=`<option value="">-- Select Section --</option>`;
+    if(manageSection) {
+        manageSection.innerHTML=`<option value="">-- Select Section --</option>`;
+        manageSection.disabled = !manageCourseSelect?.value;
+    }
 
     allSections.forEach(section=>{
         if (sectionSelect) { const option1=document.createElement("option");option1.value=section.id;option1.textContent=section.label;sectionSelect.appendChild(option1); }
         if(newCrSection){const option2=document.createElement("option");option2.value=section.id;option2.textContent=section.label;newCrSection.appendChild(option2);}
         if(manageSection){const option3=document.createElement("option");option3.value=section.id;option3.textContent=section.label;manageSection.appendChild(option3);}
     });
+    if (manageCourseSelect?.value) filterManageSections(manageCourseSelect.value);
 }
 
 async function populateAttendanceCourseDropdown() {
@@ -3047,11 +3095,11 @@ addCrForm?.addEventListener(
             const sectionData = sectionSnap.exists() ? sectionSnap.data() : {};
             const tempPassword = `QA@${Math.random().toString(36).slice(2, 8)}${Math.floor(10 + Math.random() * 90)}`;
             try {
-                await createUserWithEmailAndPassword(provisioningAuth, email, tempPassword);
+                await createUserWithEmailAndPassword(getProvisioningAuth(), email, tempPassword);
             } catch (authError) {
                 if (authError.code !== "auth/email-already-in-use") throw authError;
             } finally {
-                try { await signOut(provisioningAuth); } catch (_) {}
+                try { await signOut(getProvisioningAuth()); } catch (_) {}
             }
 
             await setDoc(doc(db, "users", email), {
@@ -4600,6 +4648,7 @@ const requestModal = document.getElementById("requestModal");
 const supportModal = document.getElementById("supportModal");
 const manageSectionSelect = document.getElementById("manageSectionSelect");
 const manageSectionMessage = document.getElementById("manageSectionMessage");
+const manageCourseSelect = document.getElementById("manageCourseSelect");
 
 let managementSection = null;
 
@@ -4782,7 +4831,8 @@ function showManageData(){
 
     if(profile?.role !== "admin") return;
 
-    populateSectionDropdowns();
+    void populateCourseOptions();
+    void populateSectionDropdowns();
 
     if(manageSectionSelect){
         manageSectionSelect.value = managementSection || "";
@@ -4795,6 +4845,25 @@ function showManageData(){
         crManageList.innerHTML = "";
         if(manageSectionMessage) manageSectionMessage.textContent = "Please select a section to manage its data.";
     }
+}
+
+function filterManageSections(courseId) {
+    if (!manageSectionSelect) return;
+    manageSectionSelect.disabled = !courseId;
+    const selectedSection = manageSectionSelect.value;
+    [...manageSectionSelect.options].forEach(option => {
+        if (!option.value) {
+            option.hidden = false;
+            return;
+        }
+        option.hidden = !courseId || String(sectionCourseMap[option.value] || "").toUpperCase() !== String(courseId).toUpperCase();
+    });
+    if (selectedSection && !manageSectionSelect.selectedOptions[0]?.hidden) return;
+    managementSection = null;
+    manageSectionSelect.value = "";
+    subjectManageList.innerHTML = "";
+    crManageList.innerHTML = "";
+    if (manageSectionMessage) manageSectionMessage.textContent = courseId ? "Please select a section to manage its data." : "Please select a course first.";
 }
 
 
@@ -4843,6 +4912,12 @@ manageSectionSelect?.addEventListener("change", async () => {
     }
 
     await refreshManageData();
+});
+
+manageCourseSelect?.addEventListener("change", async () => {
+    managementSection = null;
+    if (manageSectionSelect) manageSectionSelect.value = "";
+    filterManageSections(manageCourseSelect.value || "");
 });
 
 document.querySelectorAll(".drawer-item").forEach(btn => {
@@ -4923,8 +4998,13 @@ async function loadAdminActivityLogs(){
     try{
         // Client-side sort avoids a Firestore composite/index dependency.
         const snap = await getDocs(collection(db,"activityLogs"));
+        const cutoff = Date.now() - (2 * 60 * 60 * 1000);
         const rows = snap.docs
             .map(d => ({id:d.id,...d.data()}))
+            .filter(row => {
+                const createdAt = new Date(row.createdAt || 0).getTime();
+                return Number.isFinite(createdAt) && createdAt >= cutoff;
+            })
             .sort((a,b)=>String(b.createdAt||"").localeCompare(String(a.createdAt||"")))
             .slice(0,100);
 
@@ -5008,13 +5088,50 @@ function showRequestDetails(request) {
         ];
     document.getElementById("viewRequestDetailTitle").textContent = "Request Details";
     content.innerHTML = values.map(([label, value]) => `<div class="summary-row"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value || "-")}</strong></div>`).join("");
+    if (request.type === "add_section") {
+        const downloadButton = document.createElement("button");
+        downloadButton.type = "button";
+        downloadButton.className = "excel-download-btn";
+        downloadButton.textContent = "Download Excel Data";
+        downloadButton.addEventListener("click", () => downloadRequestExcel(request));
+        content.appendChild(downloadButton);
+    }
     modal.classList.remove("hidden");
     document.body.classList.add("modal-open");
+}
+
+async function downloadRequestExcel(request) {
+    await ensureXLSXLoaded();
+    const workbook = XLSX.utils.book_new();
+    const students = [["QID", "Student Name"], ...(request.students || []).map(student => [student.qid || "", student.name || ""] )];
+    const subjects = [["Subject Name"], ...(request.subjects || []).map(subject => [subject])];
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(students), "Students");
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(subjects), "Subjects");
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([
+        ["Course", request.course || ""], ["Section", request.sectionLabel || request.section || ""],
+        ["Semester", request.semester || ""], ["Year", request.year || ""]
+    ]), "Instructions");
+    XLSX.writeFile(workbook, `Section_Request_${String(request.sectionLabel || request.section || "data").replace(/[^a-z0-9]+/gi, "_")}.xlsx`);
 }
 
 function closeRequestDetails() {
     document.getElementById("viewRequestDetailModal")?.classList.add("hidden");
     document.body.classList.remove("modal-open");
+}
+
+async function deleteRequest(request) {
+    if (profile?.role !== "admin" || !request?.id) return;
+    if (!confirm("Delete this request permanently?")) return;
+    try {
+        await deleteDoc(doc(db, "requests", request.id));
+        selectedRequestIds.delete(request.id);
+        await loadRequestCenter();
+        await loadCourseSectionRequests();
+        await loadAdminDashboardData();
+    } catch (error) {
+        console.error("Could not delete request:", error);
+        alert("Could not delete request. Check Firestore rules and try again.");
+    }
 }
 
 document.getElementById("closeViewRequestDetailModal")?.addEventListener("click", closeRequestDetails);
@@ -5083,7 +5200,7 @@ async function loadRequestCenter(){
                             ? `${request.qid || ""} ${request.name || ""}`
                             : request.subject || `${request.students?.length || 0} students, ${request.subjects?.length || 0} subjects`;
                     const checkbox = request.status === "pending" ? `<input type="checkbox" class="request-checkbox" data-request-id="${escapeHtml(request.id)}" ${selectedRequestIds.has(request.id) ? "checked" : ""} aria-label="Select request">` : "";
-                    row.innerHTML = `<td>${checkbox}</td><td><strong>${escapeHtml(requester)}</strong><small class="request-table-detail">${escapeHtml(requestTitle)} · ${escapeHtml(detail)}</small></td><td>${escapeHtml(course)}</td><td>${escapeHtml(section)}</td><td>${request.type === "add_section" ? request.students?.length || 0 : "-"}</td><td>${request.type === "add_section" ? request.subjects?.length || 0 : "-"}</td><td>${escapeHtml(request.createdAt ? new Date(request.createdAt).toLocaleDateString() : "")}</td><td><span class="status-pill status-${escapeHtml(request.status || "pending")}">${escapeHtml(String(request.status || "pending").toUpperCase())}</span></td><td><button type="button" class="text-btn view-request-btn">View</button>${request.status === "pending" ? ` <button type="button" class="approve-btn request-table-action">Approve</button> <button type="button" class="reject-btn request-table-action">Reject</button>` : ""}</td>`;
+                    row.innerHTML = `<td>${checkbox}</td><td><strong>${escapeHtml(requester)}</strong><small class="request-table-detail">${escapeHtml(requestTitle)} · ${escapeHtml(detail)}</small></td><td>${escapeHtml(course)}</td><td>${escapeHtml(section)}</td><td>${request.type === "add_section" ? request.students?.length || 0 : "-"}</td><td>${request.type === "add_section" ? request.subjects?.length || 0 : "-"}</td><td>${escapeHtml(request.createdAt ? new Date(request.createdAt).toLocaleDateString() : "")}</td><td><span class="status-pill status-${escapeHtml(request.status || "pending")}">${escapeHtml(String(request.status || "pending").toUpperCase())}</span></td><td><button type="button" class="text-btn view-request-btn">View</button>${request.status === "pending" ? ` <button type="button" class="approve-btn request-table-action">Approve</button> <button type="button" class="reject-btn request-table-action">Reject</button>` : ""} <button type="button" class="text-btn danger-text delete-request-btn">Delete</button></td>`;
 
                     row.querySelector(".request-checkbox")?.addEventListener("change", event => {
                         if (event.target.checked) selectedRequestIds.add(request.id);
@@ -5091,8 +5208,17 @@ async function loadRequestCenter(){
                         updateBulkRequestToolbar(filtered);
                     });
                     row.querySelector(".view-request-btn")?.addEventListener("click", () => showRequestDetails(request));
+                    if (request.type === "add_section") {
+                        const excelButton = document.createElement("button");
+                        excelButton.type = "button";
+                        excelButton.className = "text-btn request-excel-btn";
+                        excelButton.textContent = "View Excel";
+                        excelButton.addEventListener("click", () => downloadRequestExcel(request));
+                        row.querySelector("td:last-child")?.prepend(excelButton);
+                    }
                     row.querySelector(".approve-btn")?.addEventListener("click", () => processChangeRequest(request, true));
                     row.querySelector(".reject-btn")?.addEventListener("click", () => processChangeRequest(request, false));
+                    row.querySelector(".delete-request-btn")?.addEventListener("click", () => deleteRequest(request));
                     target.appendChild(row);
                 });
             }
@@ -5453,9 +5579,9 @@ async function processChangeRequest(request,approve,options={}){
                 await batch.commit();
 
                 let tempPassword=request.generatedPassword||`QA@${Math.random().toString(36).slice(2,8)}${Math.floor(10+Math.random()*90)}`;
-                try{await createUserWithEmailAndPassword(provisioningAuth,request.crEmail,tempPassword);}
+                try{await createUserWithEmailAndPassword(getProvisioningAuth(),request.crEmail,tempPassword);}
                 catch(authError){if(authError.code!=="auth/email-already-in-use")throw authError;}
-                finally{try{await signOut(provisioningAuth);}catch(_) {}}
+                finally{try{await signOut(getProvisioningAuth());}catch(_) {}}
                 await setDoc(doc(db,"users",request.crEmail),{
                     role:"cr",email:request.crEmail,qid:request.crQid,name:request.crName,mobile:request.crMobile,section:sectionId,sectionLabel:request.sectionLabel||sectionId,
                     course:request.course||"",semester:request.semester||"",year:request.year||"",mentorName:request.mentorName||"",mentorMobile:request.mentorMobile||"",passwordIssued:tempPassword,createdAt:new Date().toISOString()
@@ -5533,7 +5659,8 @@ async function loadCourses() {
         snap.docs.forEach((courseDoc, index) => {
         const course = courseDoc.data();
         const row = document.createElement("tr");
-        row.innerHTML = `<td>${index + 1}</td><td>${escapeHtml(course.code || courseDoc.id)}</td><td>${escapeHtml(course.name || "")}</td><td>${escapeHtml(course.department || "")}</td><td>${escapeHtml(course.duration || "")}</td><td><button type="button" class="text-btn" data-edit-course="${escapeHtml(courseDoc.id)}">Edit</button> <button type="button" class="text-btn danger-text" data-delete-course="${escapeHtml(courseDoc.id)}">Delete</button></td>`;
+        const isBca = `${course.name || ""} ${course.code || ""} ${courseDoc.id}`.toLowerCase().includes("bca");
+        row.innerHTML = `<td>${index + 1}</td><td>${escapeHtml(course.code || courseDoc.id)}</td><td>${escapeHtml(course.name || "")}</td><td>${escapeHtml(course.department || "")}</td><td>${escapeHtml(course.duration || "")}</td><td><button type="button" class="text-btn" data-edit-course="${escapeHtml(courseDoc.id)}">Edit</button> <button type="button" class="text-btn danger-text" data-delete-course="${escapeHtml(courseDoc.id)}">Delete</button>${isBca ? ` <button type="button" class="text-btn danger-text" data-clear-course-students="${escapeHtml(courseDoc.id)}">Remove Students</button>` : ""}</td>`;
         row.querySelector("[data-edit-course]")?.addEventListener("click", () => {
             document.getElementById("courseEditId").value = courseDoc.id;
             document.getElementById("courseNameInput").value = course.name || "";
@@ -5546,10 +5673,26 @@ async function loadCourses() {
         });
         row.querySelector("[data-delete-course]")?.addEventListener("click", async () => {
             if (!confirm(`Delete ${course.name || courseDoc.id}?`)) return;
-            await deleteDoc(courseDoc.ref);
-            await loadCourses();
-            await populateCourseOptions();
-            await populateAttendanceCourseDropdown();
+            try {
+                await deleteCourseWithSections(courseDoc.id);
+                await loadCourses();
+                await populateCourseOptions();
+                await populateAttendanceCourseDropdown();
+            } catch (error) {
+                console.error("Could not delete course:", error);
+                alert("Could not delete the course and its sections.");
+            }
+        });
+        row.querySelector("[data-clear-course-students]")?.addEventListener("click", async () => {
+            if (!confirm("Remove all students from every BCA section? Subjects, sections, and the course will remain.")) return;
+            try {
+                await removeCourseStudents(courseDoc.id);
+                await loadAdminDashboardData();
+                alert("BCA students removed successfully.");
+            } catch (error) {
+                console.error("Could not remove BCA students:", error);
+                alert("Could not remove BCA students.");
+            }
         });
         courseTableBody.appendChild(row);
         });
@@ -5558,6 +5701,45 @@ async function loadCourses() {
         console.error("Could not load courses:", error);
         courseTableBody.innerHTML = `<tr><td colspan="6" class="empty-record">Could not load courses. Check Firestore rules and try again.</td></tr>`;
     }
+}
+
+async function removeCourseStudents(courseId) {
+    const courseSnap = await getDoc(doc(db, "courses", courseId));
+    const course = courseSnap.exists() ? courseSnap.data() : {};
+    const courseKeys = new Set([
+        courseId.toLowerCase(),
+        String(course.name || "").toLowerCase(),
+        String(course.code || "").toLowerCase()
+    ].filter(Boolean));
+    const sectionsSnap = await getDocs(collection(db, "sections"));
+    const matchingSections = sectionsSnap.docs.filter(sectionDoc => {
+        const section = sectionDoc.data() || {};
+        const sectionText = `${sectionDoc.id} ${section.label || ""} ${section.section || ""}`.toLowerCase();
+        return courseKeys.has(String(section.course || "").toLowerCase())
+            || courseKeys.has(String(section.courseName || "").toLowerCase())
+            || (courseKeys.has("bca") && sectionText.includes("bca"));
+    });
+    for (const sectionDoc of matchingSections) {
+        const studentsSnap = await getDocs(collection(db, "sections", sectionDoc.id, "students"));
+        for (const studentDoc of studentsSnap.docs) await deleteDoc(studentDoc.ref);
+    }
+}
+
+async function deleteCourseWithSections(courseId) {
+    const sectionsSnap = await getDocs(collection(db, "sections"));
+    const matchingSections = sectionsSnap.docs.filter(sectionDoc => sectionDoc.data()?.course === courseId);
+    for (const sectionDoc of matchingSections) {
+        for (const subcollection of ["students", "subjects", "attendance"]) {
+            const subSnap = await getDocs(collection(db, "sections", sectionDoc.id, subcollection));
+            for (const item of subSnap.docs) await deleteDoc(item.ref);
+        }
+        const usersSnap = await getDocs(collection(db, "users"));
+        for (const userDoc of usersSnap.docs) {
+            if (userDoc.data()?.section === sectionDoc.id) await deleteDoc(userDoc.ref);
+        }
+        await deleteDoc(sectionDoc.ref);
+    }
+    await deleteDoc(doc(db, "courses", courseId));
 }
 
 async function loadCourseSectionRequests() {
@@ -5594,7 +5776,15 @@ async function loadCourseSectionRequests() {
                 await processChangeRequest(request, true);
                 await loadCourses();
             });
-            actions.append(viewButton, approveButton);
+            const deleteButton = document.createElement("button");
+            deleteButton.className = "text-btn danger-text";
+            deleteButton.textContent = "Delete";
+            deleteButton.addEventListener("click", () => deleteRequest(request));
+            const excelButton = document.createElement("button");
+            excelButton.className = "text-btn";
+            excelButton.textContent = "View Excel";
+            excelButton.addEventListener("click", () => downloadRequestExcel(request));
+            actions.append(viewButton, excelButton, approveButton, deleteButton);
             card.appendChild(actions);
             container.appendChild(card);
         });
@@ -5613,7 +5803,7 @@ async function populateCourseOptions() {
         console.warn("Could not load course options:", error);
     }
 
-    [courseFilter, document.getElementById("adminSecCourse")].forEach(select => {
+    [courseFilter, document.getElementById("adminSecCourse"), manageCourseSelect].forEach(select => {
         if (!select) return;
         const selected = select.value;
         select.innerHTML = `<option value="">-- Select Course --</option>`;
@@ -5632,6 +5822,7 @@ async function populateCourseOptions() {
         });
         if (selected) select.value = selected;
     });
+    if (manageCourseSelect?.value) filterManageSections(manageCourseSelect.value);
 }
 
 async function loadSectionsForCourse(courseId = courseFilter?.value) {

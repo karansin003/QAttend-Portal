@@ -706,8 +706,14 @@
 
                 <div class="manage-section-selector">
                     <div class="select-box">
+                        <label for="manageCourseSelect">📘 Select Course</label>
+                        <select id="manageCourseSelect">
+                            <option value="">-- Select Course --</option>
+                        </select>
+                    </div>
+                    <div class="select-box">
                         <label>🏫 Select Section</label>
-                        <select id="manageSectionSelect">
+                        <select id="manageSectionSelect" disabled>
                             <option value="">-- Select Section --</option>
                         </select>
                     </div>
@@ -1225,8 +1231,6 @@
 
     </div>
 
-
-    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 
     <script type="module" src="script.js"></script>
 
