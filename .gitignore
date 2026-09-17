@@ -1,0 +1,28 @@
+# Environment files
+.env
+.env.*
+*.env
+
+# Firebase / Google private credentials
+service-account.json
+firebase-service-account.json
+firebase-adminsdk-*.json
+*-service-account.json
+
+# Private keys
+*.pem
+*.key
+
+# Dependencies
+node_modules/
+
+# macOS
+.DS_Store
+
+# Editor files
+.vscode/
+.idea/
+
+# Logs / temporary files
+*.log
+*.tmp

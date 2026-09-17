@@ -1,0 +1,109 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function myProfile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.token.email)).data;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && myProfile().role == "admin";
+    }
+
+    function isCR() {
+      return isSignedIn() && myProfile().role == "cr";
+    }
+
+    function mySection() {
+      return myProfile().section;
+    }
+
+    // USER / ROLE PROFILES
+    match /users/{email} {
+      allow read: if isSignedIn() && request.auth.token.email == email;
+      allow read, write: if isAdmin();
+    }
+
+    // COURSES
+    // Authenticated users: read-only. Admin: full access.
+    match /courses/{courseId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // SECTIONS
+    // Admin: full access. Authenticated users: read section metadata.
+    match /sections/{sectionId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+
+      // SUBJECTS
+      // Admin: full access. CR: read-only in assigned section.
+      match /subjects/{subjectId} {
+        allow read: if isAdmin() || (isCR() && mySection() == sectionId);
+        allow write: if isAdmin();
+      }
+
+      // STUDENTS
+      // Admin: full access. CR: read-only in assigned section.
+      match /students/{studentId} {
+        allow read: if isAdmin() || (isCR() && mySection() == sectionId);
+        allow write: if isAdmin();
+      }
+
+      // ATTENDANCE
+      // Admin: all sections. CR: assigned section only.
+      match /attendance/{recordId} {
+        allow read, write: if isAdmin() || (isCR() && mySection() == sectionId);
+      }
+    }
+
+    // CHANGE REQUESTS
+    // CRs can submit student/subject changes for their assigned section.
+    // Visitors can submit only a new-section request from the login page.
+    // Admin must approve before section data is created.
+    match /requests/{requestId} {
+      allow create: if (
+        isCR()
+        && request.resource.data.requestedBy == request.auth.token.email
+        && request.resource.data.section == mySection()
+        && request.resource.data.status == "pending"
+      ) || (
+        !isSignedIn()
+        && request.resource.data.type == "add_section"
+        && request.resource.data.status == "pending"
+        && request.resource.data.requestedBy == request.resource.data.crEmail
+        && request.resource.data.crEmail is string
+        && request.resource.data.crName is string
+        && request.resource.data.course is string
+        && request.resource.data.section is string
+      ) || (
+        !isSignedIn()
+        && request.resource.data.type == "contact_admin"
+        && request.resource.data.status == "pending"
+        && request.resource.data.email is string
+        && request.resource.data.name is string
+        && request.resource.data.mobile is string
+        && request.resource.data.message is string
+      );
+
+      allow read: if isAdmin()
+        || (isCR() && resource.data.requestedBy == request.auth.token.email);
+
+      allow update, delete: if isAdmin();
+    }
+
+    // ACTIVITY LOGS
+    // Any signed-in user may append only their own log entries.
+    // Only Admin may read/update/delete the history.
+    match /activityLogs/{logId} {
+      allow create: if isSignedIn()
+        && request.resource.data.userEmail == request.auth.token.email;
+      allow read, update, delete: if isAdmin();
+    }
+  }
+}
