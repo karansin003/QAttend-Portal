@@ -822,7 +822,7 @@ loginForm?.addEventListener(
         event.preventDefault();
 
         const email =
-            emailInput.value.trim();
+            emailInput.value.trim().toLowerCase();
 
         const password =
             passwordInput.value;
@@ -849,6 +849,7 @@ loginForm?.addEventListener(
 
             loginMessage.textContent =
                 "Invalid email or password.";
+            if (loginSubmitBtn) loginSubmitBtn.disabled = false;
         }
     }
 );
@@ -1516,79 +1517,106 @@ onAuthStateChanged(
 // SECTION DROPDOWNS
 
 async function populateSectionDropdowns() {
-    const allSections = [];
-    sectionCourseMap = {};
+    const allSections = [...SECTIONS];
+    sectionCourseMap = Object.fromEntries(SECTIONS.map(section => [section.id, "BTECH"]));
     try {
-        const snap = await getDocs(collection(db, "sections"));
-        snap.docs.forEach(d => {
-            const x = d.data() || {};
-            const item = { id: d.id, label: x.label || x.section || d.id };
+        const snap = await getDocs(collection(db,"sections"));
+        snap.docs.forEach(d=>{
+            const x=d.data()||{};
+            if(!d.id) return;
+            sectionCourseMap[d.id] = x.course || x.courseId || sectionCourseMap[d.id] || "BTECH";
+            if(allSections.some(s=>s.id===d.id)) return;
+            const item={id:d.id,label:x.label||x.section||d.id};
             allSections.push(item);
-            sectionCourseMap[d.id] = x.course || x.courseId || x.courseCode || x.courseName || "";
+            SECTIONS.push(item);
         });
-    } catch (e) {
-        console.warn("Could not load sections:", e);
-    }
+    }catch(e){console.warn("Could not load dynamic sections:",e);}
 
     if (sectionSelect) {
-        sectionSelect.innerHTML = `<option value="">-- Select Section --</option>`;
+        sectionSelect.innerHTML=`<option value="">-- Select Section --</option>`;
         sectionSelect.disabled = true;
     }
-    if (newCrSection) newCrSection.innerHTML = `<option value="">-- Select Section --</option>`;
-    const manageSection = document.getElementById("manageSectionSelect");
-    if (manageSection) {
-        manageSection.innerHTML = `<option value="">-- Select Section --</option>`;
+    if(newCrSection)newCrSection.innerHTML="";
+    const manageSection=document.getElementById("manageSectionSelect");
+    if(manageSection) {
+        manageSection.innerHTML=`<option value="">-- Select Section --</option>`;
         manageSection.disabled = !manageCourseSelect?.value;
     }
 
-    allSections.sort((a,b) => a.label.localeCompare(b.label, undefined, {sensitivity:"base"}));
-    allSections.forEach(section => {
-        if (sectionSelect) {
-            const option = document.createElement("option");
-            option.value = section.id;
-            option.textContent = section.label;
-            sectionSelect.appendChild(option);
-        }
-        if (newCrSection) {
-            const option = document.createElement("option");
-            option.value = section.id;
-            option.textContent = section.label;
-            newCrSection.appendChild(option);
-        }
-        if (manageSection) {
-            const option = document.createElement("option");
-            option.value = section.id;
-            option.textContent = section.label;
-            manageSection.appendChild(option);
-        }
+    allSections.forEach(section=>{
+        if (sectionSelect) { const option1=document.createElement("option");option1.value=section.id;option1.textContent=section.label;sectionSelect.appendChild(option1); }
+        if(newCrSection){const option2=document.createElement("option");option2.value=section.id;option2.textContent=section.label;newCrSection.appendChild(option2);}
+        if(manageSection){const option3=document.createElement("option");option3.value=section.id;option3.textContent=section.label;manageSection.appendChild(option3);}
     });
     if (manageCourseSelect?.value) filterManageSections(manageCourseSelect.value);
 }
 
 async function populateAttendanceCourseDropdown() {
     if (!attendanceCourseSelect) return;
-    const selected = attendanceCourseSelect.value;
     attendanceCourseSelect.innerHTML = `<option value="">-- Select Course --</option>`;
+    const visibleCourses = new Set(["b.tech"]);
+    const btechOption = document.createElement("option");
+    btechOption.value = "BTECH";
+    btechOption.textContent = "B.Tech";
+    attendanceCourseSelect.appendChild(btechOption);
+
     try {
         const snap = await getDocs(collection(db, "courses"));
-        const courses = snap.docs.sort((a,b) => String(a.data()?.name || a.id).localeCompare(String(b.data()?.name || b.id), undefined, {sensitivity:"base"}));
-        courses.forEach(courseDoc => {
+        snap.docs.forEach(courseDoc => {
             const course = courseDoc.data() || {};
+            const courseName = String(course.name || course.code || courseDoc.id).trim();
+            const courseKey = courseName.toLowerCase() === "b.tech ai & ml" ? "b.tech" : courseName.toLowerCase();
+            if (visibleCourses.has(courseKey)) return;
+            visibleCourses.add(courseKey);
             const option = document.createElement("option");
             option.value = courseDoc.id;
-            option.textContent = course.name || course.code || courseDoc.id;
+            option.textContent = courseKey === "b.tech" ? "B.Tech" : courseName;
             attendanceCourseSelect.appendChild(option);
         });
     } catch (error) {
         console.warn("Could not load attendance courses:", error);
     }
-    if (selected) attendanceCourseSelect.value = selected;
 }
 
 async function ensureLegacyBtechCourse() {
-    // Kept for compatibility with the existing startup flow.
-    // Do not create or rewrite courses/sections automatically.
-    return;
+    if (profile?.role !== "admin") return;
+    const coursesSnap = await getDocs(collection(db, "courses"));
+    const existingCourse = coursesSnap.docs.find(courseDoc => {
+        const course = courseDoc.data() || {};
+        const name = String(course.name || "").trim().toLowerCase();
+        const code = String(course.code || "").trim().toLowerCase();
+        return name === "b.tech" || name === "b.tech ai & ml" || code === "btech" || code === "btech-ai-ml";
+    });
+    const courseId = existingCourse?.id || "BTECH";
+    const courseRef = doc(db, "courses", courseId);
+    await setDoc(courseRef, {
+        name: "B.Tech",
+        code: "BTECH",
+        department: existingCourse?.data()?.department || "Computer Science",
+        duration: existingCourse?.data()?.duration || "4 Years",
+        updatedAt: new Date().toISOString()
+    }, { merge: true });
+
+    const sectionWrites = SECTIONS.map(section => setDoc(
+        doc(db, "sections", section.id),
+        {
+            label: section.label,
+            course: courseId,
+            courseName: "B.Tech",
+            updatedAt: new Date().toISOString()
+        },
+        { merge: true }
+    ));
+    await Promise.all(sectionWrites);
+
+    const sectionsSnap = await getDocs(collection(db, "sections"));
+    await Promise.all(sectionsSnap.docs.map(sectionDoc => {
+        return setDoc(sectionDoc.ref, {
+            course: "BTECH",
+            courseName: "B.Tech",
+            updatedAt: new Date().toISOString()
+        }, { merge: true });
+    }));
 }
 
 function filterAttendanceSections(courseId) {
@@ -5537,103 +5565,57 @@ async function processChangeRequest(request,approve,options={}){
             if(request.type === "delete_subject"){const d=await findSubjectByName(request.section,request.subject);if(!d)throw new Error("Subject not found.");await deleteDoc(d.ref);}
 
             if(request.type === "add_section"){
-                const sectionId = String(request.section || "").trim();
+                const sectionId=request.section;
                 if(!sectionId) throw new Error("Section ID is missing.");
-
                 const requestedCourse = String(request.course || "").trim();
-                if(!requestedCourse) throw new Error("Course is missing.");
-
                 const courseSnap = await getDocs(collection(db, "courses"));
-                const courseKey = requestedCourse.toLowerCase();
-                let existingCourseDoc = courseSnap.docs.find(courseDoc => {
-                    const c = courseDoc.data() || {};
-                    return [courseDoc.id, c.name, c.code].some(v => String(v || "").trim().toLowerCase() === courseKey);
+                const existingCourse = courseSnap.docs.find(courseDoc => {
+                    const course = courseDoc.data() || {};
+                    return String(course.name || "").trim().toLowerCase() === requestedCourse.toLowerCase()
+                        || String(course.code || "").trim().toLowerCase() === requestedCourse.toLowerCase();
                 });
-
-                const courseId = existingCourseDoc?.id || requestedCourse.toUpperCase().replace(/[^A-Z0-9]+/g, "-").replace(/^-|-$/g, "") || `COURSE-${Date.now()}`;
-                if(!existingCourseDoc){
-                    await setDoc(doc(db,"courses",courseId),{
-                        name: requestedCourse,
-                        code: request.courseCode || courseId,
+                const courseId = existingCourse?.id || requestedCourse.toUpperCase().replace(/[^A-Z0-9]+/g, "-").replace(/^-|-$/g, "") || `COURSE-${Date.now()}`;
+                if (!existingCourse) {
+                    await setDoc(doc(db, "courses", courseId), {
+                        name: requestedCourse || courseId,
+                        code: courseId,
                         department: request.department || "",
                         duration: request.duration || "",
-                        createdAt: new Date().toISOString(),
-                        updatedAt: new Date().toISOString()
-                    },{merge:true});
+                        createdAt: new Date().toISOString()
+                    }, { merge: true });
                 }
-
-                const sectionRef = doc(db,"sections",sectionId);
-                const existingSectionSnap = await getDoc(sectionRef);
-                await setDoc(sectionRef,{
-                    label: request.sectionLabel || sectionId,
-                    course: courseId,
-                    courseName: requestedCourse,
-                    semester: request.semester || "",
-                    year: request.year || "",
-                    crQid: request.crQid || "",
-                    crName: request.crName || "",
-                    crMobile: request.crMobile || "",
-                    crEmail: request.crEmail || "",
-                    mentorName: request.mentorName || "",
-                    mentorMobile: request.mentorMobile || "",
-                    updatedAt: new Date().toISOString(),
-                    ...(existingSectionSnap.exists() ? {} : {createdAt:new Date().toISOString()})
+                await setDoc(doc(db,"sections",sectionId),{
+                    label:request.sectionLabel||sectionId, course:courseId, courseName:requestedCourse, semester:request.semester||"", year:request.year||"",
+                    crQid:request.crQid||"", crName:request.crName||"", crMobile:request.crMobile||"", crEmail:request.crEmail||"",
+                    mentorName:request.mentorName||"", mentorMobile:request.mentorMobile||"", createdAt:new Date().toISOString()
                 },{merge:true});
+                const batch=writeBatch(db);
+                (request.students||[]).forEach(st=>{const ref=doc(collection(db,"sections",sectionId,"students"));batch.set(ref,{qid:String(st.qid||""),name:String(st.name||"").toUpperCase()});});
+                (request.subjects||[]).forEach(name=>{const ref=doc(collection(db,"sections",sectionId,"subjects"));batch.set(ref,{name:String(name)});});
+                await batch.commit();
 
-                // Upsert students by Q.ID: existing records are updated, new ones are added.
-                const studentSnap = await getDocs(collection(db,"sections",sectionId,"students"));
-                const studentsByQid = new Map();
-                studentSnap.docs.forEach(d => {
-                    const qid = String(d.data()?.qid || "").trim().toLowerCase();
-                    if(qid) studentsByQid.set(qid,d);
-                });
-                for(const st of (request.students || [])){
-                    const qid = String(st.qid || "").trim();
-                    const name = String(st.name || "").trim().toUpperCase();
-                    if(!qid || !name) continue;
-                    const existing = studentsByQid.get(qid.toLowerCase());
-                    if(existing) await updateDoc(existing.ref,{qid,name});
-                    else await addDoc(collection(db,"sections",sectionId,"students"),{qid,name});
-                }
-
-                // Upsert subjects by case-insensitive subject name.
-                const subjectSnap = await getDocs(collection(db,"sections",sectionId,"subjects"));
-                const subjectsByName = new Map();
-                subjectSnap.docs.forEach(d => {
-                    const name = String(d.data()?.name || "").trim().toLowerCase();
-                    if(name) subjectsByName.set(name,d);
-                });
-                for(const rawName of (request.subjects || [])){
-                    const name = String(rawName || "").trim();
-                    if(!name) continue;
-                    const existing = subjectsByName.get(name.toLowerCase());
-                    if(existing) await updateDoc(existing.ref,{name});
-                    else await addDoc(collection(db,"sections",sectionId,"subjects"),{name});
-                }
-
-                // Keep the CR profile tied to this section.
-                const crEmail = String(request.crEmail || "").trim().toLowerCase();
-                if(crEmail){
-                    let tempPassword = request.generatedPassword || `QA@${Math.random().toString(36).slice(2,8)}${Math.floor(10+Math.random()*90)}`;
+                let tempPassword=request.generatedPassword||`QA@${Math.random().toString(36).slice(2,8)}${Math.floor(10+Math.random()*90)}`;
+                try{await createUserWithEmailAndPassword(getProvisioningAuth(),request.crEmail,tempPassword);}
+                catch(authError){if(authError.code!=="auth/email-already-in-use")throw authError;}
+                finally{try{await signOut(getProvisioningAuth());}catch(_) {}}
+                await setDoc(doc(db,"users",request.crEmail),{
+                    role:"cr",email:request.crEmail,qid:request.crQid,name:request.crName,mobile:request.crMobile,section:sectionId,sectionLabel:request.sectionLabel||sectionId,
+                    course:request.course||"",semester:request.semester||"",year:request.year||"",mentorName:request.mentorName||"",mentorMobile:request.mentorMobile||"",createdAt:new Date().toISOString()
+                },{merge:true});
+                // Send the CR invitation directly by email. Bulk/silent processing keeps the previous behavior and skips the invitation email.
+                if(!silent) {
+                    const mailSubject=`QAttend - CR Account Assigned - ${request.sectionLabel||sectionId}`;
+                    const mailBody=`Hello ${request.crName},\n\nYou have been assigned as the Class Representative (CR) for ${request.sectionLabel||sectionId}.\n\nLogin Email: ${request.crEmail}\nTemporary Password: ${tempPassword}\nCourse: ${request.course||""}\nSemester: ${request.semester||""}\nYear: ${request.year||""}\n\nPlease change your password after your first login.`;
                     try {
-                        await createUserWithEmailAndPassword(getProvisioningAuth(),crEmail,tempPassword);
-                    } catch(authError) {
-                        if(authError.code !== "auth/email-already-in-use") throw authError;
-                    } finally {
-                        try { await signOut(getProvisioningAuth()); } catch(_) {}
-                    }
-                    await setDoc(doc(db,"users",crEmail),{
-                        role:"cr", email:crEmail, qid:request.crQid||"", name:request.crName||"", mobile:request.crMobile||"",
-                        section:sectionId, sectionLabel:request.sectionLabel||sectionId, course:courseId, courseName:requestedCourse,
-                        semester:request.semester||"", year:request.year||"", mentorName:request.mentorName||"", mentorMobile:request.mentorMobile||"",
-                        updatedAt:new Date().toISOString()
-                    },{merge:true});
-                    if(!silent){
-                        try {
-                            await sendDirectEmail({toEmail:crEmail,subject:`QAttend - CR Account Assigned - ${request.sectionLabel||sectionId}`,message:`Hello ${request.crName||""},\n\nYou have been assigned as CR for ${request.sectionLabel||sectionId}.\n\nLogin Email: ${crEmail}\nTemporary Password: ${tempPassword}\nCourse: ${requestedCourse}\nPlease change your password after first login.`,replyTo:EMAILJS_CONFIG.adminEmail});
-                        } catch(emailError){
-                            console.error("CR invitation email error:",emailError);
-                        }
+                        await sendDirectEmail({
+                            toEmail: request.crEmail,
+                            subject: mailSubject,
+                            message: mailBody,
+                            replyTo: EMAILJS_CONFIG.adminEmail
+                        });
+                    } catch(emailError) {
+                        console.error("CR invitation email error:", emailError);
+                        alert(`CR account was created, but the invitation email could not be sent. ${emailError.message || "Please try again."}`);
                     }
                 }
             }
@@ -5836,20 +5818,27 @@ async function populateCourseOptions() {
     } catch (error) {
         console.warn("Could not load course options:", error);
     }
+
     [courseFilter, document.getElementById("adminSecCourse"), manageCourseSelect].forEach(select => {
         if (!select) return;
         const selected = select.value;
         select.innerHTML = `<option value="">-- Select Course --</option>`;
-        courses.sort((a,b)=>String(a.data()?.name||a.id).localeCompare(String(b.data()?.name||b.id),undefined,{sensitivity:"base"})).forEach(courseDoc=>{
-            const c=courseDoc.data()||{};
-            const option=document.createElement("option");
-            option.value=courseDoc.id;
-            option.textContent=`${c.name||courseDoc.id}${c.code?` (${c.code})`:""}`;
+        const btechOption = document.createElement("option");
+        btechOption.value = "BTECH";
+        btechOption.textContent = "B.Tech";
+        select.appendChild(btechOption);
+        courses.forEach(courseDoc => {
+            const course = courseDoc.data();
+            const courseName = String(course.name || courseDoc.id);
+            if (courseName.trim().toLowerCase() === "b.tech" || courseName.trim().toLowerCase() === "b.tech ai & ml") return;
+            const option = document.createElement("option");
+            option.value = courseDoc.id;
+            option.textContent = `${course.name || courseDoc.id} (${course.code || courseDoc.id})`;
             select.appendChild(option);
         });
-        if(selected) select.value=selected;
+        if (selected) select.value = selected;
     });
-    if(manageCourseSelect?.value) filterManageSections(manageCourseSelect.value);
+    if (manageCourseSelect?.value) filterManageSections(manageCourseSelect.value);
 }
 
 async function loadSectionsForCourse(courseId = courseFilter?.value) {
@@ -5859,29 +5848,28 @@ async function loadSectionsForCourse(courseId = courseFilter?.value) {
         sectionTableBody.innerHTML = `<tr><td colspan="7" class="empty-record">Select a course to view sections.</td></tr>`;
         return;
     }
-    try {
-        const courseSnap = await getDocs(collection(db,"courses"));
-        const selected = courseSnap.docs.find(d=>d.id===courseId);
-        const c=selected?.data()||{};
-        const keys=new Set([courseId,c.name,c.code].map(v=>String(v||"").trim().toLowerCase()).filter(Boolean));
-        const snap=await getDocs(collection(db,"sections"));
-        const rows=snap.docs.filter(d=>{
-            const s=d.data()||{};
-            return [s.course,s.courseId,s.courseName,s.courseCode].some(v=>keys.has(String(v||"").trim().toLowerCase()));
+    const snap = await getDocs(collection(db, "sections"));
+    const rows = snap.docs.filter(sectionDoc => sectionDoc.data()?.course === courseId);
+    if (!rows.length) sectionTableBody.innerHTML = `<tr><td colspan="7" class="empty-record">No sections found for this course.</td></tr>`;
+    for (const [index, sectionDoc] of rows.entries()) {
+        const section = sectionDoc.data();
+        const [studentsSnap, subjectsSnap] = await Promise.all([
+            getDocs(collection(db, "sections", sectionDoc.id, "students")),
+            getDocs(collection(db, "sections", sectionDoc.id, "subjects"))
+        ]);
+        const row = document.createElement("tr");
+        row.innerHTML = `<td>${index + 1}</td><td>${escapeHtml(section.label || section.section || sectionDoc.id)}</td><td>${escapeHtml(section.semester || "")}</td><td>${escapeHtml(section.year || "")}</td><td>${studentsSnap.size}</td><td>${subjectsSnap.size}</td><td><button type="button" class="text-btn" data-open-section="${escapeHtml(sectionDoc.id)}">Open</button> <button type="button" class="text-btn danger-text" data-delete-section="${escapeHtml(sectionDoc.id)}">Delete</button></td>`;
+        row.querySelector("[data-open-section]")?.addEventListener("click", () => {
+            managementSection = sectionDoc.id;
+            showManageData();
+            if (manageSectionSelect) manageSectionSelect.value = sectionDoc.id;
         });
-        if(!rows.length){sectionTableBody.innerHTML=`<tr><td colspan="7" class="empty-record">No sections found for this course.</td></tr>`;return;}
-        for(const [index,sectionDoc] of rows.entries()){
-            const section=sectionDoc.data()||{};
-            const [studentsSnap,subjectsSnap]=await Promise.all([getDocs(collection(db,"sections",sectionDoc.id,"students")),getDocs(collection(db,"sections",sectionDoc.id,"subjects"))]);
-            const row=document.createElement("tr");
-            row.innerHTML=`<td>${index+1}</td><td>${escapeHtml(section.label||section.section||sectionDoc.id)}</td><td>${escapeHtml(section.semester||"")}</td><td>${escapeHtml(section.year||"")}</td><td>${studentsSnap.size}</td><td>${subjectsSnap.size}</td><td><button type="button" class="text-btn" data-open-section="${escapeHtml(sectionDoc.id)}">Open</button> <button type="button" class="text-btn danger-text" data-delete-section="${escapeHtml(sectionDoc.id)}">Delete</button></td>`;
-            row.querySelector("[data-open-section]")?.addEventListener("click",()=>{managementSection=sectionDoc.id;showManageData();if(manageSectionSelect)manageSectionSelect.value=sectionDoc.id;});
-            row.querySelector("[data-delete-section]")?.addEventListener("click",async()=>{if(!confirm(`Delete ${section.label||sectionDoc.id}?`))return;await deleteDoc(sectionDoc.ref);await loadSectionsForCourse(courseId);});
-            sectionTableBody.appendChild(row);
-        }
-    } catch(error) {
-        console.error("Could not load sections:",error);
-        sectionTableBody.innerHTML=`<tr><td colspan="7" class="empty-record">Could not load sections.</td></tr>`;
+        row.querySelector("[data-delete-section]")?.addEventListener("click", async () => {
+            if (!confirm(`Delete ${section.label || sectionDoc.id}?`)) return;
+            await deleteDoc(sectionDoc.ref);
+            await loadSectionsForCourse(courseId);
+        });
+        sectionTableBody.appendChild(row);
     }
 }
 
