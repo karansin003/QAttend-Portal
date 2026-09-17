@@ -4860,6 +4860,7 @@ document.querySelectorAll(".drawer-item").forEach(btn => {
         if(feature === "requests") showRequestsPanel();
         if(feature === "manage" && profile?.role === "admin") showManageData();
         if(feature === "records" && profile?.role === "cr") showPreviousRecords();
+        if(feature === "send-request" && profile?.role === "cr") openRequestModal();
         if(feature === "support") openSupport();
         if(feature === "logout") await logoutFromApp();
     });
@@ -5316,7 +5317,7 @@ function syncRequestForm(){
 }
 
 document.getElementById("requestType")?.addEventListener("change",syncRequestForm);
-document.getElementById("crSendRequestBtn")?.addEventListener("click",()=>openRequestModal());
+document.getElementById("crSendRequestBtn")?.addEventListener("click",()=>openRequestModal("add_student"));
 document.getElementById("closeRequestModal")?.addEventListener("click",closeRequestModal);
 document.getElementById("cancelRequestBtn")?.addEventListener("click",closeRequestModal);
 requestModal?.addEventListener("click",e=>{
