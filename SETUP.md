@@ -38,7 +38,7 @@ log in with the Admin account from Step 3.
 ## Step 5 — Run the one-time data import
 While logged in as Admin, open `yoursite.com/seed.html` and click
 "Run Import" once. This loads the full roster (539 students across
-Section 1-8, AIML-1, AIML-2) and the 10 subjects into the database.
+Section 1-8, AIML-1, AIML-2) and the 11 subjects into the database.
 After it finishes, you can delete `seed.html` and `seed.js` — they're not
 needed again and aren't linked from the main app.
 

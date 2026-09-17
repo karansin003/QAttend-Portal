@@ -262,20 +262,44 @@ document.querySelectorAll('a[href="Section_Template.xlsx"]').forEach(link => {
 
 async function parseSectionExcelFile(file) {
     await ensureXLSXLoaded();
+
+    if (!file) {
+        throw new Error("Please select an Excel file.");
+    }
+
+    const allowed = /\.xlsx$/i.test(file.name);
+    if (!allowed) {
+        throw new Error("Please upload an .xlsx Excel file.");
+    }
+
     const buffer = await file.arrayBuffer();
     const workbook = XLSX.read(buffer, { type: "array" });
-    const normalize = v => String(v ?? "").trim();
+
+    const normalize = value => String(value ?? "").replace(/\u00a0/g, " ").trim();
+
     const findSheet = name => {
         const target = name.replace(/\s+/g, "").toLowerCase();
-        const sheetName = workbook.SheetNames.find(candidate => candidate.replace(/\s+/g, "").toLowerCase() === target);
+        const sheetName = workbook.SheetNames.find(candidate =>
+            candidate.replace(/\s+/g, "").toLowerCase() === target
+        );
         return sheetName ? workbook.Sheets[sheetName] : null;
     };
 
-    const studentsSheet = findSheet("Students") || workbook.Sheets[workbook.SheetNames[0]];
-    const subjectsSheet = findSheet("Subjects") || (workbook.SheetNames.length > 1 ? workbook.Sheets[workbook.SheetNames[1]] : null);
+    const studentsSheet =
+        findSheet("Students") ||
+        workbook.Sheets[workbook.SheetNames[0]];
 
-    const studentRows = studentsSheet ? XLSX.utils.sheet_to_json(studentsSheet, { header: 1, defval: "" }) : [];
-    const subjectRows = subjectsSheet ? XLSX.utils.sheet_to_json(subjectsSheet, { header: 1, defval: "" }) : [];
+    const subjectsSheet =
+        findSheet("Subjects") ||
+        (workbook.SheetNames.length > 1 ? workbook.Sheets[workbook.SheetNames[1]] : null);
+
+    const studentRows = studentsSheet
+        ? XLSX.utils.sheet_to_json(studentsSheet, { header: 1, defval: "" })
+        : [];
+
+    const subjectRows = subjectsSheet
+        ? XLSX.utils.sheet_to_json(subjectsSheet, { header: 1, defval: "" })
+        : [];
 
     const studentsOut = [];
     const qids = new Set();
@@ -285,30 +309,72 @@ async function parseSectionExcelFile(file) {
     studentRows.slice(1).forEach(row => {
         const qid = normalize(row[0]);
         const name = normalize(row[1]);
+
         if (!qid && !name) return;
+
         if (!qid || !name) {
             invalidCount++;
             return;
         }
-        if (qids.has(qid.toLowerCase())) {
+
+        const qidKey = qid.toLowerCase();
+        if (qids.has(qidKey)) {
             duplicateCount++;
             return;
         }
-        qids.add(qid.toLowerCase());
-        studentsOut.push({ qid, name: name.toUpperCase() });
+
+        qids.add(qidKey);
+        studentsOut.push({
+            qid,
+            name: name.toUpperCase()
+        });
     });
 
     const subjectsOut = [];
     const subjectSet = new Set();
+
+    // Preferred format: Subjects sheet, one subject per row.
     subjectRows.slice(1).forEach(row => {
         const name = normalize(row[0]);
         if (!name) return;
+
         const key = name.toLowerCase();
         if (!subjectSet.has(key)) {
             subjectSet.add(key);
             subjectsOut.push(name);
         }
     });
+
+    // Backward compatibility for the old one-sheet template:
+    // Qid | Student Name | Subject1 | Subject2 | Subject3 ...
+    if (subjectsOut.length === 0 && workbook.SheetNames.length === 1) {
+        const headers = studentRows[0] || [];
+        headers.slice(2).forEach(header => {
+            const subject = normalize(header).replace(/^subject\s*\d+$/i, "");
+            if (!subject) return;
+            const key = subject.toLowerCase();
+            if (!subjectSet.has(key)) {
+                subjectSet.add(key);
+                subjectsOut.push(subject);
+            }
+        });
+
+        studentRows.slice(1).forEach(row => {
+            row.slice(2).forEach(value => {
+                const subject = normalize(value);
+                if (!subject) return;
+                const key = subject.toLowerCase();
+                if (!subjectSet.has(key)) {
+                    subjectSet.add(key);
+                    subjectsOut.push(subject);
+                }
+            });
+        });
+    }
+
+    if (studentsOut.length === 0 && subjectsOut.length === 0) {
+        throw new Error("The Excel file does not contain any valid students or subjects.");
+    }
 
     return {
         students: studentsOut,
