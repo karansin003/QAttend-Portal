@@ -12,7 +12,9 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 
 import {
-    getFirestore,
+    initializeFirestore,
+    persistentLocalCache,
+    persistentMultipleTabManager,
     collection,
     doc,
     addDoc,
@@ -43,10 +45,103 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const db = getFirestore(app);
+
+// Offline-first Firestore:
+// - IndexedDB keeps actively used Firestore data available after reload/offline.
+// - Local writes are queued by Firestore and synchronized automatically when the
+//   network returns.
+// - Multi-tab persistence lets admin/CR tabs share the same local cache.
+const db = initializeFirestore(app, {
+    localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager()
+    })
+});
+
 const authPersistenceReady = setPersistence(auth, browserLocalPersistence).catch(error => {
     console.warn("Could not enable local login persistence:", error);
 });
+
+// ------------------------------------------------------------
+// OFFLINE-FIRST APP STATUS
+// ------------------------------------------------------------
+let qattendNetworkStatusEl = null;
+
+function ensureNetworkStatusIndicator() {
+    if (qattendNetworkStatusEl) return qattendNetworkStatusEl;
+
+    qattendNetworkStatusEl = document.createElement("div");
+    qattendNetworkStatusEl.id = "qattendNetworkStatus";
+    qattendNetworkStatusEl.className = "qattend-network-status";
+    qattendNetworkStatusEl.setAttribute("role", "status");
+    qattendNetworkStatusEl.setAttribute("aria-live", "polite");
+
+    // Keep the existing UI untouched: the indicator is injected only when needed.
+    document.body.appendChild(qattendNetworkStatusEl);
+    return qattendNetworkStatusEl;
+}
+
+function updateNetworkStatusIndicator() {
+    const el = ensureNetworkStatusIndicator();
+    const online = navigator.onLine;
+
+    el.classList.toggle("offline", !online);
+    el.classList.toggle("online", online);
+
+    if (online) {
+        el.textContent = "● Online";
+        el.title = "QAttend is online. Firestore will synchronize pending offline changes.";
+    } else {
+        el.textContent = "● Offline — changes will sync when online";
+        el.title = "QAttend is using cached data. Firestore writes will synchronize when the network returns.";
+    }
+}
+
+window.addEventListener("online", () => {
+    updateNetworkStatusIndicator();
+    // Give the browser a moment to restore connectivity before refreshing UI data.
+    setTimeout(() => {
+        window.dispatchEvent(new CustomEvent("qattend:network-restored"));
+    }, 300);
+});
+
+window.addEventListener("offline", updateNetworkStatusIndicator);
+
+function registerQAttendServiceWorker() {
+    if (!("serviceWorker" in navigator)) return;
+
+    navigator.serviceWorker.register("./service-worker.js", { scope: "./" })
+        .then(registration => {
+            console.info("QAttend service worker registered:", registration.scope);
+
+            // Pick up an updated worker without requiring a manual refresh.
+            registration.addEventListener("updatefound", () => {
+                const worker = registration.installing;
+                if (!worker) return;
+
+                worker.addEventListener("statechange", () => {
+                    if (worker.state === "installed" && navigator.serviceWorker.controller) {
+                        worker.postMessage({ type: "SKIP_WAITING" });
+                    }
+                });
+            });
+        })
+        .catch(error => {
+            // Offline app functionality must never be blocked if SW registration fails.
+            console.warn("QAttend service worker registration failed:", error);
+        });
+}
+
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => {
+        updateNetworkStatusIndicator();
+        registerQAttendServiceWorker();
+    }, { once: true });
+} else {
+    updateNetworkStatusIndicator();
+    registerQAttendServiceWorker();
+}
+
+
 
 // A secondary Firebase Auth instance is used only when Admin approves a
 // new-section request. It creates the CR account without signing the Admin out.
@@ -1309,38 +1404,42 @@ onAuthStateChanged(
                 return;
             }
 
-            const profileSnap =
-                await getDoc(
-                    doc(
-                        db,
-                        "users",
-                        String(user.email || "").toLowerCase()
-                    )
+            const userEmailKey = String(user.email || "").toLowerCase();
+            let profileSnap = null;
+
+            try {
+                profileSnap = await getDoc(
+                    doc(db, "users", userEmailKey)
                 );
-
-
-            if (
-                !profileSnap.exists()
-            ) {
-
-                alert(
-                    "Your account is not set up yet. Ask the Admin to assign you a role."
-                );
-
-                await signOut(
-                    auth
-                );
-
-                return;
+            } catch (profileError) {
+                // When offline, use the last verified profile cached after a
+                // successful login. Do NOT treat an arbitrary localStorage
+                // value as authentication; Firebase Auth is still the source
+                // of the authenticated user.
+                if (cachedProfile) {
+                    console.warn("Using cached QAttend profile while offline:", profileError);
+                    profile = cachedProfile;
+                } else {
+                    throw profileError;
+                }
             }
 
+            if (!profile) {
+                if (!profileSnap?.exists()) {
+                    alert(
+                        "Your account is not set up yet. Ask the Admin to assign you a role."
+                    );
 
-            profile =
-                profileSnap.data();
+                    await signOut(auth);
+                    return;
+                }
+
+                profile = profileSnap.data();
+            }
 
             try {
                 localStorage.setItem("qattend-profile", JSON.stringify({
-                    email: String(user.email || "").toLowerCase(),
+                    email: userEmailKey,
                     profile,
                     cachedAt: Date.now()
                 }));
@@ -1374,15 +1473,34 @@ onAuthStateChanged(
 
             console.error(error);
 
-            alert(
-                "Could not load your account role. Try logging in again."
-            );
+            // A previously authenticated user can continue using the app
+            // offline when Firebase Auth restored the session but Firestore
+            // cannot reach the backend and no cached profile was available.
+            // In that case, fail safely instead of logging them out.
+            if (!navigator.onLine) {
+                let fallbackProfile = null;
+                try {
+                    const cached = JSON.parse(localStorage.getItem("qattend-profile") || "null");
+                    if (
+                        cached?.email === String(user.email || "").toLowerCase() &&
+                        cached.profile?.role
+                    ) {
+                        fallbackProfile = cached.profile;
+                    }
+                } catch (_) {}
 
-            await signOut(
-                auth
-            );
-
-            return;
+                if (fallbackProfile) {
+                    profile = fallbackProfile;
+                    console.warn("Continuing with cached QAttend profile while offline.");
+                } else {
+                    alert("You are offline and this account has not been cached on this device yet. Connect to the internet once, then reopen QAttend.");
+                    return;
+                }
+            } else {
+                alert("Could not load your account role. Try logging in again.");
+                await signOut(auth);
+                return;
+            }
         }
 
 
@@ -5969,3 +6087,36 @@ adminSectionForm?.addEventListener("submit", async event => {
     await loadSectionsForCourse(courseId);
 });
 
+
+
+/*
+ * When connectivity returns, Firestore automatically synchronizes pending
+ * writes. Refresh only the currently visible view so the UI reflects the
+ * server state after synchronization. Failures are intentionally ignored.
+ */
+window.addEventListener("qattend:network-restored", () => {
+    setTimeout(() => {
+        try {
+            if (!profile) return;
+
+            const currentPage =
+                (window.location.pathname.split("/").pop() || "login.html").toLowerCase();
+
+            if (currentPage === "admin.html") {
+                if (typeof loadAdminDashboardData === "function") void loadAdminDashboardData();
+                if (!requestsPanel?.classList.contains("hidden") && typeof loadRequestCenter === "function") {
+                    void loadRequestCenter();
+                }
+                if (!adminPanel?.classList.contains("hidden") && typeof refreshManageData === "function") {
+                    void refreshManageData();
+                }
+            } else if (currentPage === "cr.html") {
+                if (typeof loadStudents === "function") void loadStudents();
+                if (typeof loadSubjects === "function") void loadSubjects();
+                if (typeof loadRecords === "function") void loadRecords();
+            }
+        } catch (error) {
+            console.warn("Could not refresh QAttend after reconnect:", error);
+        }
+    }, 1200);
+});

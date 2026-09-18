@@ -2265,3 +2265,44 @@ body.admin-page-file .admin-only {
         overflow-x: hidden;
     }
 }
+
+/* ------------------------------------------------------------
+   OFFLINE-FIRST STATUS
+   Injected by script.js; does not alter the existing QAttend theme.
+------------------------------------------------------------ */
+.qattend-network-status {
+    position: fixed;
+    right: 14px;
+    bottom: 14px;
+    z-index: 99999;
+    padding: 7px 11px;
+    border: 1px solid rgba(255,255,255,.18);
+    border-radius: 999px;
+    background: #212121;
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.2;
+    box-shadow: 0 4px 16px rgba(0,0,0,.16);
+    pointer-events: none;
+    user-select: none;
+}
+
+.qattend-network-status.offline {
+    background: #757575;
+}
+
+.qattend-network-status.online {
+    background: #212121;
+}
+
+@media (max-width: 600px) {
+    .qattend-network-status {
+        right: 10px;
+        bottom: 10px;
+        max-width: calc(100vw - 20px);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+}
