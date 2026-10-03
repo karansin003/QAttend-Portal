@@ -775,22 +775,33 @@
                         <h3>Assign / Manage Teacher</h3>
                         <form id="addTeacherForm">
                             <input type="email" id="newTeacherEmail" placeholder="Teacher's login email" required>
-                            <div class="select-box select-box-stacked">
-                                <label for="teacherSectionSelect">🏫 Select Section</label>
-                                <select id="teacherSectionSelect" required>
-                                    <option value="">-- Select Section --</option>
-                                </select>
+                            
+                            <div class="teacher-assignments-builder">
+                                <label class="builder-heading">📚 Class &amp; Subject Assignments</label>
+                                <div id="teacherAssignmentRows" class="assignment-rows-container">
+                                    <div class="teacher-assignment-row">
+                                        <div class="select-box select-box-stacked">
+                                            <label>🏫 Section</label>
+                                            <select class="teacher-row-section" required>
+                                                <option value="">-- Select Section --</option>
+                                            </select>
+                                        </div>
+                                        <div class="select-box select-box-stacked">
+                                            <label>📚 Subject</label>
+                                            <select class="teacher-row-subject" required disabled>
+                                                <option value="">-- Select Section First --</option>
+                                            </select>
+                                        </div>
+                                        <button type="button" class="remove-teacher-row-btn hidden" title="Remove assignment row">✕</button>
+                                    </div>
+                                </div>
+                                <button type="button" id="addTeacherRowBtn" class="add-row-btn">＋ Add Another Section &amp; Subject</button>
                             </div>
-                            <div class="select-box select-box-stacked">
-                                <label for="teacherSubjectSelect">📚 Select Subject</label>
-                                <select id="teacherSubjectSelect" required disabled>
-                                    <option value="">-- Select Section First --</option>
-                                </select>
-                            </div>
-                            <button type="submit">+ Assign Teacher</button>
+
+                            <button type="submit" id="submitTeacherBtn">+ Assign Teacher &amp; Send Password</button>
                         </form>
-                        <p class="admin-hint">Assign a section and subject. Create the Firebase Auth login first.</p>
-                        <div id="teacherManageList" class="cr-list"></div>
+                        <p class="admin-hint">Link this teacher to one or more section &amp; subject pairs. Login password is generated and sent directly to their email.</p>
+                        <div id="teacherManageList" class="teacher-manage-list"></div>
                     </div>
                 </div>
 

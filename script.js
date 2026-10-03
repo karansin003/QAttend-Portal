@@ -802,6 +802,9 @@ const addTeacherForm = document.getElementById("addTeacherForm");
 const newTeacherEmail = document.getElementById("newTeacherEmail");
 const teacherSectionSelect = document.getElementById("teacherSectionSelect");
 const teacherSubjectSelect = document.getElementById("teacherSubjectSelect");
+const teacherAssignmentRows = document.getElementById("teacherAssignmentRows");
+const addTeacherRowBtn = document.getElementById("addTeacherRowBtn");
+const submitTeacherBtn = document.getElementById("submitTeacherBtn");
 const teacherManageList = document.getElementById("teacherManageList");
 
 const teacherAssignmentBox = document.getElementById("teacherAssignmentBox");
@@ -1805,6 +1808,12 @@ async function populateSectionDropdowns() {
         manageSection.innerHTML=`<option value="">-- Select Section --</option>`;
         manageSection.disabled = !manageCourseSelect?.value;
     }
+    if (teacherAssignmentRows) {
+        teacherAssignmentRows.querySelectorAll(".teacher-row-section").forEach(sel => {
+            const curVal = sel.value;
+            populateTeacherSectionSelect(sel, curVal);
+        });
+    }
     if (teacherSectionSelect) {
         teacherSectionSelect.innerHTML=`<option value="">-- Select Section --</option>`;
     }
@@ -1816,6 +1825,138 @@ async function populateSectionDropdowns() {
         if(teacherSectionSelect){const option4=document.createElement("option");option4.value=section.id;option4.textContent=section.label;teacherSectionSelect.appendChild(option4);}
     });
     if (manageCourseSelect?.value) filterManageSections(manageCourseSelect.value);
+}
+
+function populateTeacherSectionSelect(selectEl, selectedValue = "") {
+    if (!selectEl) return;
+    const currentVal = selectedValue || selectEl.value || "";
+    selectEl.innerHTML = `<option value="">-- Select Section --</option>`;
+    allSections.forEach(section => {
+        const opt = document.createElement("option");
+        opt.value = section.id;
+        opt.textContent = section.label;
+        if (section.id === currentVal) opt.selected = true;
+        selectEl.appendChild(opt);
+    });
+}
+
+async function loadSubjectsForTeacherRow(sectionId, subjectSelectEl, selectedSubject = "") {
+    if (!subjectSelectEl) return;
+    if (!sectionId) {
+        subjectSelectEl.innerHTML = `<option value="">-- Select Section First --</option>`;
+        subjectSelectEl.disabled = true;
+        return;
+    }
+    subjectSelectEl.innerHTML = `<option value="">Loading subjects...</option>`;
+    subjectSelectEl.disabled = true;
+    try {
+        const snap = await getDocs(
+            query(collection(db, "sections", sectionId, "subjects"), orderBy("name"))
+        );
+        subjectSelectEl.innerHTML = `<option value="">-- Select Subject --</option>`;
+        if (snap.empty) {
+            subjectSelectEl.innerHTML = `<option value="">-- No subjects in this section --</option>`;
+            subjectSelectEl.disabled = true;
+            return;
+        }
+        snap.docs.forEach(d => {
+            const data = d.data() || {};
+            const opt = document.createElement("option");
+            const name = data.name || d.id;
+            opt.value = name;
+            opt.textContent = name;
+            if (name === selectedSubject) opt.selected = true;
+            subjectSelectEl.appendChild(opt);
+        });
+        subjectSelectEl.disabled = false;
+    } catch (err) {
+        console.error("Could not load subjects for teacher assignment:", err);
+        subjectSelectEl.innerHTML = `<option value="">Error loading subjects</option>`;
+        subjectSelectEl.disabled = true;
+    }
+}
+
+function updateRemoveTeacherRowButtonsVisibility() {
+    if (!teacherAssignmentRows) return;
+    const rows = teacherAssignmentRows.querySelectorAll(".teacher-assignment-row");
+    rows.forEach(r => {
+        const btn = r.querySelector(".remove-teacher-row-btn");
+        if (btn) {
+            if (rows.length > 1) {
+                btn.classList.remove("hidden");
+            } else {
+                btn.classList.add("hidden");
+            }
+        }
+    });
+}
+
+function initTeacherRowEvents(row) {
+    if (!row) return;
+    const secSelect = row.querySelector(".teacher-row-section");
+    const subSelect = row.querySelector(".teacher-row-subject");
+    const removeBtn = row.querySelector(".remove-teacher-row-btn");
+
+    secSelect?.addEventListener("change", () => {
+        loadSubjectsForTeacherRow(secSelect.value, subSelect);
+    });
+
+    removeBtn?.addEventListener("click", () => {
+        const rows = teacherAssignmentRows?.querySelectorAll(".teacher-assignment-row");
+        if (rows && rows.length > 1) {
+            row.remove();
+            updateRemoveTeacherRowButtonsVisibility();
+        }
+    });
+}
+
+function createTeacherAssignmentRow(defaultSection = "", defaultSubject = "") {
+    const row = document.createElement("div");
+    row.className = "teacher-assignment-row";
+    row.innerHTML = `
+        <div class="select-box select-box-stacked">
+            <label>🏫 Section</label>
+            <select class="teacher-row-section" required>
+                <option value="">-- Select Section --</option>
+            </select>
+        </div>
+        <div class="select-box select-box-stacked">
+            <label>📚 Subject</label>
+            <select class="teacher-row-subject" required disabled>
+                <option value="">-- Select Section First --</option>
+            </select>
+        </div>
+        <button type="button" class="remove-teacher-row-btn" title="Remove assignment row">✕</button>
+    `;
+    const secSelect = row.querySelector(".teacher-row-section");
+    const subSelect = row.querySelector(".teacher-row-subject");
+    populateTeacherSectionSelect(secSelect, defaultSection);
+    initTeacherRowEvents(row);
+    if (defaultSection) {
+        loadSubjectsForTeacherRow(defaultSection, subSelect, defaultSubject);
+    }
+    return row;
+}
+
+function addTeacherAssignmentRow(defaultSection = "", defaultSubject = "") {
+    if (!teacherAssignmentRows) return null;
+    const row = createTeacherAssignmentRow(defaultSection, defaultSubject);
+    teacherAssignmentRows.appendChild(row);
+    updateRemoveTeacherRowButtonsVisibility();
+    return row;
+}
+
+addTeacherRowBtn?.addEventListener("click", () => {
+    addTeacherAssignmentRow();
+});
+
+if (teacherAssignmentRows) {
+    teacherAssignmentRows.querySelectorAll(".teacher-assignment-row").forEach(row => {
+        const secSelect = row.querySelector(".teacher-row-section");
+        if (secSelect) populateTeacherSectionSelect(secSelect);
+        initTeacherRowEvents(row);
+    });
+    updateRemoveTeacherRowButtonsVisibility();
 }
 
 teacherSectionSelect?.addEventListener("change", async () => {
@@ -3565,50 +3706,122 @@ async function loadTeacherList() {
 
     try {
         const snapshot = await getDocs(collection(db, "users"));
-        const rows = [];
+        const teacherMap = new Map();
+        
         snapshot.docs.forEach(d => {
             const data = d.data() || {};
             if (data.role === "teacher") {
                 const email = String(d.id || "").toLowerCase();
                 const assignments = Array.isArray(data.assignments) ? data.assignments : [];
-                assignments.forEach(a => {
-                    rows.push({
-                        email,
-                        section: a.section,
-                        subject: a.subject
-                    });
+                teacherMap.set(email, {
+                    email,
+                    assignments,
+                    sections: Array.isArray(data.sections) ? data.sections : []
                 });
             }
         });
 
-        rows.sort((a, b) => a.email.localeCompare(b.email) || a.section.localeCompare(b.section) || a.subject.localeCompare(b.subject));
+        const teachers = Array.from(teacherMap.values()).sort((a, b) => a.email.localeCompare(b.email));
 
         container.innerHTML = "";
-        if (!rows.length) {
+        if (!teachers.length) {
             container.innerHTML = `<p class="empty-record">No Teachers assigned yet.</p>`;
             return;
         }
 
-        rows.forEach(t => {
-            const row = document.createElement("div");
-            row.className = "chip-row";
-            row.innerHTML = `
-                <span>${escapeHtml(t.email)} — ${escapeHtml(sectionLabelOf(t.section))} (${escapeHtml(t.subject)})</span>
-                <button type="button" data-email="${escapeHtml(t.email)}" data-section="${escapeHtml(t.section)}" data-subject="${escapeHtml(t.subject)}">Remove</button>
+        teachers.forEach(teacher => {
+            const card = document.createElement("div");
+            card.className = "teacher-card-item";
+
+            let chipsHtml = "";
+            if (teacher.assignments && teacher.assignments.length) {
+                chipsHtml = teacher.assignments.map(a => `
+                    <span class="teacher-assignment-chip">
+                        <b>${escapeHtml(sectionLabelOf(a.section))}</b> ➔ ${escapeHtml(a.subject)}
+                        <button type="button" class="remove-chip-btn" title="Remove this subject" data-email="${escapeHtml(teacher.email)}" data-section="${escapeHtml(a.section)}" data-subject="${escapeHtml(a.subject)}">✕</button>
+                    </span>
+                `).join("");
+            } else {
+                chipsHtml = `<em style="color:#94a3b8; font-size:12px;">No active classes assigned</em>`;
+            }
+
+            card.innerHTML = `
+                <div class="teacher-card-header">
+                    <span class="teacher-email-title">✉️ ${escapeHtml(teacher.email)}</span>
+                    <div class="teacher-card-actions">
+                        <button type="button" class="action-link add-class-quick-btn" data-email="${escapeHtml(teacher.email)}" title="Add another class for this teacher">+ Add Class</button>
+                        <button type="button" class="action-link resend-pwd-btn" data-email="${escapeHtml(teacher.email)}" title="Send password reset link directly to teacher">🔑 Send Password</button>
+                        <button type="button" class="action-link remove-all-teacher-btn" data-email="${escapeHtml(teacher.email)}" title="Remove all assignments for this teacher" style="color:#dc2626;">🗑️ Remove All</button>
+                    </div>
+                </div>
+                <div class="teacher-assignments-chips">
+                    ${chipsHtml}
+                </div>
             `;
-            container.appendChild(row);
+
+            container.appendChild(card);
         });
 
-        container.querySelectorAll("button[data-email]").forEach(button => {
+        // Attach event listeners to chips and action buttons
+        container.querySelectorAll(".remove-chip-btn").forEach(button => {
             button.addEventListener("click", () => deleteTeacherAssignment(
                 button.dataset.email,
                 button.dataset.section,
                 button.dataset.subject
             ));
         });
+
+        container.querySelectorAll(".add-class-quick-btn").forEach(button => {
+            button.addEventListener("click", () => {
+                const targetEmail = button.dataset.email;
+                if (newTeacherEmail) {
+                    newTeacherEmail.value = targetEmail;
+                    newTeacherEmail.focus();
+                }
+                const manageCard = document.querySelector(".manage-teacher-card");
+                if (manageCard) manageCard.scrollIntoView({ behavior: "smooth" });
+            });
+        });
+
+        container.querySelectorAll(".resend-pwd-btn").forEach(button => {
+            button.addEventListener("click", async () => {
+                const targetEmail = button.dataset.email;
+                try {
+                    await sendPasswordResetEmail(auth, targetEmail);
+                    alert(`Password reset link sent to ${targetEmail} successfully!`);
+                } catch (err) {
+                    console.error("Could not send password reset email:", err);
+                    alert(`Could not send password reset email: ${err.message || err}`);
+                }
+            });
+        });
+
+        container.querySelectorAll(".remove-all-teacher-btn").forEach(button => {
+            button.addEventListener("click", () => removeAllTeacherAssignments(button.dataset.email));
+        });
+
     } catch (error) {
         console.error("Could not load Teacher list:", error);
         container.innerHTML = `<p class="empty-record">Could not load Teachers.</p>`;
+    }
+}
+
+async function removeAllTeacherAssignments(email) {
+    if (!profile || profile.role !== "admin") return;
+    const confirmDelete = confirm(
+        `Are you sure you want to remove ALL assignments and revoke teacher access for ${email}?`
+    );
+    if (!confirmDelete) return;
+
+    try {
+        const userRef = doc(db, "users", email);
+        await deleteDoc(userRef);
+        await writeActivityLog("REMOVE_TEACHER", `${email} (all assignments removed)`);
+        await loadTeacherList();
+        alert(`All teaching assignments removed for ${email}.`);
+    } catch (err) {
+        console.error("Failed to remove teacher:", err);
+        alert("Failed to remove teacher.");
     }
 }
 
@@ -3618,28 +3831,61 @@ addTeacherForm?.addEventListener("submit", async function (event) {
     if (!profile || profile.role !== "admin") return;
 
     const email = newTeacherEmail?.value.trim().toLowerCase();
-    const section = teacherSectionSelect?.value;
-    const subject = teacherSubjectSelect?.value;
-
     if (!email) {
         alert("Please enter the teacher's login email.");
         return;
     }
-    if (!section) {
-        alert("Please select a section.");
-        return;
+
+    // Collect all assignment rows (Section ➔ Subject pairs)
+    const newAssignments = [];
+    if (teacherAssignmentRows) {
+        const rows = Array.from(teacherAssignmentRows.querySelectorAll(".teacher-assignment-row"));
+        for (let i = 0; i < rows.length; i++) {
+            const sec = rows[i].querySelector(".teacher-row-section")?.value;
+            const sub = rows[i].querySelector(".teacher-row-subject")?.value;
+            if (!sec) {
+                alert(`Please select a section for assignment row #${i + 1}.`);
+                return;
+            }
+            if (!sub) {
+                alert(`Please select a subject for assignment row #${i + 1}.`);
+                return;
+            }
+            if (!newAssignments.some(a => a.section === sec && a.subject === sub)) {
+                newAssignments.push({ section: sec, subject: sub });
+            }
+        }
+    } else {
+        const sec = teacherSectionSelect?.value;
+        const sub = teacherSubjectSelect?.value;
+        if (!sec || !sub) {
+            alert("Please select both a section and a subject.");
+            return;
+        }
+        newAssignments.push({ section: sec, subject: sub });
     }
-    if (!subject) {
-        alert("Please select a subject.");
+
+    if (newAssignments.length === 0) {
+        alert("Please add at least one section and subject assignment.");
         return;
     }
 
+    if (submitTeacherBtn) {
+        submitTeacherBtn.disabled = true;
+        submitTeacherBtn.textContent = "Assigning & Sending Email...";
+    }
+
     try {
+        // Generate secure temporary password
         const tempPassword = `QA@${Math.random().toString(36).slice(2, 8)}${Math.floor(10 + Math.random() * 90)}`;
+
+        // Provision Auth login if not already created
         try {
             await createUserWithEmailAndPassword(getProvisioningAuth(), email, tempPassword);
         } catch (authError) {
-            if (authError.code !== "auth/email-already-in-use") throw authError;
+            if (authError.code !== "auth/email-already-in-use") {
+                console.warn("Auth user creation warning:", authError);
+            }
         } finally {
             try { await signOut(getProvisioningAuth()); } catch (_) {}
         }
@@ -3660,54 +3906,81 @@ addTeacherForm?.addEventListener("submit", async function (event) {
             }
         }
 
-        const isDuplicate = existingAssignments.some(
-            a => a.section === section && a.subject === subject
-        );
-        if (isDuplicate) {
-            alert(`${email} is already assigned to ${subject} in ${sectionLabelOf(section)}.`);
-            return;
-        }
-
-        const updatedAssignments = [
-            ...existingAssignments,
-            { section, subject }
-        ];
-        const updatedSections = [...new Set(updatedAssignments.map(a => a.section))];
+        // Merge assignments without duplicate section+subject pairs
+        const mergedAssignments = [...existingAssignments];
+        newAssignments.forEach(na => {
+            if (!mergedAssignments.some(ea => ea.section === na.section && ea.subject === na.subject)) {
+                mergedAssignments.push(na);
+            }
+        });
+        const updatedSections = [...new Set(mergedAssignments.map(a => a.section))];
 
         await setDoc(userRef, {
             ...existingData,
             role: "teacher",
             email,
-            assignments: updatedAssignments,
+            assignments: mergedAssignments,
             sections: updatedSections,
             updatedAt: new Date().toISOString()
         }, { merge: true });
 
+        // Build list for email
+        const originUrl = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, "");
+        const loginUrl = `${originUrl}/login.html`;
+        const teacherPortalUrl = `${originUrl}/teacher.html`;
+        const assignmentListText = mergedAssignments
+            .map(a => `• ${sectionLabelOf(a.section)} ➔ ${a.subject}`)
+            .join("\n");
+
+        let emailSent = false;
+        let emailErrMessage = "";
         try {
             await sendDirectEmail({
                 toEmail: email,
-                subject: `QAttend - Teacher Account Assigned - ${sectionLabelOf(section)}`,
-                message: `You have been assigned as a Teacher.\n\nLogin Email: ${email}\nTemporary Password: ${tempPassword}\nSection: ${sectionLabelOf(section)}\nSubject: ${subject}`,
+                subject: `QAttend Portal - Teacher Login Credentials & Assigned Classes`,
+                message: `Hello Teacher,\n\nYou have been assigned teaching responsibilities on the QAttend Attendance Portal.\n\nHere are your login credentials:\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nPortal Login URL: ${loginUrl}\nTeacher Portal: ${teacherPortalUrl}\nLogin Email: ${email}\nPassword: ${tempPassword}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nYour Assigned Classes & Subjects:\n${assignmentListText}\n\nYou can log in with these credentials to manage student attendance for your assigned classes.\n\nBest regards,\nQAttend Administration`,
                 replyTo: EMAILJS_CONFIG.adminEmail
             });
-        } catch (emailError) {
-            console.warn("Teacher invitation email failed:", emailError);
+            emailSent = true;
+        } catch (emailErr) {
+            console.warn("Direct EmailJS delivery failed:", emailErr);
+            emailErrMessage = emailErr.message || String(emailErr);
         }
 
+        // Also trigger Firebase password reset email so user receives Google's official link
+        try {
+            await sendPasswordResetEmail(auth, email);
+        } catch (resetErr) {
+            console.warn("Password reset email skipped/failed:", resetErr);
+        }
+
+        // Reset form to 1 clean row
         newTeacherEmail.value = "";
-        teacherSubjectSelect.value = "";
+        if (teacherAssignmentRows) {
+            teacherAssignmentRows.innerHTML = "";
+            addTeacherAssignmentRow();
+        }
 
         await loadTeacherList();
         await writeActivityLog(
             "ASSIGN_TEACHER",
-            `${email} · ${sectionLabelOf(section)} · ${subject}`,
-            { section, subject }
+            `${email} · ${newAssignments.map(a => `${sectionLabelOf(a.section)}: ${a.subject}`).join(", ")}`,
+            { email, assignments: newAssignments }
         );
 
-        alert(`${email} is assigned as Teacher for ${subject} in ${sectionLabelOf(section)}.\n\nTemporary password: ${tempPassword}`);
+        const emailNotice = emailSent
+            ? `\n\n✅ Password and login credentials have been sent directly to ${email}!`
+            : `\n\n⚠️ Direct email sending note: ${emailErrMessage}\nPlease share the password manually with the teacher: ${tempPassword}`;
+
+        alert(`Teacher assignments saved successfully!\n\nEmail: ${email}\nPassword: ${tempPassword}${emailNotice}`);
     } catch (error) {
         console.error("Error assigning Teacher:", error);
-        alert("Error assigning Teacher. Make sure the login was created with the exact same lowercase email.");
+        alert("Error assigning Teacher: " + (error.message || error));
+    } finally {
+        if (submitTeacherBtn) {
+            submitTeacherBtn.disabled = false;
+            submitTeacherBtn.textContent = "+ Assign Teacher & Send Password";
+        }
     }
 });
 

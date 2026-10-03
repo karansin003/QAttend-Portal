@@ -221,8 +221,11 @@ Read users/{email}
 - **Live Dashboard**: Total counts for courses, sections, students, subjects, CRs, and pending requests
 - **Manage Users**:
   - **Assign / Manage CR**: Assign a student CR to a specific section; view existing CRs with one-click revocation.
-  - **Assign / Manage Teacher**: Assign teachers to `(section, subject)` pairs. The Subject dropdown automatically populates from active subjects in that section. Supports assigning multiple sections/subjects to the same teacher.
-  - **Remove Teacher Assignment**: Remove individual section+subject pairs; removing the last assignment automatically deletes the teacher document.
+  - **Assign / Manage Teacher (Multi-Section & Multi-Subject Builder)**:
+    - **Dynamic Multi-Assignment Builder**: Assign a single teacher to multiple sections and multiple subjects in one submission (e.g., Section A ➔ Subject 1, Section B ➔ Subject 2) using dynamic `+ Add Another Section & Subject` rows.
+    - **Direct Automated Password & Credentials Email**: Automatically provisions the teacher's account in Firebase Auth and dispatches their login password, portal URL, and complete list of assigned classes directly to their email via EmailJS, plus triggers Firebase's official password link.
+    - **Grouped Teacher Cards**: Visualizes each teacher with distinct `(Section ➔ Subject)` badges, one-click subject removal, quick "+ Add Class" prefill, and instant "Send Password" button.
+    - **Remove Teacher Assignment**: Remove individual section+subject pairs; removing the last assignment cleanly clears the teacher profile.
 - **Manage Courses & Sections**: Complete CRUD operations with Excel batch import.
 - **Request Center**: Approve or reject CR and visitor requests with single or bulk actions.
 - **Activity Logs**: Searchable audit log tracking logins, student edits, CR/Teacher assignments, and attendance saves with color-coded badges.
