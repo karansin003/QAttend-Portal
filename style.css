@@ -2298,7 +2298,8 @@ body.admin-view .admin-sidebar {
    ========================================================= */
 
 body.admin-page-file .login-page,
-body.cr-page-file .login-page {
+body.cr-page-file .login-page,
+body.teacher-page-file .login-page {
     display: none !important;
 }
 
@@ -2313,7 +2314,8 @@ body.admin-page-file .admin-only {
 
 @media (max-width: 768px) {
     body.admin-page-file,
-    body.cr-page-file {
+    body.cr-page-file,
+    body.teacher-page-file {
         overflow-x: hidden;
     }
 }

@@ -617,6 +617,10 @@ if (pageName === "cr") {
     document.querySelectorAll(".admin-only, #adminSidebar, #adminDashboard, #adminCoursesView, #adminSectionsView, #adminPanel, #adminAddSectionModal, #courseModal, #addStudentsModal, #addSubjectsModal, #approveConfirmModal, #approveSuccessModal, #adminRequestTabs, #bulkRequestToolbar, #adminRequestsTableWrapper").forEach(element => element.remove());
 }
 
+if (pageName === "teacher") {
+    document.querySelectorAll(".admin-only, .cr-only, #adminSidebar, #adminDashboard, #adminCoursesView, #adminSectionsView, #adminPanel, #adminAddSectionModal, #courseModal, #addStudentsModal, #addSubjectsModal, #approveConfirmModal, #approveSuccessModal, #adminRequestTabs, #bulkRequestToolbar, #adminRequestsTableWrapper, #crSendRequestBtn, #requestModal").forEach(element => element.remove());
+}
+
 
 const loginForm =
     document.getElementById(
@@ -1366,7 +1370,7 @@ onAuthStateChanged(
             const earlyPage =
                 (window.location.pathname.split("/").pop() || "login.html").toLowerCase();
 
-            if (earlyPage === "admin.html" || earlyPage === "cr.html") {
+            if (earlyPage === "admin.html" || earlyPage === "cr.html" || earlyPage === "teacher.html") {
                 window.location.replace("login.html");
                 return;
             }
@@ -1383,7 +1387,8 @@ onAuthStateChanged(
 
             document.body.classList.remove(
                 "admin-view",
-                "cr-view"
+                "cr-view",
+                "teacher-view"
             );
 
 
@@ -1420,7 +1425,12 @@ onAuthStateChanged(
             } catch (_) {}
 
             if (cachedProfile && (earlyPage === "login.html" || earlyPage === "index.html" || earlyPage === "")) {
-                window.location.replace(cachedProfile.role === "admin" ? "admin.html" : "cr.html");
+                const target = cachedProfile.role === "admin"
+                    ? "admin.html"
+                    : cachedProfile.role === "teacher"
+                    ? "teacher.html"
+                    : "cr.html";
+                window.location.replace(target);
                 return;
             }
 
@@ -1474,27 +1484,37 @@ onAuthStateChanged(
                 }));
             } catch (_) {}
 
-            // Separate page routing: login.html -> admin.html / cr.html.
-            // admin.html and cr.html also reject the wrong role.
+            // Separate page routing: login.html -> admin.html / cr.html / teacher.html.
+            // Each page also rejects the wrong role.
             const currentPage =
                 (window.location.pathname.split("/").pop() || "login.html").toLowerCase();
 
             if (currentPage === "login.html" || currentPage === "index.html" || currentPage === "") {
-                window.location.replace(profile.role === "admin" ? "admin.html" : "cr.html");
+                const target = profile.role === "admin"
+                    ? "admin.html"
+                    : profile.role === "teacher"
+                    ? "teacher.html"
+                    : "cr.html";
+                window.location.replace(target);
                 return;
             }
 
             if (currentPage === "admin.html" && profile.role !== "admin") {
-                window.location.replace("cr.html");
+                window.location.replace(profile.role === "teacher" ? "teacher.html" : "cr.html");
                 return;
             }
 
-            if (currentPage === "cr.html" && profile.role === "admin") {
-                window.location.replace("admin.html");
+            if (currentPage === "cr.html" && profile.role !== "cr") {
+                window.location.replace(profile.role === "admin" ? "admin.html" : "teacher.html");
                 return;
             }
 
-            if (currentPage === "cr.html" && profile.role === "teacher") {
+            if (currentPage === "teacher.html" && profile.role !== "teacher") {
+                window.location.replace(profile.role === "admin" ? "admin.html" : "cr.html");
+                return;
+            }
+
+            if (currentPage === "teacher.html" || profile.role === "teacher") {
                 document.title = "QAttend | Teacher Portal";
             }
 
@@ -6522,7 +6542,7 @@ window.addEventListener("qattend:network-restored", () => {
                 if (!adminPanel?.classList.contains("hidden") && typeof refreshManageData === "function") {
                     void refreshManageData();
                 }
-            } else if (currentPage === "cr.html") {
+            } else if (currentPage === "cr.html" || currentPage === "teacher.html") {
                 if (typeof loadStudents === "function") void loadStudents();
                 if (typeof loadSubjects === "function") void loadSubjects();
                 if (typeof loadRecords === "function") void loadRecords();

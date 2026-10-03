@@ -1,10 +1,11 @@
-const CACHE_VERSION = "qattend-v1";
+const CACHE_VERSION = "qattend-v2";
 const APP_SHELL = [
     "./",
     "./index.html",
     "./login.html",
     "./admin.html",
     "./cr.html",
+    "./teacher.html",
     "./style.css",
     "./script.js",
     "./logo.png"
