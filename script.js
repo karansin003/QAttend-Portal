@@ -794,6 +794,21 @@ const crManageList =
         "crManageList"
     );
 
+const addTeacherForm = document.getElementById("addTeacherForm");
+const newTeacherEmail = document.getElementById("newTeacherEmail");
+const teacherSectionSelect = document.getElementById("teacherSectionSelect");
+const teacherSubjectSelect = document.getElementById("teacherSubjectSelect");
+const teacherManageList = document.getElementById("teacherManageList");
+
+const teacherAssignmentBox = document.getElementById("teacherAssignmentBox");
+const teacherAssignmentSelect = document.getElementById("teacherAssignmentSelect");
+const subjectSelectBox = document.getElementById("subjectSelectBox");
+const teacherSubjectBox = document.getElementById("teacherSubjectBox");
+const teacherSubjectDisplay = document.getElementById("teacherSubjectDisplay");
+
+let teacherAssignments = [];
+let activeTeacherAssignment = null;
+let activeTeacherSubject = "";
 
 const studentList =
     document.getElementById(
@@ -880,29 +895,34 @@ if (attendanceDate) {
 
 
 // PASSWORD SHOW / HIDE
+const EYE_OPEN_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
+const EYE_CLOSED_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>`;
+
+if (togglePassword && passwordInput) {
+    togglePassword.innerHTML = passwordInput.type === "password" ? EYE_OPEN_SVG : EYE_CLOSED_SVG;
+}
 
 togglePassword?.addEventListener(
     "click",
     function () {
-
+        if (!passwordInput) return;
         if (
             passwordInput.type ===
             "password"
         ) {
-
             passwordInput.type =
                 "text";
-
-            togglePassword.textContent =
-                "🙈";
-
+            togglePassword.innerHTML =
+                EYE_CLOSED_SVG;
+            togglePassword.setAttribute("aria-label", "Hide password");
+            togglePassword.setAttribute("title", "Hide password");
         } else {
-
             passwordInput.type =
                 "password";
-
-            togglePassword.textContent =
-                "👁";
+            togglePassword.innerHTML =
+                EYE_OPEN_SVG;
+            togglePassword.setAttribute("aria-label", "Show password");
+            togglePassword.setAttribute("title", "Show password");
         }
     }
 );
@@ -1437,6 +1457,15 @@ onAuthStateChanged(
                 profile = profileSnap.data();
             }
 
+            if (profile?.role === "teacher" && (!Array.isArray(profile.assignments) || profile.assignments.length === 0)) {
+                alert(
+                    "Your account is not set up yet. Ask the Admin to assign you a role."
+                );
+                try { localStorage.removeItem("qattend-profile"); } catch (_) {}
+                await signOut(auth);
+                return;
+            }
+
             try {
                 localStorage.setItem("qattend-profile", JSON.stringify({
                     email: userEmailKey,
@@ -1463,6 +1492,10 @@ onAuthStateChanged(
             if (currentPage === "cr.html" && profile.role === "admin") {
                 window.location.replace("admin.html");
                 return;
+            }
+
+            if (currentPage === "cr.html" && profile.role === "teacher") {
+                document.title = "QAttend | Teacher Portal";
             }
 
             // Record the successful login. Logging failures must never block the app.
@@ -1520,7 +1553,9 @@ onAuthStateChanged(
             roleBadge.textContent =
                 profile.role === "admin"
                     ? "ADMIN"
-                    : "CLASS REPRESENTATIVE";
+                    : profile.role === "teacher"
+                        ? "TEACHER"
+                        : "CLASS REPRESENTATIVE";
         }
 
         const drawerRequestsTitle =
@@ -1550,14 +1585,17 @@ onAuthStateChanged(
 
         document.body.classList.remove(
             "admin-view",
-            "cr-view"
+            "cr-view",
+            "teacher-view"
         );
 
-        document.body.classList.add(
-            isAdmin
-                ? "admin-view"
-                : "cr-view"
-        );
+        if (isAdmin) {
+            document.body.classList.add("admin-view");
+        } else if (profile.role === "teacher") {
+            document.body.classList.add("cr-view", "teacher-view");
+        } else {
+            document.body.classList.add("cr-view");
+        }
 
 
         adminOnlyEls.forEach(
@@ -1587,12 +1625,43 @@ onAuthStateChanged(
                     await ensureLegacyBtechCourse();
                     await populateSectionDropdowns();
                     await populateAttendanceCourseDropdown();
+                    await loadTeacherList();
                 } catch (migrationError) {
                     console.warn("Could not prepare admin course data:", migrationError);
                 }
             })();
 
+        } else if (profile.role === "teacher") {
+
+            document.title = "QAttend | Teacher Portal";
+            teacherAssignments = Array.isArray(profile.assignments) ? profile.assignments : [];
+
+            if (!teacherAssignments.length) {
+                alert("Your account has no assigned classes. Ask the Admin to assign you a section and subject.");
+                await signOut(auth);
+                return;
+            }
+
+            if (teacherAssignments.length > 1) {
+                if (teacherAssignmentBox) teacherAssignmentBox.classList.remove("hidden");
+                if (teacherAssignmentSelect) {
+                    teacherAssignmentSelect.innerHTML = teacherAssignments.map((a, idx) =>
+                        `<option value="${idx}">${escapeHtml(sectionLabelOf(a.section))} — ${escapeHtml(a.subject)}</option>`
+                    ).join("");
+                    teacherAssignmentSelect.value = "0";
+                }
+            } else {
+                if (teacherAssignmentBox) teacherAssignmentBox.classList.add("hidden");
+            }
+
+            showAttendanceView();
+            await selectTeacherAssignment(teacherAssignments[0]);
+
         } else {
+
+            subjectSelectBox?.classList.remove("hidden");
+            teacherSubjectBox?.classList.add("hidden");
+            teacherAssignmentBox?.classList.add("hidden");
 
             showAttendanceView();
 
@@ -1632,6 +1701,62 @@ onAuthStateChanged(
 );
 
 
+// TEACHER ROLE HELPERS
+
+function getActiveTeacherSubject() {
+    if (activeTeacherSubject) return activeTeacherSubject;
+    if (activeTeacherAssignment?.subject) return activeTeacherAssignment.subject;
+    if (profile?.role === "teacher" && Array.isArray(profile.assignments) && activeSection) {
+        const found = profile.assignments.find(a => a.section === activeSection);
+        if (found) return found.subject;
+    }
+    return "";
+}
+
+async function selectTeacherAssignment(assignment) {
+    if (!assignment) return;
+    activeTeacherAssignment = assignment;
+    activeSection = assignment.section;
+    activeTeacherSubject = assignment.subject;
+
+    // Show locked subject display, hide subject dropdown
+    subjectSelectBox?.classList.add("hidden");
+    teacherSubjectBox?.classList.remove("hidden");
+    if (teacherSubjectDisplay) {
+        teacherSubjectDisplay.textContent = assignment.subject;
+    }
+
+    // Keep subjectSelect in sync so existing attendance, download, share functions work unmodified
+    if (subjectSelect) {
+        subjectSelect.innerHTML = `<option value="${escapeHtml(assignment.subject)}">${escapeHtml(assignment.subject)}</option>`;
+        subjectSelect.value = assignment.subject;
+    }
+
+    if (welcomeTitle) {
+        welcomeTitle.textContent = `${sectionLabelOf(activeSection)} Attendance Portal`;
+    }
+    if (welcomeSubtitle) {
+        welcomeSubtitle.textContent = `Mark, save and download attendance for ${assignment.subject}.`;
+    }
+    if (sectionLabel) {
+        sectionLabel.textContent = sectionLabelOf(activeSection);
+    }
+
+    workArea?.classList.remove("hidden");
+    noSectionMessage?.classList.add("hidden");
+
+    await Promise.all([loadStudents(), loadRecords()]);
+    syncAttendanceGate();
+}
+
+teacherAssignmentSelect?.addEventListener("change", async (e) => {
+    const idx = parseInt(e.target.value, 10);
+    if (!isNaN(idx) && teacherAssignments[idx]) {
+        await selectTeacherAssignment(teacherAssignments[idx]);
+    }
+});
+
+
 // SECTION DROPDOWNS
 
 async function populateSectionDropdowns() {
@@ -1660,14 +1785,54 @@ async function populateSectionDropdowns() {
         manageSection.innerHTML=`<option value="">-- Select Section --</option>`;
         manageSection.disabled = !manageCourseSelect?.value;
     }
+    if (teacherSectionSelect) {
+        teacherSectionSelect.innerHTML=`<option value="">-- Select Section --</option>`;
+    }
 
     allSections.forEach(section=>{
         if (sectionSelect) { const option1=document.createElement("option");option1.value=section.id;option1.textContent=section.label;sectionSelect.appendChild(option1); }
         if(newCrSection){const option2=document.createElement("option");option2.value=section.id;option2.textContent=section.label;newCrSection.appendChild(option2);}
         if(manageSection){const option3=document.createElement("option");option3.value=section.id;option3.textContent=section.label;manageSection.appendChild(option3);}
+        if(teacherSectionSelect){const option4=document.createElement("option");option4.value=section.id;option4.textContent=section.label;teacherSectionSelect.appendChild(option4);}
     });
     if (manageCourseSelect?.value) filterManageSections(manageCourseSelect.value);
 }
+
+teacherSectionSelect?.addEventListener("change", async () => {
+    const sec = teacherSectionSelect.value;
+    if (!teacherSubjectSelect) return;
+    if (!sec) {
+        teacherSubjectSelect.innerHTML = `<option value="">-- Select Section First --</option>`;
+        teacherSubjectSelect.disabled = true;
+        return;
+    }
+    teacherSubjectSelect.innerHTML = `<option value="">Loading subjects...</option>`;
+    teacherSubjectSelect.disabled = true;
+    try {
+        const snap = await getDocs(
+            query(collection(db, "sections", sec, "subjects"), orderBy("name"))
+        );
+        teacherSubjectSelect.innerHTML = `<option value="">-- Select Subject --</option>`;
+        if (snap.empty) {
+            teacherSubjectSelect.innerHTML = `<option value="">-- No subjects in this section --</option>`;
+            teacherSubjectSelect.disabled = true;
+            return;
+        }
+        snap.docs.forEach(d => {
+            const data = d.data() || {};
+            const opt = document.createElement("option");
+            const name = data.name || d.id;
+            opt.value = name;
+            opt.textContent = name;
+            teacherSubjectSelect.appendChild(opt);
+        });
+        teacherSubjectSelect.disabled = false;
+    } catch (err) {
+        console.error("Could not load subjects for teacher assignment:", err);
+        teacherSubjectSelect.innerHTML = `<option value="">Error loading subjects</option>`;
+        teacherSubjectSelect.disabled = true;
+    }
+});
 
 async function populateAttendanceCourseDropdown() {
     if (!attendanceCourseSelect) return;
@@ -2771,6 +2936,17 @@ async function loadSubjects() {
         return;
     }
 
+    if (profile?.role === "teacher") {
+        const teacherSub = getActiveTeacherSubject();
+        if (teacherSub && subjectSelect) {
+            subjectSelect.innerHTML = `<option value="${escapeHtml(teacherSub)}">${escapeHtml(teacherSub)}</option>`;
+            subjectSelect.value = teacherSub;
+            if (teacherSubjectDisplay) teacherSubjectDisplay.textContent = teacherSub;
+        }
+        syncAttendanceGate();
+        return;
+    }
+
 
     try {
 
@@ -3172,6 +3348,7 @@ async function refreshManageData() {
         if (message) message.textContent = "Please select a section to manage its data.";
         if (subjectContainer) subjectContainer.innerHTML = "";
         if (crContainer) crContainer.innerHTML = "";
+        void loadTeacherList();
         return;
     }
 
@@ -3181,7 +3358,8 @@ async function refreshManageData() {
 
     await Promise.all([
         loadManagementSubjects(section),
-        loadCrListForManagementSection()
+        loadCrListForManagementSection(),
+        loadTeacherList()
     ]);
 }
 
@@ -3353,6 +3531,207 @@ async function deleteCr(
         alert(
             "Error removing CR."
         );
+    }
+}
+
+
+// ASSIGN / MANAGE TEACHER
+
+async function loadTeacherList() {
+    const container = document.getElementById("teacherManageList");
+    if (!container || profile?.role !== "admin") return;
+
+    container.innerHTML = `<p class="empty-record">Loading teachers...</p>`;
+
+    try {
+        const snapshot = await getDocs(collection(db, "users"));
+        const rows = [];
+        snapshot.docs.forEach(d => {
+            const data = d.data() || {};
+            if (data.role === "teacher") {
+                const email = String(d.id || "").toLowerCase();
+                const assignments = Array.isArray(data.assignments) ? data.assignments : [];
+                assignments.forEach(a => {
+                    rows.push({
+                        email,
+                        section: a.section,
+                        subject: a.subject
+                    });
+                });
+            }
+        });
+
+        rows.sort((a, b) => a.email.localeCompare(b.email) || a.section.localeCompare(b.section) || a.subject.localeCompare(b.subject));
+
+        container.innerHTML = "";
+        if (!rows.length) {
+            container.innerHTML = `<p class="empty-record">No Teachers assigned yet.</p>`;
+            return;
+        }
+
+        rows.forEach(t => {
+            const row = document.createElement("div");
+            row.className = "chip-row";
+            row.innerHTML = `
+                <span>${escapeHtml(t.email)} — ${escapeHtml(sectionLabelOf(t.section))} (${escapeHtml(t.subject)})</span>
+                <button type="button" data-email="${escapeHtml(t.email)}" data-section="${escapeHtml(t.section)}" data-subject="${escapeHtml(t.subject)}">Remove</button>
+            `;
+            container.appendChild(row);
+        });
+
+        container.querySelectorAll("button[data-email]").forEach(button => {
+            button.addEventListener("click", () => deleteTeacherAssignment(
+                button.dataset.email,
+                button.dataset.section,
+                button.dataset.subject
+            ));
+        });
+    } catch (error) {
+        console.error("Could not load Teacher list:", error);
+        container.innerHTML = `<p class="empty-record">Could not load Teachers.</p>`;
+    }
+}
+
+addTeacherForm?.addEventListener("submit", async function (event) {
+    event.preventDefault();
+
+    if (!profile || profile.role !== "admin") return;
+
+    const email = newTeacherEmail?.value.trim().toLowerCase();
+    const section = teacherSectionSelect?.value;
+    const subject = teacherSubjectSelect?.value;
+
+    if (!email) {
+        alert("Please enter the teacher's login email.");
+        return;
+    }
+    if (!section) {
+        alert("Please select a section.");
+        return;
+    }
+    if (!subject) {
+        alert("Please select a subject.");
+        return;
+    }
+
+    try {
+        const tempPassword = `QA@${Math.random().toString(36).slice(2, 8)}${Math.floor(10 + Math.random() * 90)}`;
+        try {
+            await createUserWithEmailAndPassword(getProvisioningAuth(), email, tempPassword);
+        } catch (authError) {
+            if (authError.code !== "auth/email-already-in-use") throw authError;
+        } finally {
+            try { await signOut(getProvisioningAuth()); } catch (_) {}
+        }
+
+        const userRef = doc(db, "users", email);
+        const userSnap = await getDoc(userRef);
+        let existingData = {};
+        let existingAssignments = [];
+
+        if (userSnap.exists()) {
+            existingData = userSnap.data() || {};
+            if (existingData.role && existingData.role !== "teacher") {
+                alert(`User ${email} already has the role "${existingData.role}". Please remove their existing role first if you wish to assign them as a Teacher.`);
+                return;
+            }
+            if (Array.isArray(existingData.assignments)) {
+                existingAssignments = existingData.assignments;
+            }
+        }
+
+        const isDuplicate = existingAssignments.some(
+            a => a.section === section && a.subject === subject
+        );
+        if (isDuplicate) {
+            alert(`${email} is already assigned to ${subject} in ${sectionLabelOf(section)}.`);
+            return;
+        }
+
+        const updatedAssignments = [
+            ...existingAssignments,
+            { section, subject }
+        ];
+        const updatedSections = [...new Set(updatedAssignments.map(a => a.section))];
+
+        await setDoc(userRef, {
+            ...existingData,
+            role: "teacher",
+            email,
+            assignments: updatedAssignments,
+            sections: updatedSections,
+            updatedAt: new Date().toISOString()
+        }, { merge: true });
+
+        try {
+            await sendDirectEmail({
+                toEmail: email,
+                subject: `QAttend - Teacher Account Assigned - ${sectionLabelOf(section)}`,
+                message: `You have been assigned as a Teacher.\n\nLogin Email: ${email}\nTemporary Password: ${tempPassword}\nSection: ${sectionLabelOf(section)}\nSubject: ${subject}`,
+                replyTo: EMAILJS_CONFIG.adminEmail
+            });
+        } catch (emailError) {
+            console.warn("Teacher invitation email failed:", emailError);
+        }
+
+        newTeacherEmail.value = "";
+        teacherSubjectSelect.value = "";
+
+        await loadTeacherList();
+        await writeActivityLog(
+            "ASSIGN_TEACHER",
+            `${email} · ${sectionLabelOf(section)} · ${subject}`,
+            { section, subject }
+        );
+
+        alert(`${email} is assigned as Teacher for ${subject} in ${sectionLabelOf(section)}.\n\nTemporary password: ${tempPassword}`);
+    } catch (error) {
+        console.error("Error assigning Teacher:", error);
+        alert("Error assigning Teacher. Make sure the login was created with the exact same lowercase email.");
+    }
+});
+
+async function deleteTeacherAssignment(email, section, subject) {
+    if (!profile || profile.role !== "admin") return;
+
+    const confirmDelete = confirm(
+        `Remove assignment (${sectionLabelOf(section)} — ${subject}) for ${email}? (Their login will still exist in Firebase Console.)`
+    );
+    if (!confirmDelete) return;
+
+    try {
+        const userRef = doc(db, "users", email);
+        const userSnap = await getDoc(userRef);
+        if (!userSnap.exists()) {
+            await loadTeacherList();
+            return;
+        }
+
+        const data = userSnap.data() || {};
+        const assignments = Array.isArray(data.assignments) ? data.assignments : [];
+        const remaining = assignments.filter(
+            a => !(a.section === section && a.subject === subject)
+        );
+
+        if (remaining.length === 0) {
+            await deleteDoc(userRef);
+            await writeActivityLog("REMOVE_TEACHER", `${email} (all assignments removed)`);
+            alert(`Removed last assignment. Teacher profile for ${email} has been deleted.`);
+        } else {
+            const remainingSections = [...new Set(remaining.map(a => a.section))];
+            await updateDoc(userRef, {
+                assignments: remaining,
+                sections: remainingSections,
+                updatedAt: new Date().toISOString()
+            });
+            await writeActivityLog("REMOVE_TEACHER_ASSIGNMENT", `${email} · ${sectionLabelOf(section)} · ${subject}`);
+            alert(`Removed assignment ${sectionLabelOf(section)} — ${subject} for ${email}.`);
+        }
+
+        await loadTeacherList();
+    } catch (error) {
+        console.error("Error removing teacher assignment:", error);
+        alert("Error removing teacher assignment.");
     }
 }
 
@@ -3744,21 +4123,50 @@ async function loadRecords() {
             );
 
 
-        const q =
-            query(
+        let docs = [];
+        const teacherSubject = (profile?.role === "teacher") ? getActiveTeacherSubject() : "";
 
-                attendanceCollection,
+        if (teacherSubject) {
+            try {
+                const qTeacher = query(
+                    attendanceCollection,
+                    where("subject", "==", teacherSubject),
+                    orderBy("updatedAt", "desc")
+                );
+                const snapshot = await getDocs(qTeacher);
+                docs = snapshot.docs;
+            } catch (err) {
+                console.warn("loadRecords: indexed query failed, falling back to unindexed query:", err);
+                const fallbackQ = query(
+                    attendanceCollection,
+                    where("subject", "==", teacherSubject)
+                );
+                const snapshot = await getDocs(fallbackQ);
+                docs = snapshot.docs;
+            }
+            docs = docs.filter(d => d.data().subject === teacherSubject);
+            docs.sort((a, b) => {
+                const timeA = a.data().updatedAt?.seconds || (a.data().updatedAt ? new Date(a.data().updatedAt).getTime() : 0);
+                const timeB = b.data().updatedAt?.seconds || (b.data().updatedAt ? new Date(b.data().updatedAt).getTime() : 0);
+                return timeB - timeA;
+            });
+        } else {
+            const q =
+                query(
 
-                orderBy(
-                    "updatedAt",
-                    "desc"
-                )
+                    attendanceCollection,
 
-            );
+                    orderBy(
+                        "updatedAt",
+                        "desc"
+                    )
 
+                );
 
-        const snapshot =
-            await getDocs(q);
+            const snapshot =
+                await getDocs(q);
+            docs = snapshot.docs;
+        }
 
 
         recordsList.innerHTML =
@@ -3766,7 +4174,7 @@ async function loadRecords() {
 
 
         if (
-            snapshot.empty
+            docs.length === 0
         ) {
 
             recordsList.innerHTML =
@@ -3779,7 +4187,7 @@ async function loadRecords() {
         }
 
 
-        snapshot.forEach(
+        docs.forEach(
             function (
                 documentSnapshot
             ) {
@@ -4977,6 +5385,7 @@ function showManageData(){
         subjectManageList.innerHTML = "";
         crManageList.innerHTML = "";
         if(manageSectionMessage) manageSectionMessage.textContent = "Please select a section to manage its data.";
+        void loadTeacherList();
     }
 }
 
@@ -5001,7 +5410,7 @@ function filterManageSections(courseId) {
 
 
 function showPreviousRecords(){
-    if(profile?.role !== "cr") return;
+    if(profile?.role !== "cr" && profile?.role !== "teacher") return;
     document.body.classList.add("records-only-view");
     requestsPanel?.classList.add("hidden");
     adminDashboard?.classList.add("hidden");
@@ -5068,7 +5477,7 @@ document.querySelectorAll(".drawer-item").forEach(btn => {
         if(feature === "attendance") showAttendanceView();
         if(feature === "requests") showRequestsPanel();
         if(feature === "manage" && profile?.role === "admin") showManageData();
-        if(feature === "records" && profile?.role === "cr") showPreviousRecords();
+        if(feature === "records" && (profile?.role === "cr" || profile?.role === "teacher")) showPreviousRecords();
         if(feature === "send-request" && profile?.role === "cr") openRequestModal();
         if(feature === "support") openSupport();
         if(feature === "logout") await logoutFromApp();
@@ -5091,6 +5500,9 @@ function friendlyLogAction(action){
         DELETE_SUBJECT:"Subject deleted",
         ASSIGN_CR:"CR assigned",
         REMOVE_CR:"CR removed",
+        ASSIGN_TEACHER:"Teacher assigned",
+        REMOVE_TEACHER:"Teacher removed",
+        REMOVE_TEACHER_ASSIGNMENT:"Teacher assignment removed",
         SAVE_ATTENDANCE:"Attendance saved",
         DELETE_ATTENDANCE:"Attendance record deleted",
         REQUEST_SUBMITTED:"Request submitted",
@@ -5101,7 +5513,7 @@ function friendlyLogAction(action){
 }
 
 function logBadgeClass(action){
-    if(action.includes("DELETE") || action.includes("REJECT")) return "danger";
+    if(action.includes("DELETE") || action.includes("REJECT") || action.includes("REMOVE")) return "danger";
     if(action.includes("REQUEST") || action.includes("ASSIGN")) return "warning";
     if(action === "LOGIN" || action.includes("SAVE") || action.includes("ADD") || action.includes("APPROVED")) return "success";
     return "";

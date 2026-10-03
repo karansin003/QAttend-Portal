@@ -106,7 +106,7 @@ body {
 
 .toggle-password {
     position: absolute;
-    right: 10px;
+    right: 12px;
     top: 50%;
     transform: translateY(-50%);
     border: none;
@@ -116,7 +116,22 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 0;
+    padding: 4px;
+    color: var(--gray);
+    border-radius: 6px;
+    transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.toggle-password:hover {
+    color: var(--black);
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.toggle-password svg {
+    width: 20px;
+    height: 20px;
+    display: block;
+    stroke: currentColor;
 }
 
 .toggle-password img {
@@ -1108,10 +1123,12 @@ body.cr-view .cr-drawer-only{display:grid!important}
 
 @media (max-width:768px){
     body.cr-view .role-badge{font-size:0;min-width:31px;padding:3px 8px}
-    body.cr-view .role-badge::after{content:"CR";font-size:10px;line-height:1.4}
+    body.cr-view:not(.teacher-view) .role-badge::after{content:"CR";font-size:10px;line-height:1.4}
+    body.teacher-view .role-badge::after{content:"TEACHER";font-size:10px;line-height:1.4}
     .top-header #logoutBtn{display:none}
     .feature-drawer{width:min(360px,94vw)}
 }
+body.teacher-view #crSendRequestBtn{display:none!important}
 
 /* FINAL ROLE / LAYOUT FIXES */
 .app-page{
@@ -1279,18 +1296,53 @@ body.cr-view .cr-drawer-only{display:grid!important}
     grid-template-columns:repeat(2,minmax(0,1fr));
     gap:16px;
 }
+.manage-roles-grid{
+    width:min(780px,100%);
+    margin:16px auto 0;
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:16px;
+}
 .manage-cr-wrap{
     width:min(390px,100%);
     margin:16px auto 0;
 }
-.manage-cr-card{width:100%;}
+.manage-cr-card, .manage-teacher-card{width:100%;}
+.manage-teacher-card .select-box-stacked{
+    width:100%;
+    margin-bottom:10px;
+}
+.manage-teacher-card .select-box-stacked label{
+    font-size:11px;
+    font-weight:700;
+    color:var(--gray);
+    margin-bottom:4px;
+    display:block;
+}
+.manage-teacher-card .select-box-stacked select{
+    width:100%;
+}
+.locked-subject-display{
+    min-height:42px;
+    display:flex;
+    align-items:center;
+    padding:8px 14px;
+    background:#f8fafc;
+    border:1px solid var(--border);
+    border-radius:10px;
+    font-size:13.5px;
+    font-weight:700;
+    color:var(--text);
+    box-sizing:border-box;
+}
 
 /* Admin attendance: records remain visible after section selection, while
    the student/attendance controls wait for subject selection. */
 #workArea > .records-section.hidden{display:none !important;}
 
 @media (max-width:768px){
-    .manage-primary-grid{
+    .manage-primary-grid,
+    .manage-roles-grid{
         grid-template-columns:1fr;
         width:100%;
     }

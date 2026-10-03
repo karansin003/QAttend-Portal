@@ -50,7 +50,9 @@
                     <label>Password</label>
                     <div class="password-wrapper">
                         <input type="password" id="password" placeholder="Enter your password" required>
-                        <button type="button" id="togglePassword" class="toggle-password" aria-label="Show password">👁</button>
+                        <button type="button" id="togglePassword" class="toggle-password" aria-label="Show password" title="Show password">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                        </button>
                     </div>
                 </div>
 
@@ -671,16 +673,30 @@
                         </select>
                     </div>
 
+                    <!-- TEACHER ONLY (when 2+ assignments): picker for assigned section + subject -->
+                    <div class="select-box hidden" id="teacherAssignmentBox">
+                        <label for="teacherAssignmentSelect">📋 Assigned Class &amp; Subject</label>
+                        <select id="teacherAssignmentSelect">
+                            <option value="">-- Select Assignment --</option>
+                        </select>
+                    </div>
+
                     <div class="select-box">
                         <label>📅 Select Date</label>
                         <input type="date" id="attendanceDate">
                     </div>
 
-                    <div class="select-box">
+                    <div class="select-box" id="subjectSelectBox">
                         <label>📚 Select Subject</label>
                         <select id="subjectSelect">
                             <option value="">-- Select Subject --</option>
                         </select>
+                    </div>
+
+                    <!-- TEACHER ONLY: locked subject text display -->
+                    <div class="select-box hidden" id="teacherSubjectBox">
+                        <label>📚 Subject</label>
+                        <div id="teacherSubjectDisplay" class="locked-subject-display">--</div>
                     </div>
 
                 </div>
@@ -727,7 +743,7 @@
 
                 </div>
 
-                <div class="manage-cr-wrap">
+                <div class="manage-roles-grid">
                     <div class="admin-card manage-cr-card">
                         <h3>Assign / Manage CR</h3>
                         <form id="addCrForm">
@@ -736,6 +752,28 @@
                         </form>
                         <p class="admin-hint">The selected section above will be assigned to this CR. Create the Firebase Auth login first.</p>
                         <div id="crManageList" class="cr-list"></div>
+                    </div>
+
+                    <div class="admin-card manage-teacher-card">
+                        <h3>Assign / Manage Teacher</h3>
+                        <form id="addTeacherForm">
+                            <input type="email" id="newTeacherEmail" placeholder="Teacher's login email" required>
+                            <div class="select-box select-box-stacked">
+                                <label for="teacherSectionSelect">🏫 Select Section</label>
+                                <select id="teacherSectionSelect" required>
+                                    <option value="">-- Select Section --</option>
+                                </select>
+                            </div>
+                            <div class="select-box select-box-stacked">
+                                <label for="teacherSubjectSelect">📚 Select Subject</label>
+                                <select id="teacherSubjectSelect" required disabled>
+                                    <option value="">-- Select Section First --</option>
+                                </select>
+                            </div>
+                            <button type="submit">+ Assign Teacher</button>
+                        </form>
+                        <p class="admin-hint">Assign a section and subject. Create the Firebase Auth login first.</p>
+                        <div id="teacherManageList" class="cr-list"></div>
                     </div>
                 </div>
 

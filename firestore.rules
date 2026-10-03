@@ -18,8 +18,41 @@ service cloud.firestore {
       return isSignedIn() && myProfile().role == "cr";
     }
 
+    function isTeacher() {
+      return isSignedIn() && myProfile().role == "teacher";
+    }
+
     function mySection() {
       return myProfile().section;
+    }
+
+    function myTeacherAssignments() {
+      return myProfile().assignments;
+    }
+
+    // True if `sectionId`+`subjectName` is one of this teacher's assignments.
+    function isAssignedTo(sectionId, subjectName) {
+      return myTeacherAssignments().hasAny([{ "section": sectionId, "subject": subjectName }]);
+    }
+
+    function myTeacherSections() {
+      return myProfile().sections;
+    }
+
+    function isAssignedToSection(sectionId) {
+      return isTeacher() && (
+        (myProfile().keys().hasAny(["sections"]) && myTeacherSections().hasAny([sectionId])) ||
+        (myTeacherAssignments().size() > 0 && myTeacherAssignments()[0].section == sectionId) ||
+        (myTeacherAssignments().size() > 1 && myTeacherAssignments()[1].section == sectionId) ||
+        (myTeacherAssignments().size() > 2 && myTeacherAssignments()[2].section == sectionId) ||
+        (myTeacherAssignments().size() > 3 && myTeacherAssignments()[3].section == sectionId) ||
+        (myTeacherAssignments().size() > 4 && myTeacherAssignments()[4].section == sectionId) ||
+        (myTeacherAssignments().size() > 5 && myTeacherAssignments()[5].section == sectionId) ||
+        (myTeacherAssignments().size() > 6 && myTeacherAssignments()[6].section == sectionId) ||
+        (myTeacherAssignments().size() > 7 && myTeacherAssignments()[7].section == sectionId) ||
+        (myTeacherAssignments().size() > 8 && myTeacherAssignments()[8].section == sectionId) ||
+        (myTeacherAssignments().size() > 9 && myTeacherAssignments()[9].section == sectionId)
+      );
     }
 
     // USER / ROLE PROFILES
@@ -42,23 +75,25 @@ service cloud.firestore {
       allow write: if isAdmin();
 
       // SUBJECTS
-      // Admin: full access. CR: read-only in assigned section.
+      // Admin: full access. CR: read-only in assigned section. Teacher: read-only in assigned section.
       match /subjects/{subjectId} {
-        allow read: if isAdmin() || (isCR() && mySection() == sectionId);
+        allow read: if isAdmin() || (isCR() && mySection() == sectionId) || isAssignedToSection(sectionId);
         allow write: if isAdmin();
       }
 
       // STUDENTS
-      // Admin: full access. CR: read-only in assigned section.
+      // Admin: full access. CR: read-only in assigned section. Teacher: read-only in assigned section.
       match /students/{studentId} {
-        allow read: if isAdmin() || (isCR() && mySection() == sectionId);
+        allow read: if isAdmin() || (isCR() && mySection() == sectionId) || isAssignedToSection(sectionId);
         allow write: if isAdmin();
       }
 
       // ATTENDANCE
-      // Admin: all sections. CR: assigned section only.
+      // Admin: all sections. CR: assigned section only. Teacher: assigned section and subject only.
       match /attendance/{recordId} {
-        allow read, write: if isAdmin() || (isCR() && mySection() == sectionId);
+        allow read: if isAdmin() || (isCR() && mySection() == sectionId) || isAssignedToSection(sectionId);
+        allow create, update: if isAdmin() || (isCR() && mySection() == sectionId) || (isTeacher() && isAssignedTo(sectionId, request.resource.data.subject));
+        allow delete: if isAdmin() || (isCR() && mySection() == sectionId) || (isTeacher() && isAssignedTo(sectionId, resource.data.subject));
       }
     }
 
