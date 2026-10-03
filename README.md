@@ -6,10 +6,11 @@
 
 ### Attendance Management System — Quantum University
 
-A Firebase-powered attendance portal with dedicated **Login**, **Admin**, and **Class Representative (CR)** interfaces.
+A Firebase-powered attendance portal with dedicated **Login**, **Admin**, **Class Representative (CR)**, and **Teacher** interfaces with full **Offline-First PWA** support.
 
 [![Firebase](https://img.shields.io/badge/Firebase-Auth%20%2B%20Firestore-FFCA28?logo=firebase&logoColor=black)](https://firebase.google.com/)
 [![Hosting](https://img.shields.io/badge/Firebase-Hosting-orange?logo=firebase)](https://firebase.google.com/products/hosting)
+[![PWA](https://img.shields.io/badge/PWA-Offline%20First-5A0FC8?logo=pwa&logoColor=white)]()
 [![HTML5](https://img.shields.io/badge/HTML5-E34F26?logo=html5&logoColor=white)](https://developer.mozilla.org/en-US/docs/Web/HTML)
 [![CSS3](https://img.shields.io/badge/CSS3-1572B6?logo=css3&logoColor=white)](https://developer.mozilla.org/en-US/docs/Web/CSS)
 [![JavaScript](https://img.shields.io/badge/JavaScript-ES%20Modules-F7DF1E?logo=javascript&logoColor=black)](https://developer.mozilla.org/en-US/docs/Web/JavaScript)
@@ -25,12 +26,14 @@ A Firebase-powered attendance portal with dedicated **Login**, **Admin**, and **
 - [Roles at a Glance](#-roles-at-a-glance)
 - [Project Structure](#-project-structure)
 - [Tech Stack](#-tech-stack)
-- [Authentication Flow](#-authentication-flow)
+- [Authentication & Role Routing](#-authentication--role-routing)
+- [Offline-First & PWA Architecture](#-offline-first--pwa-architecture)
 - [Feature Highlights](#-feature-highlights)
   - [Login Page](#login-page)
   - [Admin Portal](#admin-portal)
   - [CR Portal](#cr-portal)
-- [Firestore Data Model](#-firestore-data-model)
+  - [Teacher Portal](#teacher-portal)
+- [Firestore Data Model & Security Rules](#-firestore-data-model--security-rules)
 - [Excel Import/Export](#-excel-importexport)
 - [Getting Started](#-getting-started)
 - [First Admin Setup](#-first-admin-setup)
@@ -45,18 +48,16 @@ A Firebase-powered attendance portal with dedicated **Login**, **Admin**, and **
 
 ## 🧭 Overview
 
-**QAttend** manages university courses, sections, students, subjects, Class
-Representatives (CRs), attendance records, requests, and activity history —
-all backed by **Firebase Authentication** and **Cloud Firestore**.
+**QAttend** manages university courses, sections, students, subjects, Class Representatives (CRs), Teachers, attendance records, requests, and activity history — all backed by **Firebase Authentication**, **Cloud Firestore**, and an **offline-first Service Worker**.
 
-The project is split into role-specific pages so every user only sees the
-interface relevant to them:
+The project is split into role-specific pages so every user only sees the interface relevant to them:
 
 | Page | Role | Purpose |
 |---|---|---|
 | `login.html` | Guest | Login, Forgot Password, Contact Admin, Request New Section |
-| `admin.html` | Admin | Full system management |
-| `cr.html` | Class Representative | Attendance for their assigned section only |
+| `admin.html` | Admin | Full system management, course/section setup, CR & Teacher assignments |
+| `cr.html` | Class Representative | Attendance for their single assigned section only |
+| `teacher.html` | Teacher | Attendance for their assigned `(section, subject)` pairs only |
 
 ---
 
@@ -64,35 +65,50 @@ interface relevant to them:
 
 <table>
 <tr>
-<td valign="top" width="33%">
+<td valign="top" width="25%">
 
 ### 🔑 Guest
 - Login
+- Modern SVG eye password toggle
 - Forgot Password
 - Contact Admin
 - Request a New Section
 
 </td>
-<td valign="top" width="33%">
+<td valign="top" width="25%">
 
 ### 🛡️ Admin
-- Dashboard & stats
-- Manage Courses / Sections
-- Manage Students / Subjects
-- Requests & approvals
-- Manage Users / CR assignment
-- Attendance (any section)
+- Live Dashboard & stats
+- Courses & Sections CRUD
+- Manage Students & Subjects
+- Requests approval/rejection
+- Assign / Manage CRs
+- Assign / Manage Teachers
+- Attendance for any section
 - Activity Logs & Reports (CSV)
 
 </td>
-<td valign="top" width="33%">
+<td valign="top" width="25%">
 
-### 🎓 Class Representative (CR)
-- Fixed, assigned section only
+### 🎓 Class Representative
+- Locked to single assigned section
 - Mark / Save / Download attendance
-- View previous records
-- Send change requests
+- View section records history
+- Send change requests to Admin
+- Offline attendance support
 - Help & Support
+
+</td>
+<td valign="top" width="25%">
+
+### 👨‍🏫 Teacher
+- Locked to assigned `(section, subject)` pairs
+- Auto-lands on assigned section+subject
+- Multi-assignment switcher dropdown
+- Locked subject display (no switching)
+- Records history filtered by assigned subject
+- Full offline attendance marking
+- Offline auto-sync on reconnect
 
 </td>
 </tr>
@@ -106,16 +122,18 @@ interface relevant to them:
 QAttend/
 │
 ├── index.html              # Redirects to login.html
-├── login.html               # Guest entry point
-├── admin.html                # Admin portal
-├── cr.html                    # CR portal
+├── login.html               # Guest entry point (login, forgot pwd, contact admin, request section)
+├── admin.html                # Admin portal (full system management, user & role assignments)
+├── cr.html                    # CR portal (section attendance)
+├── teacher.html               # Teacher portal (subject & section locked attendance)
 │
-├── style.css                 # Shared styling for all pages
-├── script.js                 # Firebase Auth, Firestore, Excel, admin/CR logic
+├── style.css                 # Shared responsive stylesheet for all pages & roles
+├── script.js                 # Unified Firebase Auth, Firestore, PWA, SheetJS, & role logic
+├── service-worker.js         # Service Worker for offline app shell caching & PWA support
 │
 ├── logo.png                  # QAttend logo
-├── firebase.json             # Firebase Hosting configuration
-├── firestore.rules           # Firestore security rules
+├── firebase.json             # Firebase Hosting headers and rules configuration
+├── firestore.rules           # Security rules for collections, roles, and attendance writes
 │
 ├── seed.html                 # One-time roster/subject import UI
 ├── seed.js                   # One-time import script
@@ -130,22 +148,30 @@ QAttend/
 ## ⚙️ Tech Stack
 
 **Frontend**
-- HTML5, CSS3, JavaScript (ES Modules)
-- Responsive, mobile-tested layout
+- HTML5, Vanilla CSS3, JavaScript (ES Modules)
+- Modern SVG icons (clean eye and eye-off password view toggles)
+- Fully responsive layout for Desktop, Tablet, and Mobile
 
-**Backend / Cloud**
+**Offline & PWA**
+- Service Worker (`service-worker.js`) caching local App Shell (`CACHE_VERSION: qattend-v2`)
+- Firestore IndexedDB local cache (`persistentLocalCache` + `persistentMultipleTabManager`)
+- Auth persistence (`browserLocalPersistence`)
+- Profile caching (`localStorage: qattend-profile`) for instant offline launch
+- Automatic background write synchronization on network reconnection
+
+**Backend & Cloud**
 - Firebase Authentication (Email/Password)
 - Cloud Firestore
 - Firebase Hosting
 
 **Libraries & Services**
 - Firebase Web SDK `12.18.0`
-- [SheetJS](https://sheetjs.com/) — Excel import/export
-- [EmailJS](https://www.emailjs.com/) — direct email sending (no mail-client popup)
+- [SheetJS](https://sheetjs.com/) — On-demand Excel import/export (XLSX)
+- [EmailJS](https://www.emailjs.com/) — Direct email delivery for admin requests
 
 ---
 
-## 🔐 Authentication Flow
+## 🔐 Authentication & Role Routing
 
 ```text
 login.html
@@ -156,17 +182,27 @@ Firebase Authentication
      ▼
 Read users/{email}
      │
-     ├── role = admin ──► Admin Portal
-     │
-     └── role = cr ─────► CR Portal
+     ├── role = "admin" ───► admin.html (Admin Portal)
+     ├── role = "cr" ──────► cr.html (CR Portal)
+     └── role = "teacher" ─► teacher.html (Teacher Portal)
 ```
 
-- Uses browser-local Firebase Auth persistence — login survives page reloads.
-- Admin/CR pages are **not public**; access is enforced through Firebase Auth
-  **and** the user's Firestore profile — never rely on hiding UI elements alone.
-- ⚠️ **All account emails must be lowercase.** Firebase does not enforce
-  casing, and a mismatch between the Auth login email and the Firestore role
-  document will leave the account unassigned.
+- **Separate Page Routing**: Each portal page validates user role upon loading. If a user visits the wrong page or attempts unauthorized access, they are automatically redirected to their dedicated page.
+- **Offline Authentication**: When offline, Firebase Auth restores the session from IndexedDB, and the app reads the cached profile from `localStorage` (`qattend-profile`), allowing immediate access to `admin.html`, `cr.html`, or `teacher.html` without internet connectivity.
+- ⚠️ **All account emails must be lowercase.** Firebase casing mismatches between Auth and Firestore documents can leave users unassigned.
+
+---
+
+## ⚡ Offline-First & PWA Architecture
+
+1. **Service Worker App Shell**:
+   - `service-worker.js` caches `index.html`, `login.html`, `admin.html`, `cr.html`, `teacher.html`, `style.css`, `script.js`, and `logo.png`.
+   - Navigation fallback serves cached pages seamlessly when offline.
+2. **Firestore Offline Persistence**:
+   - Firestore's IndexedDB persistence maintains all viewed student rosters, subjects, and records locally.
+   - Attendance markings saved offline are queued locally and automatically synchronized with Firestore when internet connectivity returns.
+3. **Auto-Reconnect Refresh**:
+   - The app listens for `qattend:network-restored` and refreshes active views automatically once pending sync completes.
 
 ---
 
@@ -174,88 +210,91 @@ Read users/{email}
 
 ### Login Page
 
-- QAttend branding, email/password fields, show/hide password
-- **Forgot Password** — Firebase `sendPasswordResetEmail()` flow
-- **Contact Admin** modal — Name, Email, Mobile, Message → stored in
-  `requests` (`type: contact_admin`, `status: pending`) and sent via EmailJS
-- **Request a New Section** modal — collects CR & Mentor details, course,
-  section, semester, year, plus an Excel upload for students/subjects
+- Clean QAttend branding with university subtitle
+- Email and password input with a **sleek SVG eye / eye-off toggle button** (open eye to reveal, slashed eye to hide)
+- **Forgot Password** — Firebase `sendPasswordResetEmail()` workflow
+- **Contact Admin** modal — Stored in `requests` collection and notified via EmailJS
+- **Request a New Section** modal — Section, Mentor, Course details with Excel template upload
 
 ### Admin Portal
 
-```text
-Dashboard → Manage Courses → Manage Sections → Manage Students
-→ Manage Subjects → Requests → Manage Users → Attendance → Reports → Logs → Profile
-```
-
-- **Dashboard** — live stats (courses, sections, students, pending requests),
-  recent requests, and activity feed
-- **Requests table** — All / Pending / Students / Subjects / New Sections /
-  Contact Admin filters, with View / Approve / Reject and bulk selection
-- Approving **Add/Delete Student or Subject** applies the change directly
-- Approving **New Section** creates the section, imports its roster/subjects,
-  and assigns the requesting CR
-- Rejecting a request only updates its status — section data is untouched
-- **Manage Sections** — add/edit/delete section metadata (fixed system
-  sections are protected from deletion)
-- **Manage Users** — add/update profiles, activate/deactivate, assign/remove CRs
-  *(Firebase Auth accounts are intentionally created via Console, not client code)*
-- **Reports** — CSV export for attendance, requests, students, subjects
-  (loaded on demand)
+- **Live Dashboard**: Total counts for courses, sections, students, subjects, CRs, and pending requests
+- **Manage Users**:
+  - **Assign / Manage CR**: Assign a student CR to a specific section; view existing CRs with one-click revocation.
+  - **Assign / Manage Teacher**: Assign teachers to `(section, subject)` pairs. The Subject dropdown automatically populates from active subjects in that section. Supports assigning multiple sections/subjects to the same teacher.
+  - **Remove Teacher Assignment**: Remove individual section+subject pairs; removing the last assignment automatically deletes the teacher document.
+- **Manage Courses & Sections**: Complete CRUD operations with Excel batch import.
+- **Request Center**: Approve or reject CR and visitor requests with single or bulk actions.
+- **Activity Logs**: Searchable audit log tracking logins, student edits, CR/Teacher assignments, and attendance saves with color-coded badges.
 
 ### CR Portal
 
-- Locked to their **assigned section only**
-- Mark, save, and download attendance
-- View previous attendance records
-- **Send Request** for Add/Delete Student or Subject (Admin-approved)
-- Cannot add/delete students or subjects directly — enforced both in the UI
-  and in Firestore Security Rules
+- Locked to their single assigned section
+- Mark attendance (Present, Absent, All Present toggle, date picker, notes)
+- Save attendance, download Excel spreadsheet (`.xlsx`), and share records
+- View previous attendance records for their section
+- Submit student/subject change requests to Admin
+
+### Teacher Portal (`teacher.html`)
+
+- **Strict Subject & Section Scoping**:
+  - **Single Assignment**: Auto-selects the assigned section and locks the subject field.
+  - **Multiple Assignments**: Shows a clean assignment selector above the attendance table (`"Section Label — Subject Name"`). Selecting one switches the roster and locks the corresponding subject.
+- **Non-Editable Subject**: Subject dropdown is replaced with a locked display badge (`#teacherSubjectDisplay`) to prevent accidental or unauthorized subject switching.
+- **Filtered Attendance History**: The previous records section only displays attendance records matching the teacher's assigned subject in that section.
+- **No Unauthorized Controls**: Administrative controls (student/subject management, section creation, CR/Teacher assignment) remain hidden.
+- **Offline Attendance**: Mark and save attendance even without network; synced automatically when back online.
 
 ---
 
-## 🗄 Firestore Data Model
+## 🗄 Firestore Data Model & Security Rules
 
-```text
-users/{email}                     → { role: "admin" | "cr", section?, ... }
-courses/{courseId}                → { name, code, department, duration }
-sections/{sectionId}
-   ├── students/{studentId}       → { QID, name, ... }
-   └── attendance/...
-subjects/{subjectId}              → shared across sections
-requests/{requestId}              → { type, status, ... }
-activityLogs/{logId}              → Admin-visible history
+### Data Shapes (`users/{email}`)
+
+```json
+// Admin
+{ "role": "admin" }
+
+// Class Representative
+{ "role": "cr", "section": "SECTION-1" }
+
+// Teacher
+{
+  "role": "teacher",
+  "assignments": [
+    { "section": "SECTION-1", "subject": "Design and Analysis of Algorithm" },
+    { "section": "SECTION-3", "subject": "Python" }
+  ],
+  "sections": ["SECTION-1", "SECTION-3"]
+}
 ```
 
-> Publish `firestore.rules` **before** testing Contact Admin, New Section, or
-> any Firestore-backed feature — without it, access control is not enforced.
+### Security Rules Highlights (`firestore.rules`)
+
+- **Self Profile Read**: `request.auth.token.email == email`
+- **Admin Full Access**: `isAdmin()` grants full read/write across all collections.
+- **CR Scoping**: Read students/subjects in `mySection()`; create/update/delete attendance only in `mySection()`.
+- **Teacher Scoping**:
+  - Read students and subjects in assigned sections via `isAssignedToSection(sectionId)`.
+  - Read attendance in assigned sections.
+  - Create and update attendance **only if** `request.resource.data.subject` matches an assigned subject in that section:
+    ```javascript
+    isTeacher() && isAssignedTo(sectionId, request.resource.data.subject)
+    ```
+  - Delete attendance only for their assigned subject.
 
 ---
 
 ## 📊 Excel Import/Export
 
-Used for bulk-creating a new section's roster and subject list.
-
-```text
-Download Template → Fill Students → Fill Subjects
-→ Upload Excel → Validate → Preview → Submit Request → Admin Request Center
-```
-
-`Section_Template.xlsx` contains three sheets:
-
-| Sheet | Columns |
-|---|---|
-| **Students** | `QID` \| `Student Name` |
-| **Subjects** | `Subject Name` |
-| **Instructions** | Rules for QIDs, names, subjects, duplicates, file format |
-
-Duplicate QIDs and invalid rows are automatically flagged/skipped during validation.
+- **Export**: Generates standard attendance spreadsheets formatted with Student QID, Name, Status (Present/Absent), Date, Subject, Section, and Notes using [SheetJS](https://sheetjs.com/).
+- **Import**: `Section_Template.xlsx` allows bulk importing students and subjects during section creation requests.
 
 ---
 
 ## 🚀 Getting Started
 
-Do **not** open the project with `file://` — use a local HTTP server.
+Do **not** open the project using `file://` protocol — use a local HTTP server to allow ES modules and Service Worker registration.
 
 **Option 1 — VS Code Live Server**
 1. Open the project folder in VS Code
@@ -274,24 +313,25 @@ http://localhost:5500/login.html
 
 ## 🏁 First Admin Setup
 
-1. **Enable Firestore** — Firebase Console → Build → Firestore Database → Create database (production mode, any region)
-2. **Publish security rules** — Firestore → Rules tab → paste `firestore.rules` → Publish
-3. **Create the first Admin account** *(manual, one-time)*:
-   - Authentication → Users → Add user → lowercase email + password
-   - Firestore → Data → new collection `users`, document ID = the same lowercase email, field `role` (string) = `admin`
-4. **Deploy site files** — `index.html`, `style.css`, `script.js`, `seed.html`, `seed.js`, `logo.png`, `firebase.json`
-5. Log in with the Admin account
+1. **Enable Firestore Database** in Firebase Console (Production Mode).
+2. **Deploy Security Rules**:
+   ```bash
+   firebase deploy --only firestore:rules
+   ```
+3. **Create the First Admin Account**:
+   - Authentication → Add user → lowercase email + password
+   - Firestore → Collection `users` → Document ID = `<email>` → `{ "role": "admin" }`
+4. **Deploy Application**:
+   ```bash
+   firebase deploy --only hosting
+   ```
+5. Log in at `login.html` with your Admin credentials.
 
 ---
 
 ## 📥 One-Time Data Import
 
-While logged in as Admin, open `yoursite.com/seed.html` and click **Run Import**.
-
-- Loads the full roster (539 students across Sections 1–8, AIML-1, AIML-2) and the 11 subjects
-- Safe to run more than once — only adds what's missing, never duplicates
-- After it finishes, `seed.html` / `seed.js` can be deleted — they're not linked from the main app
-- No roster exists yet for a **CSCQ** section — add those students manually via the Admin panel once available
+While logged in as Admin, navigate to `yoursite.com/seed.html` and click **Run Import** to populate initial student rosters and subjects. This script is idempotent and safe to run once.
 
 ---
 
@@ -308,39 +348,32 @@ const EMAILJS_CONFIG = {
 };
 ```
 
-Replace only the `YOUR_...` placeholders with values from your EmailJS
-project. Leave `adminEmail` unless the recipient is intentionally changing.
-
 ---
 
 ## ☁️ Deployment
 
 ```bash
+# Login to Firebase CLI
 firebase login
+
+# Select Project
 firebase use <your-project>
-firebase deploy --only hosting          # site files
-firebase deploy --only firestore:rules  # if rules changed
-firebase deploy --only hosting,firestore
-```
 
-If the repo is connected to Firebase Hosting via GitHub Actions, pushing to
-the configured branch triggers deployment automatically:
+# Deploy all services
+firebase deploy
 
-```bash
-git add .
-git commit -m "Update QAttend"
-git push
+# Or deploy specific targets
+firebase deploy --only hosting
+firebase deploy --only firestore:rules
 ```
 
 ---
 
 ## 🔒 Security Notes
 
-- Never commit Firebase Admin SDK service-account keys, EmailJS secrets, or
-  any server-side credentials to this repo
-- Firestore Security Rules + Firebase Authentication are the real access
-  control — never rely on hiding buttons in HTML/CSS
-- Never replace rules with `allow read, write: if true;`
+- Never commit private keys, Service Account JSONs, or environment secrets to git.
+- Access control is strictly enforced in `firestore.rules` at the database level, preventing client-side tampering of roles or attendance subjects.
+- Always enforce lowercase email addresses across Auth and Firestore.
 
 ---
 
@@ -348,80 +381,65 @@ git push
 
 | Symptom | Check |
 |---|---|
-| Firestore permission errors | `firestore.rules` deployed via `firebase deploy --only firestore:rules` |
-| Login works, wrong portal opens | `users/{email}` document — correct `role`, and `section` for CRs |
-| Contact Admin email not sending | EmailJS config in `script.js` — values shouldn't start with `YOUR_` |
-| Excel won't load | Internet access — SheetJS loads from CDN on demand |
-| Changes not appearing after deploy | Hard refresh — HTML/JS/CSS are served with no-cache headers |
+| Firestore permission errors | Ensure latest `firestore.rules` are published via Firebase CLI |
+| Login redirects to wrong page | Verify role and section/assignments in `users/{email}` |
+| Teacher sees no subjects/sections | Verify `assignments` array has valid `{ section, subject }` objects |
+| Offline mode not loading | Confirm Service Worker registered (`qattend-v2`) in browser Application tab |
+| Excel import fails | Verify sheet column names match `Section_Template.xlsx` |
 
 ---
 
 ## ✅ Testing Checklist
 
 <details>
-<summary><strong>Login</strong></summary>
-
-- [ ] Admin login  
-- [ ] CR login  
-- [ ] Wrong password  
-- [ ] Forgot password  
-- [ ] Logout
-</details>
-
-<details>
-<summary><strong>Contact Admin</strong></summary>
-
-- [ ] Opens before login  
-- [ ] Submits successfully  
-- [ ] Firestore request appears  
-- [ ] Email service sends mail
-</details>
-
-<details>
-<summary><strong>New Section Request</strong></summary>
-
-- [ ] Template downloads  
-- [ ] Students/Subjects sheets fill correctly  
-- [ ] Upload validates counts  
-- [ ] Preview appears  
-- [ ] Admin sees the request
-</details>
-
-<details>
 <summary><strong>Admin</strong></summary>
 
-- [ ] Dashboard loads  
-- [ ] Course CRUD  
-- [ ] Section create + Excel import  
-- [ ] Student/Subject management  
-- [ ] CR assignment  
-- [ ] Request approve/reject  
-- [ ] Attendance  
-- [ ] Logs
+- [ ] Dashboard counters and live stats load
+- [ ] Create, edit, and delete courses & sections
+- [ ] Assign CR to section & remove CR
+- [ ] Assign Teacher to section & subject
+- [ ] Assign same Teacher to additional section+subject
+- [ ] Remove individual Teacher assignment
+- [ ] Approve / Reject section and student change requests
+- [ ] View activity logs with color-coded badges
 </details>
 
 <details>
-<summary><strong>CR</strong></summary>
+<summary><strong>Teacher</strong></summary>
 
-- [ ] Assigned section loads  
-- [ ] Attendance marks & saves  
-- [ ] Previous records load  
-- [ ] Send Request modal works  
-- [ ] Logout
+- [ ] Single-assignment Teacher lands directly on attendance screen
+- [ ] Multiple-assignment Teacher sees assignment dropdown switcher
+- [ ] Subject is locked to assigned subject (not editable)
+- [ ] Admin controls and CR request buttons are removed
+- [ ] Mark, save, and download attendance works normally
+- [ ] Saved-records list shows only their own subject's history
+- [ ] Offline attendance marking and saving works without internet
+- [ ] Unauthorized attendance write to unassigned subject is blocked by Firestore rules
 </details>
 
 <details>
-<summary><strong>Mobile</strong></summary>
+<summary><strong>Class Representative (CR)</strong></summary>
 
-- [ ] All modals usable on small screens  
-- [ ] Admin sidebar responsive  
-- [ ] No horizontal overflow
+- [ ] Assigned section loads automatically
+- [ ] Can mark, save, download, and share attendance
+- [ ] Previous records load for their section
+- [ ] Change request modal sends requests to Admin
+- [ ] Offline attendance marks and queues writes
+</details>
+
+<details>
+<summary><strong>Authentication & UI</strong></summary>
+
+- [ ] Password toggle switches between clean Eye and Eye-Off SVG icons
+- [ ] Forgot password email triggers reset email
+- [ ] Mobile responsive layout with drawer navigation
+- [ ] Offline PWA indicator displays network status
 </details>
 
 ---
 
 <div align="center">
 
-**QAttend** · Built for structured course, section, student, subject, CR and attendance management with Firebase 🔥
+**QAttend** · Built for structured course, section, student, subject, CR, and Teacher attendance management with Firebase 🔥
 
 </div>
