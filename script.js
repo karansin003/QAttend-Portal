@@ -505,18 +505,12 @@ const SECTIONS = [
     }
 ];
 
+let allSectionsList = [...SECTIONS];
 
 function sectionLabelOf(id) {
-
-    const match =
-        SECTIONS.find(
-            section =>
-                section.id === id
-        );
-
-    return match
-        ? match.label
-        : id;
+    const list = (allSectionsList && allSectionsList.length) ? allSectionsList : SECTIONS;
+    const match = list.find(section => section.id === id);
+    return match ? match.label : id;
 }
 
 
@@ -1657,7 +1651,9 @@ onAuthStateChanged(
         } else if (profile.role === "teacher") {
 
             document.title = "QAttend | Teacher Portal";
-            teacherAssignments = Array.isArray(profile.assignments) ? profile.assignments : [];
+            teacherAssignments = Array.isArray(profile.assignments) && profile.assignments.length
+                ? profile.assignments
+                : (profile.section && profile.subject ? [{ section: profile.section, subject: profile.subject }] : []);
 
             if (!teacherAssignments.length) {
                 alert("Your account has no assigned classes. Ask the Admin to assign you a section and subject.");
@@ -1783,7 +1779,7 @@ teacherAssignmentSelect?.addEventListener("change", async (e) => {
 // SECTION DROPDOWNS
 
 async function populateSectionDropdowns() {
-    const allSections = [...SECTIONS];
+    allSectionsList = [...SECTIONS];
     sectionCourseMap = Object.fromEntries(SECTIONS.map(section => [section.id, "BTECH"]));
     try {
         const snap = await getDocs(collection(db,"sections"));
@@ -1791,10 +1787,12 @@ async function populateSectionDropdowns() {
             const x=d.data()||{};
             if(!d.id) return;
             sectionCourseMap[d.id] = x.course || x.courseId || sectionCourseMap[d.id] || "BTECH";
-            if(allSections.some(s=>s.id===d.id)) return;
+            if(allSectionsList.some(s=>s.id===d.id)) return;
             const item={id:d.id,label:x.label||x.section||d.id};
-            allSections.push(item);
-            SECTIONS.push(item);
+            allSectionsList.push(item);
+            if (!SECTIONS.some(s => s.id === d.id)) {
+                SECTIONS.push(item);
+            }
         });
     }catch(e){console.warn("Could not load dynamic sections:",e);}
 
@@ -1818,7 +1816,7 @@ async function populateSectionDropdowns() {
         teacherSectionSelect.innerHTML=`<option value="">-- Select Section --</option>`;
     }
 
-    allSections.forEach(section=>{
+    allSectionsList.forEach(section=>{
         if (sectionSelect) { const option1=document.createElement("option");option1.value=section.id;option1.textContent=section.label;sectionSelect.appendChild(option1); }
         if(newCrSection){const option2=document.createElement("option");option2.value=section.id;option2.textContent=section.label;newCrSection.appendChild(option2);}
         if(manageSection){const option3=document.createElement("option");option3.value=section.id;option3.textContent=section.label;manageSection.appendChild(option3);}
@@ -1831,7 +1829,8 @@ function populateTeacherSectionSelect(selectEl, selectedValue = "") {
     if (!selectEl) return;
     const currentVal = selectedValue || selectEl.value || "";
     selectEl.innerHTML = `<option value="">-- Select Section --</option>`;
-    allSections.forEach(section => {
+    const list = (allSectionsList && allSectionsList.length) ? allSectionsList : SECTIONS;
+    list.forEach(section => {
         const opt = document.createElement("option");
         opt.value = section.id;
         opt.textContent = section.label;
@@ -1850,19 +1849,31 @@ async function loadSubjectsForTeacherRow(sectionId, subjectSelectEl, selectedSub
     subjectSelectEl.innerHTML = `<option value="">Loading subjects...</option>`;
     subjectSelectEl.disabled = true;
     try {
-        const snap = await getDocs(
-            query(collection(db, "sections", sectionId, "subjects"), orderBy("name"))
-        );
+        let snap;
+        try {
+            snap = await getDocs(
+                query(collection(db, "sections", sectionId, "subjects"), orderBy("name"))
+            );
+        } catch (_) {
+            snap = await getDocs(collection(db, "sections", sectionId, "subjects"));
+        }
         subjectSelectEl.innerHTML = `<option value="">-- Select Subject --</option>`;
-        if (snap.empty) {
+        if (!snap || snap.empty) {
             subjectSelectEl.innerHTML = `<option value="">-- No subjects in this section --</option>`;
             subjectSelectEl.disabled = true;
             return;
         }
+        const subjectList = [];
         snap.docs.forEach(d => {
             const data = d.data() || {};
-            const opt = document.createElement("option");
             const name = data.name || d.id;
+            if (name && !subjectList.includes(name)) {
+                subjectList.push(name);
+            }
+        });
+        subjectList.sort((a, b) => a.localeCompare(b));
+        subjectList.forEach(name => {
+            const opt = document.createElement("option");
             opt.value = name;
             opt.textContent = name;
             if (name === selectedSubject) opt.selected = true;
@@ -3712,11 +3723,19 @@ async function loadTeacherList() {
             const data = d.data() || {};
             if (data.role === "teacher") {
                 const email = String(d.id || "").toLowerCase();
-                const assignments = Array.isArray(data.assignments) ? data.assignments : [];
+                let assignments = [];
+                if (Array.isArray(data.assignments) && data.assignments.length) {
+                    assignments = data.assignments;
+                } else if (data.section && data.subject) {
+                    assignments = [{ section: data.section, subject: data.subject }];
+                }
+                const sections = Array.isArray(data.sections) && data.sections.length
+                    ? data.sections
+                    : (data.section ? [data.section] : [...new Set(assignments.map(a => a.section))]);
                 teacherMap.set(email, {
                     email,
                     assignments,
-                    sections: Array.isArray(data.sections) ? data.sections : []
+                    sections
                 });
             }
         });
@@ -3778,6 +3797,10 @@ async function loadTeacherList() {
                     newTeacherEmail.value = targetEmail;
                     newTeacherEmail.focus();
                 }
+                if (teacherAssignmentRows) {
+                    teacherAssignmentRows.innerHTML = "";
+                    addTeacherAssignmentRow();
+                }
                 const manageCard = document.querySelector(".manage-teacher-card");
                 if (manageCard) manageCard.scrollIntoView({ behavior: "smooth" });
             });
@@ -3828,9 +3851,12 @@ async function removeAllTeacherAssignments(email) {
 addTeacherForm?.addEventListener("submit", async function (event) {
     event.preventDefault();
 
-    if (!profile || profile.role !== "admin") return;
+    if (!profile || profile.role !== "admin") {
+        alert("Admin authorization required to assign teachers.");
+        return;
+    }
 
-    const email = newTeacherEmail?.value.trim().toLowerCase();
+    const email = (newTeacherEmail?.value || "").trim().toLowerCase();
     if (!email) {
         alert("Please enter the teacher's login email.");
         return;
@@ -3840,6 +3866,10 @@ addTeacherForm?.addEventListener("submit", async function (event) {
     const newAssignments = [];
     if (teacherAssignmentRows) {
         const rows = Array.from(teacherAssignmentRows.querySelectorAll(".teacher-assignment-row"));
+        if (!rows.length) {
+            alert("Please add at least one section and subject assignment.");
+            return;
+        }
         for (let i = 0; i < rows.length; i++) {
             const sec = rows[i].querySelector(".teacher-row-section")?.value;
             const sub = rows[i].querySelector(".teacher-row-subject")?.value;
@@ -3901,8 +3931,10 @@ addTeacherForm?.addEventListener("submit", async function (event) {
                 alert(`User ${email} already has the role "${existingData.role}". Please remove their existing role first if you wish to assign them as a Teacher.`);
                 return;
             }
-            if (Array.isArray(existingData.assignments)) {
+            if (Array.isArray(existingData.assignments) && existingData.assignments.length) {
                 existingAssignments = existingData.assignments;
+            } else if (existingData.section && existingData.subject) {
+                existingAssignments = [{ section: existingData.section, subject: existingData.subject }];
             }
         }
 
@@ -3919,6 +3951,8 @@ addTeacherForm?.addEventListener("submit", async function (event) {
             ...existingData,
             role: "teacher",
             email,
+            section: updatedSections[0] || "",
+            subject: mergedAssignments[0]?.subject || "",
             assignments: mergedAssignments,
             sections: updatedSections,
             updatedAt: new Date().toISOString()
@@ -4001,7 +4035,12 @@ async function deleteTeacherAssignment(email, section, subject) {
         }
 
         const data = userSnap.data() || {};
-        const assignments = Array.isArray(data.assignments) ? data.assignments : [];
+        let assignments = [];
+        if (Array.isArray(data.assignments) && data.assignments.length) {
+            assignments = data.assignments;
+        } else if (data.section && data.subject) {
+            assignments = [{ section: data.section, subject: data.subject }];
+        }
         const remaining = assignments.filter(
             a => !(a.section === section && a.subject === subject)
         );
@@ -4015,6 +4054,8 @@ async function deleteTeacherAssignment(email, section, subject) {
             await updateDoc(userRef, {
                 assignments: remaining,
                 sections: remainingSections,
+                section: remainingSections[0] || "",
+                subject: remaining[0]?.subject || "",
                 updatedAt: new Date().toISOString()
             });
             await writeActivityLog("REMOVE_TEACHER_ASSIGNMENT", `${email} · ${sectionLabelOf(section)} · ${subject}`);
