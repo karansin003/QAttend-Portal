@@ -153,7 +153,7 @@ QAttend/
 - Fully responsive layout for Desktop, Tablet, and Mobile
 
 **Offline & PWA**
-- Service Worker (`service-worker.js`) caching local App Shell (`CACHE_VERSION: qattend-v2`)
+- Service Worker (`service-worker.js`) caching local App Shell (`CACHE_VERSION: qattend-v3`)
 - Firestore IndexedDB local cache (`persistentLocalCache` + `persistentMultipleTabManager`)
 - Auth persistence (`browserLocalPersistence`)
 - Profile caching (`localStorage: qattend-profile`) for instant offline launch
@@ -387,7 +387,7 @@ firebase deploy --only firestore:rules
 | Firestore permission errors | Ensure latest `firestore.rules` are published via Firebase CLI |
 | Login redirects to wrong page | Verify role and section/assignments in `users/{email}` |
 | Teacher sees no subjects/sections | Verify `assignments` array has valid `{ section, subject }` objects |
-| Offline mode not loading | Confirm Service Worker registered (`qattend-v2`) in browser Application tab |
+| Offline mode not loading | Confirm Service Worker registered (`qattend-v3`) in browser Application tab |
 | Excel import fails | Verify sheet column names match `Section_Template.xlsx` |
 
 ---
@@ -400,9 +400,13 @@ firebase deploy --only firestore:rules
 - [ ] Dashboard counters and live stats load
 - [ ] Create, edit, and delete courses & sections
 - [ ] Assign CR to section & remove CR
-- [ ] Assign Teacher to section & subject
-- [ ] Assign same Teacher to additional section+subject
-- [ ] Remove individual Teacher assignment
+- [ ] Assign Teacher with dynamic Multi-Assignment Builder (`Section ➔ Subject`)
+- [ ] Add multiple assignment rows using `＋ Add Another Section & Subject`
+- [ ] Password generated and emailed directly to Teacher upon submission
+- [ ] Grouped Teacher Cards display with `(Section ➔ Subject)` badges
+- [ ] Click `+ Add Class` to prefill Teacher email in assignment form
+- [ ] Click `🔑 Send Password` to instantly dispatch a password reset email
+- [ ] Remove individual subject assignments or click `🗑️ Remove All` to revoke Teacher access
 - [ ] Approve / Reject section and student change requests
 - [ ] View activity logs with color-coded badges
 </details>
