@@ -766,7 +766,7 @@ body.admin-view .student > * {
     position: absolute;
     top: 42px;
     right: 0;
-    min-width: 135px;
+    min-width: 180px;
     padding: 6px;
     background: white;
     border: 1px solid var(--border);
@@ -798,8 +798,67 @@ body.admin-view .student > * {
     background: var(--light-gray);
 }
 
+.toggle-serial-zero-btn {
+    color: var(--primary, #4f46e5) !important;
+    font-weight: 600;
+}
+
 .delete-student-menu-btn {
     color: var(--red) !important;
+}
+
+/* SERIAL NO. 0 STYLES */
+.student > .qid-number {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    font-weight: 600;
+}
+
+.sno-zero-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    padding: 3px 7px;
+    border-radius: 999px;
+    background: #eef2ff;
+    color: #4338ca;
+    border: 1px solid #c7d2fe;
+    letter-spacing: 0.2px;
+    white-space: nowrap;
+}
+
+.serial-zero-student {
+    background: linear-gradient(90deg, rgba(79, 70, 229, 0.05) 0%, rgba(255, 255, 255, 0.95) 100%) !important;
+    border-left: 3.5px solid #4f46e5 !important;
+}
+
+.checkbox-option-wrapper {
+    display: flex;
+    align-items: center;
+    margin: 8px 0;
+}
+
+.custom-checkbox-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--black, #111827);
+    user-select: none;
+}
+
+.custom-checkbox-label input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: var(--primary, #4f46e5);
 }
 
 

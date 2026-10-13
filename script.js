@@ -27,7 +27,8 @@ import {
     orderBy,
     limit,
     where,
-    writeBatch
+    writeBatch,
+    deleteField
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
 
@@ -562,6 +563,29 @@ function compareNames(nameA, nameB) {
     }
 
     return 0;
+}
+
+
+// SERIAL CALCULATION (SUPPORTS SERIAL NO. 0)
+
+function computeStudentSerials(studentList) {
+    const serialByStudent = new Map();
+    let normalCounter = 1;
+    (studentList || []).forEach(function (student) {
+        let isZero = student.serialNo === 0 || student.serialNo === "0" || student.isSerialZero === true;
+        if (!isZero && typeof students !== "undefined" && Array.isArray(students)) {
+            const match = students.find(s => s && s.qid && student && student.qid && String(s.qid).toLowerCase() === String(student.qid).toLowerCase());
+            if (match && (match.serialNo === 0 || match.isSerialZero === true)) {
+                isZero = true;
+            }
+        }
+        if (isZero) {
+            serialByStudent.set(student, 0);
+        } else {
+            serialByStudent.set(student, normalCounter++);
+        }
+    });
+    return serialByStudent;
 }
 
 
@@ -2212,19 +2236,24 @@ async function loadStudents() {
 
                 .map(
                     function (docSnap) {
-
+                        const data = docSnap.data();
+                        const isZero = data.serialNo === 0 || data.serialNo === "0" || data.isSerialZero === true;
                         return {
 
                             id:
                                 docSnap.id,
 
                             qid:
-                                docSnap.data()
-                                    .qid,
+                                data.qid,
 
                             name:
-                                docSnap.data()
-                                    .name,
+                                data.name,
+
+                            serialNo:
+                                isZero ? 0 : (data.serialNo !== undefined && data.serialNo !== null ? Number(data.serialNo) : null),
+
+                            isSerialZero:
+                                isZero,
 
                             status:
                                 null
@@ -2234,7 +2263,10 @@ async function loadStudents() {
 
                 .sort(
                     function (a, b) {
-
+                        const aZero = a.serialNo === 0 || a.isSerialZero === true;
+                        const bZero = b.serialNo === 0 || b.isSerialZero === true;
+                        if (aZero && !bZero) return -1;
+                        if (!aZero && bZero) return 1;
                         return compareNames(
                             a.name,
                             b.name
@@ -2301,6 +2333,8 @@ function displayStudents() {
             }
 
 
+            const isZero = student.serialNo === 0 || student.isSerialZero === true;
+
             const row =
                 document.createElement(
                     "div"
@@ -2308,7 +2342,7 @@ function displayStudents() {
 
 
             row.className =
-                "student";
+                `student${isZero ? " serial-zero-student" : ""}`;
 
 
             row.dataset.id =
@@ -2318,12 +2352,13 @@ function displayStudents() {
             row.innerHTML = `
 
                 <div class="qid-number">
-                    ${student.qid}
+                    ${isZero ? '<span class="sno-zero-pill" title="Serial Number 0">S.No 0</span>' : ''}
+                    <span>${escapeHtml(student.qid)}</span>
                 </div>
 
 
                 <div class="student-name">
-                    ${student.name}
+                    ${escapeHtml(student.name)}
                 </div>
 
 
@@ -2389,6 +2424,15 @@ function displayStudents() {
                                 data-id="${student.id}">
 
                                 ✏️ Edit
+
+                            </button>
+
+                            <button
+                                type="button"
+                                class="toggle-serial-zero-btn"
+                                data-id="${student.id}">
+
+                                ${isZero ? "🔢 Set Normal S.No" : "0️⃣ Set as S.No 0"}
 
                             </button>
 
@@ -2615,6 +2659,49 @@ studentList?.addEventListener(
         }
 
 
+        // TOGGLE SERIAL ZERO
+
+        const toggleZeroButton =
+            event.target.closest(
+                ".toggle-serial-zero-btn"
+            );
+
+
+        if (toggleZeroButton) {
+
+            if (
+                !profile ||
+                profile.role !==
+                    "admin"
+            ) {
+
+                return;
+            }
+
+
+            document
+                .querySelectorAll(
+                    ".student-menu.show"
+                )
+                .forEach(
+                    function (menu) {
+
+                        menu.classList.remove(
+                            "show"
+                        );
+                    }
+                );
+
+
+            void toggleStudentSerialZero(
+                toggleZeroButton.dataset.id
+            );
+
+
+            return;
+        }
+
+
         // DELETE
 
         const deleteButton =
@@ -2715,6 +2802,8 @@ addStudentForm?.addEventListener(
                 .trim()
                 .toUpperCase();
 
+        const isSerialZero = !!document.getElementById("newStudentSerialZero")?.checked;
+
 
         if (
             !qid ||
@@ -2726,19 +2815,45 @@ addStudentForm?.addEventListener(
 
         try {
 
-            await addDoc(
+            if (isSerialZero) {
+                const zeroSnap = await getDocs(
+                    query(
+                        collection(db, "sections", targetSection, "students"),
+                        where("serialNo", "==", 0)
+                    )
+                );
+                if (!zeroSnap.empty) {
+                    const existingName = zeroSnap.docs[0].data().name || "Another student";
+                    const replace = confirm(
+                        `"${existingName}" is currently at Serial No. 0 in this section.\n\nDo you want to replace them with "${name}" as Serial No. 0?`
+                    );
+                    if (!replace) {
+                        return;
+                    }
+                    const batch = writeBatch(db);
+                    zeroSnap.docs.forEach(function (docSnap) {
+                        batch.update(docSnap.ref, { serialNo: deleteField() });
+                    });
+                    await batch.commit();
+                }
+            }
 
+            const docData = {
+                qid,
+                name
+            };
+            if (isSerialZero) {
+                docData.serialNo = 0;
+            }
+
+            await addDoc(
                 collection(
                     db,
                     "sections",
                     targetSection,
                     "students"
                 ),
-
-                {
-                    qid,
-                    name
-                }
+                docData
             );
 
 
@@ -2749,14 +2864,17 @@ addStudentForm?.addEventListener(
             newStudentName.value =
                 "";
 
+            const zeroCheckbox = document.getElementById("newStudentSerialZero");
+            if (zeroCheckbox) zeroCheckbox.checked = false;
 
-            if(adminPanelOpen){
+
+            if (adminPanelOpen) {
                 managementSection = targetSection;
                 await refreshManageData();
-            }else{
+            } else {
                 await loadStudents();
             }
-            await writeActivityLog("ADD_STUDENT",`${qid} · ${name}`,{section:targetSection});
+            await writeActivityLog("ADD_STUDENT", `${qid} · ${name}${isSerialZero ? " (S.No 0)" : ""}`, { section: targetSection });
 
         } catch (error) {
 
@@ -2769,6 +2887,104 @@ addStudentForm?.addEventListener(
         }
     }
 );
+
+
+// TOGGLE SERIAL NO. 0 FOR STUDENT
+
+async function toggleStudentSerialZero(studentId) {
+    if (!profile || profile.role !== "admin") return;
+
+    const student = students.find(item => item.id === studentId);
+    if (!student) {
+        alert("Student not found.");
+        return;
+    }
+
+    const currentIsZero = student.serialNo === 0 || student.isSerialZero === true;
+    const targetSection = activeSection;
+
+    if (!targetSection) {
+        alert("Please select a section first.");
+        return;
+    }
+
+    if (currentIsZero) {
+        const confirmRemove = confirm(
+            `Remove Serial No. 0 from "${student.name}" (${student.qid}) and restore to normal alphabetical serial?`
+        );
+        if (!confirmRemove) return;
+
+        try {
+            await updateDoc(
+                doc(db, "sections", targetSection, "students", studentId),
+                { serialNo: deleteField() }
+            );
+            void writeActivityLog(
+                "EDIT_STUDENT",
+                `${student.qid} · ${student.name} (Removed S.No 0)`,
+                { section: targetSection }
+            );
+            await loadStudents();
+        } catch (error) {
+            console.error(error);
+            alert("Error removing Serial No. 0.");
+        }
+    } else {
+        const existingZero = students.find(
+            item => item.id !== studentId && (item.serialNo === 0 || item.isSerialZero === true)
+        );
+
+        if (existingZero) {
+            const confirmReplace = confirm(
+                `"${existingZero.name}" (${existingZero.qid}) is currently Serial No. 0 in this section.\n\nDo you want to replace them with "${student.name}" (${student.qid}) as Serial No. 0?`
+            );
+            if (!confirmReplace) return;
+
+            try {
+                const batch = writeBatch(db);
+                batch.update(
+                    doc(db, "sections", targetSection, "students", existingZero.id),
+                    { serialNo: deleteField() }
+                );
+                batch.update(
+                    doc(db, "sections", targetSection, "students", studentId),
+                    { serialNo: 0 }
+                );
+                await batch.commit();
+                void writeActivityLog(
+                    "EDIT_STUDENT",
+                    `${student.qid} · ${student.name} (Set as S.No 0, replaced ${existingZero.name})`,
+                    { section: targetSection }
+                );
+                await loadStudents();
+            } catch (error) {
+                console.error(error);
+                alert("Error setting Serial No. 0.");
+            }
+        } else {
+            const confirmSet = confirm(
+                `Set "${student.name}" (${student.qid}) as Serial No. 0 for this section?`
+            );
+            if (!confirmSet) return;
+
+            try {
+                await updateDoc(
+                    doc(db, "sections", targetSection, "students", studentId),
+                    { serialNo: 0 }
+                );
+                void writeActivityLog(
+                    "EDIT_STUDENT",
+                    `${student.qid} · ${student.name} (Set as S.No 0)`,
+                    { section: targetSection }
+                );
+                await loadStudents();
+            } catch (error) {
+                console.error(error);
+                alert("Error setting Serial No. 0.");
+            }
+        }
+    }
+}
 
 
 // EDIT STUDENT
@@ -2881,11 +3097,45 @@ async function editStudent(
         return;
     }
 
+    const currentIsZero = student.serialNo === 0 || student.isSerialZero === true;
+    const makeZero = confirm(
+        `Assign ${name} as Serial No. 0? (Currently: ${currentIsZero ? "Serial No. 0" : "Normal S.No"})\n\nClick OK for Serial No. 0, or Cancel for Normal S.No.`
+    );
+
 
     try {
 
-        await updateDoc(
+        if (makeZero) {
+            const existingZero = students.find(
+                item => item.id !== studentId && (item.serialNo === 0 || item.isSerialZero === true)
+            );
+            if (existingZero) {
+                const replace = confirm(
+                    `"${existingZero.name}" is currently Serial No. 0 in this section.\nReplace them with ${name}?`
+                );
+                if (replace) {
+                    const batch = writeBatch(db);
+                    batch.update(doc(db, "sections", activeSection, "students", existingZero.id), { serialNo: deleteField() });
+                    batch.update(doc(db, "sections", activeSection, "students", studentId), { qid, name, serialNo: 0 });
+                    await batch.commit();
+                    void writeActivityLog("EDIT_STUDENT", `${qid} · ${name} (S.No 0)`, { section: activeSection });
+                    await loadStudents();
+                    return;
+                }
+            }
+        }
 
+        const updateData = {
+            qid: qid,
+            name: name
+        };
+        if (makeZero) {
+            updateData.serialNo = 0;
+        } else if (currentIsZero) {
+            updateData.serialNo = deleteField();
+        }
+
+        await updateDoc(
             doc(
                 db,
                 "sections",
@@ -2893,18 +3143,11 @@ async function editStudent(
                 "students",
                 studentId
             ),
-
-            {
-                qid:
-                    qid,
-
-                name:
-                    name
-            }
+            updateData
         );
 
 
-        void writeActivityLog("EDIT_STUDENT",`${qid} · ${name}`,{section:activeSection});
+        void writeActivityLog("EDIT_STUDENT", `${qid} · ${name}${makeZero ? " (S.No 0)" : ""}`, { section: activeSection });
         await loadStudents();
 
 
@@ -4733,18 +4976,7 @@ async function shareRecord(
         await ensureXLSXLoaded();
 
 
-        const serialByStudent = new Map();
-
-
-        data.students.forEach(
-            function (
-                student,
-                index
-            ) {
-
-                serialByStudent.set(student, index + 1);
-            }
-        );
+        const serialByStudent = computeStudentSerials(data.students);
 
 
         const sortedStudents =
@@ -5296,18 +5528,7 @@ downloadBtn?.addEventListener(
         }
 
 
-        const serialByStudent = new Map();
-
-
-        students.forEach(
-            function (
-                student,
-                index
-            ) {
-
-                serialByStudent.set(student, index + 1);
-            }
-        );
+        const serialByStudent = computeStudentSerials(students);
 
 
         const sortedStudents =
@@ -6310,6 +6531,7 @@ function syncRequestForm(){
 
     document.getElementById("requestQidGroup")?.classList.toggle("hidden",!addStudent);
     document.getElementById("requestStudentNameGroup")?.classList.toggle("hidden",!addStudent);
+    document.getElementById("requestSerialZeroGroup")?.classList.toggle("hidden",!addStudent);
     document.getElementById("requestStudentSelectGroup")?.classList.toggle("hidden",!deleteStudent);
 
     document.getElementById("requestSubjectNameGroup")?.classList.toggle("hidden",!addSubject);
@@ -6353,6 +6575,10 @@ document.getElementById("requestForm")?.addEventListener("submit",async e=>{
         data.qid=document.getElementById("requestQid").value.trim();
         data.name=document.getElementById("requestStudentName").value.trim().toUpperCase();
         if(!data.qid || !data.name) return alert("Enter Q.ID and student name.");
+        if(document.getElementById("requestSerialZero")?.checked){
+            data.isSerialZero = true;
+            data.serialNo = 0;
+        }
     }else if(type === "delete_student"){
         data.qid=document.getElementById("requestStudentSelect").value;
         const selected=students.find(s=>s.qid===data.qid);
@@ -6422,7 +6648,11 @@ async function processChangeRequest(request,approve,options={}){
             if(request.type === "add_student"){
                 if(!request.qid || !request.name) throw new Error("Student details are incomplete.");
                 if(await findStudentByQid(request.section,request.qid)) throw new Error("A student with this Q.ID already exists.");
-                await addDoc(collection(db,"sections",request.section,"students"),{qid:request.qid,name:String(request.name).toUpperCase()});
+                const payload = { qid: request.qid, name: String(request.name).toUpperCase() };
+                if (request.serialNo === 0 || request.serialNo === "0" || request.isSerialZero === true) {
+                    payload.serialNo = 0;
+                }
+                await addDoc(collection(db,"sections",request.section,"students"), payload);
             }
             if(request.type === "delete_student"){const d=await findStudentByQid(request.section,request.qid);if(!d)throw new Error("Student not found.");await deleteDoc(d.ref);}
             if(request.type === "add_subject"){if(await findSubjectByName(request.section,request.subject))throw new Error("This subject already exists in the section.");await addDoc(collection(db,"sections",request.section,"subjects"),{name:request.subject});}

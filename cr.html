@@ -726,6 +726,12 @@
                         <form id="addStudentForm">
                             <input type="text" id="newStudentQid" placeholder="Q.ID" required>
                             <input type="text" id="newStudentName" placeholder="Full Name" required>
+                            <div class="checkbox-option-wrapper">
+                                <label class="custom-checkbox-label" for="newStudentSerialZero">
+                                    <input type="checkbox" id="newStudentSerialZero">
+                                    <span>Add at Serial No. 0 (Optional)</span>
+                                </label>
+                            </div>
                             <button type="submit">+ Add Student</button>
                         </form>
                         <p class="admin-hint">Adds to the selected section.</p>
@@ -1225,6 +1231,12 @@
                     <div id="requestStudentFields" class="request-fields">
                         <div class="input-group" id="requestQidGroup"><label for="requestQid">Student Q.ID *</label><input id="requestQid" class="request-input" placeholder="Enter student Q.ID"></div>
                         <div class="input-group" id="requestStudentNameGroup"><label for="requestStudentName">Student Name *</label><input id="requestStudentName" class="request-input" placeholder="Enter student name"></div>
+                        <div class="input-group checkbox-option-wrapper" id="requestSerialZeroGroup">
+                            <label class="custom-checkbox-label" for="requestSerialZero">
+                                <input type="checkbox" id="requestSerialZero">
+                                <span>Request as Serial No. 0 (Optional)</span>
+                            </label>
+                        </div>
                         <div class="input-group hidden" id="requestStudentSelectGroup">
                             <label for="requestStudentSelect">Select Student *</label>
                             <select id="requestStudentSelect" class="request-input"><option value="">-- Select Student --</option></select>
