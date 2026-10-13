@@ -7,7 +7,7 @@
 
     <title>QAttend | Admin Portal</title>
 
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=4.0.0">
 
     <!-- Speed up the first connection to Firebase's servers -->
     <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
@@ -764,6 +764,18 @@
                         <div id="subjectManageList" class="chip-list"></div>
                     </div>
 
+                    <div class="admin-card">
+                        <h3>📌 Set Serial No. 0 Student</h3>
+                        <p class="admin-hint">Pick a student to show at the absolute top (Serial No. 0). All others start from Serial No. 1.</p>
+                        <div class="select-box select-box-stacked" style="margin-top: 10px;">
+                            <label>Serial No. 0 Student</label>
+                            <select id="manageSerialZeroSelect" disabled>
+                                <option value="">-- No Serial 0 (Starts from 1) --</option>
+                            </select>
+                        </div>
+                        <button type="button" id="saveManageSerialZeroBtn" class="primary-btn" style="margin-top: 12px; width: 100%;" disabled>💾 Save Serial No. 0</button>
+                    </div>
+
                 </div>
 
                 <div class="manage-roles-grid">
@@ -862,6 +874,7 @@
                     </div>
 
                     <div class="table-header admin-table-header">
+                        <div class="th-sno">S.No</div>
                         <div>Q.ID</div>
                         <div>Name of Student</div>
                         <div>Attendance</div>
@@ -1293,7 +1306,7 @@
     </div>
 
 
-    <script type="module" src="script.js"></script>
+    <script type="module" src="script.js?v=4.0.0"></script>
 
 </body>
 </html>

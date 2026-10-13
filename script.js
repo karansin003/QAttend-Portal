@@ -568,18 +568,45 @@ function compareNames(nameA, nameB) {
 
 // SERIAL CALCULATION (SUPPORTS SERIAL NO. 0)
 
-function computeStudentSerials(studentList) {
-    const serialByStudent = new Map();
-    let normalCounter = 1;
-    (studentList || []).forEach(function (student) {
-        let isZero = student.serialNo === 0 || student.serialNo === "0" || student.isSerialZero === true;
-        if (!isZero && typeof students !== "undefined" && Array.isArray(students)) {
-            const match = students.find(s => s && s.qid && student && student.qid && String(s.qid).toLowerCase() === String(student.qid).toLowerCase());
-            if (match && (match.serialNo === 0 || match.isSerialZero === true)) {
-                isZero = true;
+function isStudentZero(data, sectionMeta = null) {
+    if (!data) return false;
+    const qid = String(data.qid || "").trim().toLowerCase();
+    const id = String(data.id || "").trim();
+
+    if (sectionMeta) {
+        const secZeroQid = String(sectionMeta.serialZeroQid || sectionMeta.zeroQid || sectionMeta.serial0Qid || sectionMeta.serial0 || "").trim().toLowerCase();
+        if (secZeroQid && qid && qid === secZeroQid) return true;
+        const secZeroId = String(sectionMeta.serialZeroStudentId || sectionMeta.zeroStudentId || "").trim();
+        if (secZeroId && id && id === secZeroId) return true;
+    }
+
+    if (typeof students !== "undefined" && Array.isArray(students)) {
+        const matched = students.find(s => s && ((id && s.id === id) || (qid && String(s.qid || "").trim().toLowerCase() === qid)));
+        if (matched && matched !== data) {
+            if (matched.serialNo === 0 || matched.serialNo === "0" || matched.isSerialZero === true || matched.isSerialZero === "true") {
+                return true;
             }
         }
-        if (isZero) {
+    }
+
+    const val = data.serialNo ?? data.serial ?? data.sno ?? data.srNo ?? data.serial_no ?? data.serialNumber ?? data.isSerialZero ?? data.serialZero ?? data.zero;
+    if (val === 0 || val === "0" || val === true || val === "true") return true;
+    if (typeof val === "number" && val === 0) return true;
+    if (typeof val === "string" && val.trim() === "0") return true;
+
+    if (data.isSerialZero === true || data.isSerialZero === "true") return true;
+    if (data.serialZero === true || data.serialZero === "true" || data.serialZero === 0 || data.serialZero === "0") return true;
+    if (data.zero === true || data.zero === "true" || data.zero === 0 || data.zero === "0") return true;
+
+    return false;
+}
+
+function computeStudentSerials(studentList) {
+    const list = studentList || [];
+    const serialByStudent = new Map();
+    let normalCounter = 1;
+    list.forEach(function (student) {
+        if (isStudentZero(student)) {
             serialByStudent.set(student, 0);
         } else {
             serialByStudent.set(student, normalCounter++);
@@ -2220,6 +2247,22 @@ async function loadStudents() {
 
     try {
 
+        if (!activeSection) {
+            students = [];
+            displayStudents();
+            return;
+        }
+
+        let sectionData = {};
+        try {
+            const sectionSnap = await getDoc(doc(db, "sections", activeSection));
+            if (sectionSnap.exists()) {
+                sectionData = sectionSnap.data() || {};
+            }
+        } catch (e) {
+            console.warn("Could not read section doc for serial meta:", e);
+        }
+
         const snapshot =
             await getDocs(
                 collection(
@@ -2236,18 +2279,20 @@ async function loadStudents() {
 
                 .map(
                     function (docSnap) {
-                        const data = docSnap.data();
-                        const isZero = data.serialNo === 0 || data.serialNo === "0" || data.isSerialZero === true;
+                        const data = docSnap.data() || {};
+                        const qid = String(data.qid || "").trim();
+                        const name = String(data.name || "").trim().toUpperCase();
+                        const isZero = isStudentZero({ id: docSnap.id, ...data }, sectionData);
                         return {
 
                             id:
                                 docSnap.id,
 
                             qid:
-                                data.qid,
+                                qid,
 
                             name:
-                                data.name,
+                                name,
 
                             serialNo:
                                 isZero ? 0 : (data.serialNo !== undefined && data.serialNo !== null ? Number(data.serialNo) : null),
@@ -2263,8 +2308,8 @@ async function loadStudents() {
 
                 .sort(
                     function (a, b) {
-                        const aZero = a.serialNo === 0 || a.isSerialZero === true;
-                        const bZero = b.serialNo === 0 || b.isSerialZero === true;
+                        const aZero = isStudentZero(a, sectionData);
+                        const bZero = isStudentZero(b, sectionData);
                         if (aZero && !bZero) return -1;
                         if (!aZero && bZero) return 1;
                         return compareNames(
@@ -2309,6 +2354,8 @@ function displayStudents() {
     studentList.innerHTML =
         "";
 
+    const serialMap = computeStudentSerials(students);
+
 
     students.forEach(
         function (student) {
@@ -2333,7 +2380,8 @@ function displayStudents() {
             }
 
 
-            const isZero = student.serialNo === 0 || student.isSerialZero === true;
+            const isZero = isStudentZero(student);
+            const serialNum = serialMap.get(student) ?? (isZero ? 0 : 1);
 
             const row =
                 document.createElement(
@@ -2351,14 +2399,19 @@ function displayStudents() {
 
             row.innerHTML = `
 
+                <div class="student-sno ${isZero ? "sno-zero" : ""}">
+                    <span class="sno-badge ${isZero ? "sno-badge-zero" : ""}" title="${isZero ? "Serial No. 0" : `Serial No. ${serialNum}`}">${isZero ? "0" : serialNum}</span>
+                </div>
+
                 <div class="qid-number">
-                    ${isZero ? '<span class="sno-zero-pill" title="Serial Number 0">S.No 0</span>' : ''}
+                    <span class="sno-mobile-pill ${isZero ? "sno-zero-pill" : ""}">S.No ${isZero ? "0" : serialNum}</span>
                     <span>${escapeHtml(student.qid)}</span>
                 </div>
 
 
                 <div class="student-name">
                     ${escapeHtml(student.name)}
+                    ${isZero ? '<span class="sno-name-tag">⭐ S.No 0</span>' : ''}
                 </div>
 
 
@@ -2900,8 +2953,8 @@ async function toggleStudentSerialZero(studentId) {
         return;
     }
 
-    const currentIsZero = student.serialNo === 0 || student.isSerialZero === true;
-    const targetSection = activeSection;
+    const currentIsZero = isStudentZero(student);
+    const targetSection = activeSection || managementSection || document.getElementById("manageSectionSelect")?.value || null;
 
     if (!targetSection) {
         alert("Please select a section first.");
@@ -2915,23 +2968,32 @@ async function toggleStudentSerialZero(studentId) {
         if (!confirmRemove) return;
 
         try {
-            await updateDoc(
+            const batch = writeBatch(db);
+            batch.update(
                 doc(db, "sections", targetSection, "students", studentId),
-                { serialNo: deleteField() }
+                { serialNo: deleteField(), isSerialZero: deleteField() }
             );
+            batch.set(
+                doc(db, "sections", targetSection),
+                { serialZeroQid: deleteField(), serialZeroStudentId: deleteField() },
+                { merge: true }
+            );
+            await batch.commit();
+
             void writeActivityLog(
                 "EDIT_STUDENT",
                 `${student.qid} · ${student.name} (Removed S.No 0)`,
                 { section: targetSection }
             );
             await loadStudents();
+            if (typeof refreshManageData === "function") void refreshManageData();
         } catch (error) {
             console.error(error);
             alert("Error removing Serial No. 0.");
         }
     } else {
         const existingZero = students.find(
-            item => item.id !== studentId && (item.serialNo === 0 || item.isSerialZero === true)
+            item => item.id !== studentId && isStudentZero(item)
         );
 
         if (existingZero) {
@@ -2944,40 +3006,56 @@ async function toggleStudentSerialZero(studentId) {
                 const batch = writeBatch(db);
                 batch.update(
                     doc(db, "sections", targetSection, "students", existingZero.id),
-                    { serialNo: deleteField() }
+                    { serialNo: deleteField(), isSerialZero: deleteField() }
                 );
                 batch.update(
                     doc(db, "sections", targetSection, "students", studentId),
-                    { serialNo: 0 }
+                    { serialNo: 0, isSerialZero: true }
+                );
+                batch.set(
+                    doc(db, "sections", targetSection),
+                    { serialZeroQid: student.qid, serialZeroStudentId: studentId },
+                    { merge: true }
                 );
                 await batch.commit();
+
                 void writeActivityLog(
                     "EDIT_STUDENT",
                     `${student.qid} · ${student.name} (Set as S.No 0, replaced ${existingZero.name})`,
                     { section: targetSection }
                 );
                 await loadStudents();
+                if (typeof refreshManageData === "function") void refreshManageData();
             } catch (error) {
                 console.error(error);
                 alert("Error setting Serial No. 0.");
             }
         } else {
             const confirmSet = confirm(
-                `Set "${student.name}" (${student.qid}) as Serial No. 0 for this section?`
+                `Set "${student.name}" (${student.qid}) as Serial No. 0 for this section?\n\nThey will appear at the very top, and numbering will start from 0.`
             );
             if (!confirmSet) return;
 
             try {
-                await updateDoc(
+                const batch = writeBatch(db);
+                batch.update(
                     doc(db, "sections", targetSection, "students", studentId),
-                    { serialNo: 0 }
+                    { serialNo: 0, isSerialZero: true }
                 );
+                batch.set(
+                    doc(db, "sections", targetSection),
+                    { serialZeroQid: student.qid, serialZeroStudentId: studentId },
+                    { merge: true }
+                );
+                await batch.commit();
+
                 void writeActivityLog(
                     "EDIT_STUDENT",
                     `${student.qid} · ${student.name} (Set as S.No 0)`,
                     { section: targetSection }
                 );
                 await loadStudents();
+                if (typeof refreshManageData === "function") void refreshManageData();
             } catch (error) {
                 console.error(error);
                 alert("Error setting Serial No. 0.");
@@ -3097,58 +3175,58 @@ async function editStudent(
         return;
     }
 
-    const currentIsZero = student.serialNo === 0 || student.isSerialZero === true;
+    const currentIsZero = isStudentZero(student);
+    const targetSection = activeSection || managementSection || document.getElementById("manageSectionSelect")?.value || null;
+
+    if (!targetSection) {
+        alert("Please select a section first.");
+        return;
+    }
+
     const makeZero = confirm(
-        `Assign ${name} as Serial No. 0? (Currently: ${currentIsZero ? "Serial No. 0" : "Normal S.No"})\n\nClick OK for Serial No. 0, or Cancel for Normal S.No.`
+        `Assign ${name} as Serial No. 0? (Currently: ${currentIsZero ? "Serial No. 0" : "Normal S.No"})\n\nClick OK to place at Serial No. 0 (at the very top), or Cancel for Normal S.No.`
     );
 
-
     try {
+        const batch = writeBatch(db);
 
         if (makeZero) {
             const existingZero = students.find(
-                item => item.id !== studentId && (item.serialNo === 0 || item.isSerialZero === true)
+                item => item.id !== studentId && isStudentZero(item)
             );
             if (existingZero) {
-                const replace = confirm(
-                    `"${existingZero.name}" is currently Serial No. 0 in this section.\nReplace them with ${name}?`
-                );
-                if (replace) {
-                    const batch = writeBatch(db);
-                    batch.update(doc(db, "sections", activeSection, "students", existingZero.id), { serialNo: deleteField() });
-                    batch.update(doc(db, "sections", activeSection, "students", studentId), { qid, name, serialNo: 0 });
-                    await batch.commit();
-                    void writeActivityLog("EDIT_STUDENT", `${qid} · ${name} (S.No 0)`, { section: activeSection });
-                    await loadStudents();
-                    return;
-                }
+                batch.update(doc(db, "sections", targetSection, "students", existingZero.id), {
+                    serialNo: deleteField(),
+                    isSerialZero: deleteField()
+                });
             }
+            batch.update(doc(db, "sections", targetSection, "students", studentId), {
+                qid,
+                name,
+                serialNo: 0,
+                isSerialZero: true
+            });
+            batch.set(doc(db, "sections", targetSection), {
+                serialZeroQid: qid,
+                serialZeroStudentId: studentId
+            }, { merge: true });
+        } else {
+            const updateFields = { qid, name };
+            if (currentIsZero) {
+                updateFields.serialNo = deleteField();
+                updateFields.isSerialZero = deleteField();
+                batch.set(doc(db, "sections", targetSection), {
+                    serialZeroQid: deleteField(),
+                    serialZeroStudentId: deleteField()
+                }, { merge: true });
+            }
+            batch.update(doc(db, "sections", targetSection, "students", studentId), updateFields);
         }
 
-        const updateData = {
-            qid: qid,
-            name: name
-        };
-        if (makeZero) {
-            updateData.serialNo = 0;
-        } else if (currentIsZero) {
-            updateData.serialNo = deleteField();
-        }
-
-        await updateDoc(
-            doc(
-                db,
-                "sections",
-                activeSection,
-                "students",
-                studentId
-            ),
-            updateData
-        );
-
-
-        void writeActivityLog("EDIT_STUDENT", `${qid} · ${name}${makeZero ? " (S.No 0)" : ""}`, { section: activeSection });
+        await batch.commit();
+        void writeActivityLog("EDIT_STUDENT", `${qid} · ${name}${makeZero ? " (S.No 0)" : ""}`, { section: targetSection });
         await loadStudents();
+        if (typeof refreshManageData === "function") void refreshManageData();
 
 
     } catch (error) {
@@ -3753,6 +3831,111 @@ async function loadManagementSubjects(section) {
     }
 }
 
+async function loadManagementSerialZero(section) {
+    const select = document.getElementById("manageSerialZeroSelect");
+    const saveBtn = document.getElementById("saveManageSerialZeroBtn");
+    if (!select || !saveBtn) return;
+
+    if (!section) {
+        select.innerHTML = '<option value="">-- No Serial 0 (Starts from 1) --</option>';
+        select.disabled = true;
+        saveBtn.disabled = true;
+        return;
+    }
+
+    try {
+        let sectionData = {};
+        try {
+            const secSnap = await getDoc(doc(db, "sections", section));
+            if (secSnap.exists()) sectionData = secSnap.data() || {};
+        } catch (_) {}
+
+        const snap = await getDocs(collection(db, "sections", section, "students"));
+        const studentList = snap.docs.map(d => ({ id: d.id, ...(d.data() || {}) }));
+        studentList.sort((a, b) => compareNames(a.name, b.name));
+
+        select.innerHTML = '<option value="">-- No Serial 0 (Starts from 1) --</option>';
+
+        studentList.forEach(s => {
+            const isZero = isStudentZero(s, sectionData);
+            const opt = document.createElement("option");
+            opt.value = s.id;
+            opt.textContent = `${s.qid || ""} - ${s.name || ""}${isZero ? " ⭐ [Current S.No 0]" : ""}`;
+            if (isZero) {
+                opt.selected = true;
+            }
+            select.appendChild(opt);
+        });
+
+        select.disabled = false;
+        saveBtn.disabled = false;
+    } catch (err) {
+        console.error("Could not load students for Serial 0 select:", err);
+    }
+}
+
+document.getElementById("saveManageSerialZeroBtn")?.addEventListener("click", async () => {
+    const section = managementSection || document.getElementById("manageSectionSelect")?.value || activeSection;
+    if (!section) {
+        alert("Please select a section first.");
+        return;
+    }
+    const select = document.getElementById("manageSerialZeroSelect");
+    const selectedStudentId = select?.value || "";
+    const saveBtn = document.getElementById("saveManageSerialZeroBtn");
+
+    try {
+        if (saveBtn) saveBtn.textContent = "Saving...";
+        const snap = await getDocs(collection(db, "sections", section, "students"));
+        const batch = writeBatch(db);
+
+        if (selectedStudentId) {
+            const targetDoc = snap.docs.find(d => d.id === selectedStudentId);
+            const targetData = targetDoc ? targetDoc.data() : {};
+
+            snap.docs.forEach(docSnap => {
+                if (docSnap.id === selectedStudentId) {
+                    batch.update(docSnap.ref, { serialNo: 0, isSerialZero: true });
+                } else if (isStudentZero(docSnap.data())) {
+                    batch.update(docSnap.ref, { serialNo: deleteField(), isSerialZero: deleteField() });
+                }
+            });
+
+            batch.set(doc(db, "sections", section), {
+                serialZeroQid: targetData.qid || "",
+                serialZeroStudentId: selectedStudentId
+            }, { merge: true });
+
+            await batch.commit();
+            void writeActivityLog("EDIT_STUDENT", `${targetData.qid || ""} · ${targetData.name || ""} (Set as S.No 0)`, { section });
+            alert(`✅ "${targetData.name || "Student"}" is now set at Serial No. 0!\nThey will appear at the very top, and numbering will start from 0.`);
+        } else {
+            snap.docs.forEach(docSnap => {
+                if (isStudentZero(docSnap.data())) {
+                    batch.update(docSnap.ref, { serialNo: deleteField(), isSerialZero: deleteField() });
+                }
+            });
+            batch.set(doc(db, "sections", section), {
+                serialZeroQid: deleteField(),
+                serialZeroStudentId: deleteField()
+            }, { merge: true });
+
+            await batch.commit();
+            alert("✅ Serial No. 0 removed. All students in this section will now start from Serial No. 1.");
+        }
+
+        await refreshManageData();
+        if (activeSection === section) {
+            await loadStudents();
+        }
+    } catch (err) {
+        console.error(err);
+        alert("Error saving Serial No. 0: " + err.message);
+    } finally {
+        if (saveBtn) saveBtn.textContent = "💾 Save Serial No. 0";
+    }
+});
+
 async function refreshManageData() {
     const section = managementSection || document.getElementById("manageSectionSelect")?.value || "";
     const message = document.getElementById("manageSectionMessage");
@@ -3763,6 +3946,7 @@ async function refreshManageData() {
         if (message) message.textContent = "Please select a section to manage its data.";
         if (subjectContainer) subjectContainer.innerHTML = "";
         if (crContainer) crContainer.innerHTML = "";
+        void loadManagementSerialZero(null);
         void loadTeacherList();
         return;
     }
@@ -3774,6 +3958,7 @@ async function refreshManageData() {
     await Promise.all([
         loadManagementSubjects(section),
         loadCrListForManagementSection(),
+        loadManagementSerialZero(section),
         loadTeacherList()
     ]);
 }
@@ -4982,24 +5167,24 @@ async function shareRecord(
         const sortedStudents =
             [...data.students].sort(
                 function (a, b) {
+                    const aZero = isStudentZero(a);
+                    const bZero = isStudentZero(b);
+                    if (aZero && !bZero) return -1;
+                    if (!aZero && bZero) return 1;
 
                     if (
                         a.status === "Present" &&
                         b.status === "Absent"
                     ) {
-
                         return -1;
                     }
-
 
                     if (
                         a.status === "Absent" &&
                         b.status === "Present"
                     ) {
-
                         return 1;
                     }
-
 
                     return 0;
                 }
@@ -5534,24 +5719,24 @@ downloadBtn?.addEventListener(
         const sortedStudents =
             [...students].sort(
                 function (a, b) {
+                    const aZero = isStudentZero(a);
+                    const bZero = isStudentZero(b);
+                    if (aZero && !bZero) return -1;
+                    if (!aZero && bZero) return 1;
 
                     if (
                         a.status === "Present" &&
                         b.status === "Absent"
                     ) {
-
                         return -1;
                     }
-
 
                     if (
                         a.status === "Absent" &&
                         b.status === "Present"
                     ) {
-
                         return 1;
                     }
-
 
                     return 0;
                 }

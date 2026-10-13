@@ -1,4 +1,4 @@
-const CACHE_VERSION = "qattend-v3";
+const CACHE_VERSION = "qattend-v4";
 const APP_SHELL = [
     "./",
     "./index.html",
@@ -102,20 +102,19 @@ self.addEventListener("fetch", event => {
         return;
     }
 
-    // Same-origin static files: cache first for fast repeat/offline loads.
+    // Same-origin static files: network first when online, cache fallback when offline.
+    // This ensures code updates take effect immediately without requiring users to clear cache.
     if (url.origin === self.location.origin) {
         event.respondWith(
-            caches.match(request).then(cached => {
-                if (cached) return cached;
-
-                return fetch(request).then(response => {
+            fetch(request)
+                .then(response => {
                     if (response.ok) {
                         const copy = response.clone();
                         caches.open(CACHE_VERSION).then(cache => cache.put(request, copy));
                     }
                     return response;
-                });
-            })
+                })
+                .catch(() => caches.match(request))
         );
         return;
     }

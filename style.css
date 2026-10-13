@@ -649,16 +649,17 @@ button {
 body.cr-view .table-header,
 body.cr-view .student {
     grid-template-columns:
-        140px
+        60px
+        130px
         minmax(0, 1fr)
         260px;
 }
 
-body.cr-view .table-header > div:nth-child(4) {
+body.cr-view .table-header > div:nth-child(5) {
     display: none;
 }
 
-body.cr-view .table-header > div:nth-child(3) {
+body.cr-view .table-header > div:nth-child(4) {
     text-align: center;
 }
 
@@ -682,30 +683,36 @@ body.cr-view .student > .buttons button {
 
 
 /* ADMIN DESKTOP
-   Q.ID / Name / Attendance / Actions
+   S.No / Q.ID / Name / Attendance / Actions
 */
 
 body.admin-view .table-header,
 body.admin-view .student {
     grid-template-columns:
-        140px
+        60px
+        130px
         minmax(0, 1fr)
         260px
         48px;
 }
 
-body.admin-view .student > .qid-number {
+body.admin-view .student > .student-sno {
     grid-column: 1;
     grid-row: 1;
 }
 
-body.admin-view .student > .student-name {
+body.admin-view .student > .qid-number {
     grid-column: 2;
     grid-row: 1;
 }
 
-body.admin-view .student > .buttons {
+body.admin-view .student > .student-name {
     grid-column: 3;
+    grid-row: 1;
+}
+
+body.admin-view .student > .buttons {
+    grid-column: 4;
     grid-row: 1;
     width: 100%;
     min-width: 0;
@@ -721,7 +728,7 @@ body.admin-view .student > .buttons button {
 }
 
 body.admin-view .student > .student-menu-wrapper {
-    grid-column: 4;
+    grid-column: 5;
     grid-row: 1;
     justify-self: end;
     min-width: 0;
@@ -807,7 +814,37 @@ body.admin-view .student > * {
     color: var(--red) !important;
 }
 
-/* SERIAL NO. 0 STYLES */
+/* S.NO & SERIAL NO. 0 STYLES */
+.student > .student-sno {
+    display: flex;
+    align-items: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-secondary, #6b7280);
+}
+
+.sno-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+    height: 26px;
+    padding: 0 6px;
+    border-radius: 6px;
+    background: #f1f5f9;
+    color: #475569;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.sno-badge-zero {
+    background: #e0e7ff !important;
+    color: #4338ca !important;
+    border: 1px solid #c7d2fe !important;
+    font-weight: 800 !important;
+    box-shadow: 0 1px 3px rgba(67, 56, 202, 0.18);
+}
+
 .student > .qid-number {
     display: inline-flex;
     align-items: center;
@@ -823,7 +860,7 @@ body.admin-view .student > * {
     font-size: 11px;
     font-weight: 700;
     line-height: 1;
-    padding: 3px 7px;
+    padding: 3px 8px;
     border-radius: 999px;
     background: #eef2ff;
     color: #4338ca;
@@ -832,9 +869,27 @@ body.admin-view .student > * {
     white-space: nowrap;
 }
 
+.sno-name-tag {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #eef2ff;
+    color: #4338ca;
+    border: 1px solid #c7d2fe;
+    vertical-align: middle;
+}
+
+.sno-mobile-pill {
+    display: none;
+}
+
 .serial-zero-student {
-    background: linear-gradient(90deg, rgba(79, 70, 229, 0.05) 0%, rgba(255, 255, 255, 0.95) 100%) !important;
-    border-left: 3.5px solid #4f46e5 !important;
+    background: linear-gradient(90deg, rgba(79, 70, 229, 0.06) 0%, rgba(255, 255, 255, 0.98) 100%) !important;
+    border-left: 4px solid #4f46e5 !important;
 }
 
 .checkbox-option-wrapper {
@@ -964,6 +1019,30 @@ footer {
         overflow: visible;
     }
 
+
+    body.admin-view .student > .student-sno,
+    body.cr-view .student > .student-sno {
+        display: none !important;
+    }
+
+    .sno-mobile-pill {
+        display: inline-flex !important;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        font-weight: 700;
+        padding: 2px 7px;
+        border-radius: 999px;
+        background: #f1f5f9;
+        color: #475569;
+        margin-right: 4px;
+    }
+
+    .sno-mobile-pill.sno-zero-pill {
+        background: #e0e7ff !important;
+        color: #4338ca !important;
+        border: 1px solid #c7d2fe !important;
+    }
 
     body.admin-view .student > .qid-number,
     body.admin-view .student > .student-name,
