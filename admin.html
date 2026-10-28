@@ -746,12 +746,6 @@
                         <form id="addStudentForm">
                             <input type="text" id="newStudentQid" placeholder="Q.ID" required>
                             <input type="text" id="newStudentName" placeholder="Full Name" required>
-                            <div class="checkbox-option-wrapper">
-                                <label class="custom-checkbox-label" for="newStudentSerialZero">
-                                    <input type="checkbox" id="newStudentSerialZero">
-                                    <span>Add at Serial No. 0 (Optional)</span>
-                                </label>
-                            </div>
                             <button type="submit">+ Add Student</button>
                         </form>
                         <p class="admin-hint">Adds to the selected section.</p>
@@ -768,15 +762,21 @@
                     </div>
 
                     <div class="admin-card">
-                        <h3>📌 Set Serial No. 0 Student</h3>
-                        <p class="admin-hint">Pick a student to show at the absolute top (Serial No. 0). All others start from Serial No. 1.</p>
+                        <h3>📌 Set Serial No. 0 & Last Student</h3>
+                        <p class="admin-hint">Pick a student to show at the absolute top (Serial No. 0) and/or at the very bottom (last). All others start from Serial No. 1.</p>
                         <div class="select-box select-box-stacked" style="margin-top: 10px;">
-                            <label>Serial No. 0 Student</label>
+                            <label>Serial No. 0 Student (Top)</label>
                             <select id="manageSerialZeroSelect" disabled>
                                 <option value="">-- No Serial 0 (Starts from 1) --</option>
                             </select>
                         </div>
-                        <button type="button" id="saveManageSerialZeroBtn" class="primary-btn" style="margin-top: 12px; width: 100%;" disabled>💾 Save Serial No. 0</button>
+                        <div class="select-box select-box-stacked" style="margin-top: 10px;">
+                            <label>Last Student (Bottom)</label>
+                            <select id="manageSerialLastSelect" disabled>
+                                <option value="">-- Normal Order (No Pinned Last) --</option>
+                            </select>
+                        </div>
+                        <button type="button" id="saveManageSerialZeroBtn" class="primary-btn" style="margin-top: 12px; width: 100%;" disabled>💾 Save Order Settings</button>
                     </div>
 
                 </div>

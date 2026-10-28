@@ -601,11 +601,53 @@ function isStudentZero(data, sectionMeta = null) {
     return false;
 }
 
+function isStudentLast(data, sectionMeta = null) {
+    if (!data) return false;
+    const qid = String(data.qid || "").trim().toLowerCase();
+    const id = String(data.id || "").trim();
+
+    if (sectionMeta) {
+        const secLastQid = String(sectionMeta.serialLastQid || sectionMeta.lastQid || sectionMeta.serialBottomQid || "").trim().toLowerCase();
+        if (secLastQid && qid && qid === secLastQid) return true;
+        const secLastId = String(sectionMeta.serialLastStudentId || sectionMeta.lastStudentId || "").trim();
+        if (secLastId && id && id === secLastId) return true;
+    }
+
+    if (typeof students !== "undefined" && Array.isArray(students)) {
+        const matched = students.find(s => s && ((id && s.id === id) || (qid && String(s.qid || "").trim().toLowerCase() === qid)));
+        if (matched && matched !== data) {
+            if (matched.isSerialLast === true || matched.isSerialLast === "true" || matched.serialLast === true) {
+                return true;
+            }
+        }
+    }
+
+    const val = data.isSerialLast ?? data.serialLast;
+    if (val === true || val === "true") return true;
+
+    return false;
+}
+
 function computeStudentSerials(studentList) {
     const list = studentList || [];
+    // Ensure serial calculation order: Serial 0 first, normal alphabetical in middle, last student at end
+    const ordered = [...list].sort(function (a, b) {
+        const aZero = isStudentZero(a);
+        const bZero = isStudentZero(b);
+        if (aZero && !bZero) return -1;
+        if (!aZero && bZero) return 1;
+
+        const aLast = isStudentLast(a);
+        const bLast = isStudentLast(b);
+        if (aLast && !bLast) return 1;
+        if (!aLast && bLast) return -1;
+
+        return compareNames(a.name, b.name);
+    });
+
     const serialByStudent = new Map();
     let normalCounter = 1;
-    list.forEach(function (student) {
+    ordered.forEach(function (student) {
         if (isStudentZero(student)) {
             serialByStudent.set(student, 0);
         } else {
@@ -2283,6 +2325,7 @@ async function loadStudents() {
                         const qid = String(data.qid || "").trim();
                         const name = String(data.name || "").trim().toUpperCase();
                         const isZero = isStudentZero({ id: docSnap.id, ...data }, sectionData);
+                        const isLast = isStudentLast({ id: docSnap.id, ...data }, sectionData);
                         return {
 
                             id:
@@ -2300,6 +2343,9 @@ async function loadStudents() {
                             isSerialZero:
                                 isZero,
 
+                            isSerialLast:
+                                isLast,
+
                             status:
                                 null
                         };
@@ -2312,6 +2358,12 @@ async function loadStudents() {
                         const bZero = isStudentZero(b, sectionData);
                         if (aZero && !bZero) return -1;
                         if (!aZero && bZero) return 1;
+
+                        const aLast = isStudentLast(a, sectionData);
+                        const bLast = isStudentLast(b, sectionData);
+                        if (aLast && !bLast) return 1;
+                        if (!aLast && bLast) return -1;
+
                         return compareNames(
                             a.name,
                             b.name
@@ -2381,6 +2433,7 @@ function displayStudents() {
 
 
             const isZero = isStudentZero(student);
+            const isLast = isStudentLast(student);
             const serialNum = serialMap.get(student) ?? (isZero ? 0 : 1);
 
             const row =
@@ -2390,7 +2443,7 @@ function displayStudents() {
 
 
             row.className =
-                `student${isZero ? " serial-zero-student" : ""}`;
+                `student${isZero ? " serial-zero-student" : ""}${isLast ? " serial-last-student" : ""}`;
 
 
             row.dataset.id =
@@ -2411,7 +2464,7 @@ function displayStudents() {
 
                 <div class="student-name">
                     ${escapeHtml(student.name)}
-                    ${isZero ? '<span class="sno-name-tag">⭐ S.No 0</span>' : ''}
+                    ${isZero ? '<span class="sno-name-tag">⭐ S.No 0</span>' : (isLast ? '<span class="sno-name-tag sno-last-tag">🔻 Last</span>' : '')}
                 </div>
 
 
@@ -2486,6 +2539,15 @@ function displayStudents() {
                                 data-id="${student.id}">
 
                                 ${isZero ? "🔢 Set Normal S.No" : "0️⃣ Set as S.No 0"}
+
+                            </button>
+
+                            <button
+                                type="button"
+                                class="toggle-serial-last-btn"
+                                data-id="${student.id}">
+
+                                ${isLast ? "🔢 Remove from Last" : "🔻 Set as Last"}
 
                             </button>
 
@@ -2755,6 +2817,49 @@ studentList?.addEventListener(
         }
 
 
+        // TOGGLE LAST STUDENT
+
+        const toggleLastButton =
+            event.target.closest(
+                ".toggle-serial-last-btn"
+            );
+
+
+        if (toggleLastButton) {
+
+            if (
+                !profile ||
+                profile.role !==
+                    "admin"
+            ) {
+
+                return;
+            }
+
+
+            document
+                .querySelectorAll(
+                    ".student-menu.show"
+                )
+                .forEach(
+                    function (menu) {
+
+                        menu.classList.remove(
+                            "show"
+                        );
+                    }
+                );
+
+
+            void toggleStudentSerialLast(
+                toggleLastButton.dataset.id
+            );
+
+
+            return;
+        }
+
+
         // DELETE
 
         const deleteButton =
@@ -3010,11 +3115,16 @@ async function toggleStudentSerialZero(studentId) {
                 );
                 batch.update(
                     doc(db, "sections", targetSection, "students", studentId),
-                    { serialNo: 0, isSerialZero: true }
+                    { serialNo: 0, isSerialZero: true, isSerialLast: deleteField(), serialLast: deleteField() }
                 );
+                const secUpdate = { serialZeroQid: student.qid, serialZeroStudentId: studentId };
+                if (isStudentLast(student)) {
+                    secUpdate.serialLastQid = deleteField();
+                    secUpdate.serialLastStudentId = deleteField();
+                }
                 batch.set(
                     doc(db, "sections", targetSection),
-                    { serialZeroQid: student.qid, serialZeroStudentId: studentId },
+                    secUpdate,
                     { merge: true }
                 );
                 await batch.commit();
@@ -3040,11 +3150,16 @@ async function toggleStudentSerialZero(studentId) {
                 const batch = writeBatch(db);
                 batch.update(
                     doc(db, "sections", targetSection, "students", studentId),
-                    { serialNo: 0, isSerialZero: true }
+                    { serialNo: 0, isSerialZero: true, isSerialLast: deleteField(), serialLast: deleteField() }
                 );
+                const secUpdate = { serialZeroQid: student.qid, serialZeroStudentId: studentId };
+                if (isStudentLast(student)) {
+                    secUpdate.serialLastQid = deleteField();
+                    secUpdate.serialLastStudentId = deleteField();
+                }
                 batch.set(
                     doc(db, "sections", targetSection),
-                    { serialZeroQid: student.qid, serialZeroStudentId: studentId },
+                    secUpdate,
                     { merge: true }
                 );
                 await batch.commit();
@@ -3059,6 +3174,145 @@ async function toggleStudentSerialZero(studentId) {
             } catch (error) {
                 console.error(error);
                 alert("Error setting Serial No. 0.");
+            }
+        }
+    }
+}
+
+
+// TOGGLE LAST STUDENT
+
+async function toggleStudentSerialLast(studentId) {
+    if (!profile || profile.role !== "admin") return;
+
+    const student = students.find(item => item.id === studentId);
+    if (!student) {
+        alert("Student not found.");
+        return;
+    }
+
+    const currentIsLast = isStudentLast(student);
+    const targetSection = activeSection || managementSection || document.getElementById("manageSectionSelect")?.value || null;
+
+    if (!targetSection) {
+        alert("Please select a section first.");
+        return;
+    }
+
+    if (currentIsLast) {
+        const confirmRemove = confirm(
+            `Remove Last Student placement from "${student.name}" (${student.qid}) and restore to normal alphabetical order?`
+        );
+        if (!confirmRemove) return;
+
+        try {
+            const batch = writeBatch(db);
+            batch.update(
+                doc(db, "sections", targetSection, "students", studentId),
+                { isSerialLast: deleteField(), serialLast: deleteField() }
+            );
+            batch.set(
+                doc(db, "sections", targetSection),
+                { serialLastQid: deleteField(), serialLastStudentId: deleteField() },
+                { merge: true }
+            );
+            await batch.commit();
+
+            void writeActivityLog(
+                "EDIT_STUDENT",
+                `${student.qid} · ${student.name} (Removed from Last)`,
+                { section: targetSection }
+            );
+            await loadStudents();
+            if (typeof refreshManageData === "function") void refreshManageData();
+        } catch (error) {
+            console.error(error);
+            alert("Error removing Last student.");
+        }
+    } else {
+        const existingLast = students.find(
+            item => item.id !== studentId && isStudentLast(item)
+        );
+
+        if (existingLast) {
+            const confirmReplace = confirm(
+                `"${existingLast.name}" (${existingLast.qid}) is currently the Last student in this section.\n\nDo you want to replace them with "${student.name}" (${student.qid}) as the Last student?`
+            );
+            if (!confirmReplace) return;
+
+            try {
+                const batch = writeBatch(db);
+                batch.update(
+                    doc(db, "sections", targetSection, "students", existingLast.id),
+                    { isSerialLast: deleteField(), serialLast: deleteField() }
+                );
+                batch.update(
+                    doc(db, "sections", targetSection, "students", studentId),
+                    { isSerialLast: true, serialNo: deleteField(), isSerialZero: deleteField() }
+                );
+                const secUpdate = {
+                    serialLastQid: student.qid,
+                    serialLastStudentId: studentId
+                };
+                if (isStudentZero(student)) {
+                    secUpdate.serialZeroQid = deleteField();
+                    secUpdate.serialZeroStudentId = deleteField();
+                }
+                batch.set(
+                    doc(db, "sections", targetSection),
+                    secUpdate,
+                    { merge: true }
+                );
+                await batch.commit();
+
+                void writeActivityLog(
+                    "EDIT_STUDENT",
+                    `${student.qid} · ${student.name} (Set as Last, replaced ${existingLast.name})`,
+                    { section: targetSection }
+                );
+                await loadStudents();
+                if (typeof refreshManageData === "function") void refreshManageData();
+            } catch (error) {
+                console.error(error);
+                alert("Error setting Last student.");
+            }
+        } else {
+            const confirmSet = confirm(
+                `Set "${student.name}" (${student.qid}) as the Last student for this section?\n\nThey will appear at the very bottom of the list.`
+            );
+            if (!confirmSet) return;
+
+            try {
+                const batch = writeBatch(db);
+                batch.update(
+                    doc(db, "sections", targetSection, "students", studentId),
+                    { isSerialLast: true, serialNo: deleteField(), isSerialZero: deleteField() }
+                );
+                const secUpdate = {
+                    serialLastQid: student.qid,
+                    serialLastStudentId: studentId
+                };
+                if (isStudentZero(student)) {
+                    secUpdate.serialZeroQid = deleteField();
+                    secUpdate.serialZeroStudentId = deleteField();
+                }
+                batch.set(
+                    doc(db, "sections", targetSection),
+                    secUpdate,
+                    { merge: true }
+                );
+                await batch.commit();
+
+                void writeActivityLog(
+                    "EDIT_STUDENT",
+                    `${student.qid} · ${student.name} (Set as Last)`,
+                    { section: targetSection }
+                );
+                await loadStudents();
+                if (typeof refreshManageData === "function") void refreshManageData();
+            } catch (error) {
+                console.error(error);
+                alert("Error setting Last student.");
             }
         }
     }
@@ -3832,13 +4086,18 @@ async function loadManagementSubjects(section) {
 }
 
 async function loadManagementSerialZero(section) {
-    const select = document.getElementById("manageSerialZeroSelect");
+    const selectZero = document.getElementById("manageSerialZeroSelect");
+    const selectLast = document.getElementById("manageSerialLastSelect");
     const saveBtn = document.getElementById("saveManageSerialZeroBtn");
-    if (!select || !saveBtn) return;
+    if (!selectZero || !saveBtn) return;
 
     if (!section) {
-        select.innerHTML = '<option value="">-- No Serial 0 (Starts from 1) --</option>';
-        select.disabled = true;
+        selectZero.innerHTML = '<option value="">-- No Serial 0 (Starts from 1) --</option>';
+        if (selectLast) {
+            selectLast.innerHTML = '<option value="">-- Normal Order (No Pinned Last) --</option>';
+            selectLast.disabled = true;
+        }
+        selectZero.disabled = true;
         saveBtn.disabled = true;
         return;
     }
@@ -3854,23 +4113,41 @@ async function loadManagementSerialZero(section) {
         const studentList = snap.docs.map(d => ({ id: d.id, ...(d.data() || {}) }));
         studentList.sort((a, b) => compareNames(a.name, b.name));
 
-        select.innerHTML = '<option value="">-- No Serial 0 (Starts from 1) --</option>';
+        selectZero.innerHTML = '<option value="">-- No Serial 0 (Starts from 1) --</option>';
+        if (selectLast) {
+            selectLast.innerHTML = '<option value="">-- Normal Order (No Pinned Last) --</option>';
+        }
 
         studentList.forEach(s => {
             const isZero = isStudentZero(s, sectionData);
-            const opt = document.createElement("option");
-            opt.value = s.id;
-            opt.textContent = `${s.qid || ""} - ${s.name || ""}${isZero ? " ⭐ [Current S.No 0]" : ""}`;
+            const isLast = isStudentLast(s, sectionData);
+
+            // Serial Zero option
+            const optZero = document.createElement("option");
+            optZero.value = s.id;
+            optZero.textContent = `${s.qid || ""} - ${s.name || ""}${isZero ? " ⭐ [Current S.No 0]" : ""}${isLast ? " 🔻 [Current Last]" : ""}`;
             if (isZero) {
-                opt.selected = true;
+                optZero.selected = true;
             }
-            select.appendChild(opt);
+            selectZero.appendChild(optZero);
+
+            // Last Student option
+            if (selectLast) {
+                const optLast = document.createElement("option");
+                optLast.value = s.id;
+                optLast.textContent = `${s.qid || ""} - ${s.name || ""}${isLast ? " 🔻 [Current Last]" : ""}${isZero ? " ⭐ [Current S.No 0]" : ""}`;
+                if (isLast) {
+                    optLast.selected = true;
+                }
+                selectLast.appendChild(optLast);
+            }
         });
 
-        select.disabled = false;
+        selectZero.disabled = false;
+        if (selectLast) selectLast.disabled = false;
         saveBtn.disabled = false;
     } catch (err) {
-        console.error("Could not load students for Serial 0 select:", err);
+        console.error("Could not load students for serial order select:", err);
     }
 }
 
@@ -3880,49 +4157,100 @@ document.getElementById("saveManageSerialZeroBtn")?.addEventListener("click", as
         alert("Please select a section first.");
         return;
     }
-    const select = document.getElementById("manageSerialZeroSelect");
-    const selectedStudentId = select?.value || "";
+    const selectZero = document.getElementById("manageSerialZeroSelect");
+    const selectLast = document.getElementById("manageSerialLastSelect");
+    const selectedZeroId = selectZero?.value || "";
+    const selectedLastId = selectLast?.value || "";
     const saveBtn = document.getElementById("saveManageSerialZeroBtn");
+
+    if (selectedZeroId && selectedLastId && selectedZeroId === selectedLastId) {
+        alert("A student cannot be set as both Serial No. 0 and the Last Student. Please select different students.");
+        return;
+    }
 
     try {
         if (saveBtn) saveBtn.textContent = "Saving...";
         const snap = await getDocs(collection(db, "sections", section, "students"));
         const batch = writeBatch(db);
 
-        if (selectedStudentId) {
-            const targetDoc = snap.docs.find(d => d.id === selectedStudentId);
-            const targetData = targetDoc ? targetDoc.data() : {};
+        const targetZeroDoc = selectedZeroId ? snap.docs.find(d => d.id === selectedZeroId) : null;
+        const targetZeroData = targetZeroDoc ? targetZeroDoc.data() : null;
 
-            snap.docs.forEach(docSnap => {
-                if (docSnap.id === selectedStudentId) {
-                    batch.update(docSnap.ref, { serialNo: 0, isSerialZero: true });
-                } else if (isStudentZero(docSnap.data())) {
-                    batch.update(docSnap.ref, { serialNo: deleteField(), isSerialZero: deleteField() });
+        const targetLastDoc = selectedLastId ? snap.docs.find(d => d.id === selectedLastId) : null;
+        const targetLastData = targetLastDoc ? targetLastDoc.data() : null;
+
+        snap.docs.forEach(docSnap => {
+            const data = docSnap.data() || {};
+            const isCurrentlyZero = isStudentZero(data);
+            const isCurrentlyLast = isStudentLast(data);
+
+            if (docSnap.id === selectedZeroId) {
+                batch.update(docSnap.ref, {
+                    serialNo: 0,
+                    isSerialZero: true,
+                    isSerialLast: deleteField(),
+                    serialLast: deleteField()
+                });
+            } else if (docSnap.id === selectedLastId) {
+                batch.update(docSnap.ref, {
+                    serialNo: deleteField(),
+                    isSerialZero: deleteField(),
+                    isSerialLast: true
+                });
+            } else {
+                const updates = {};
+                if (isCurrentlyZero || data.serialNo === 0 || data.isSerialZero) {
+                    updates.serialNo = deleteField();
+                    updates.isSerialZero = deleteField();
                 }
-            });
+                if (isCurrentlyLast || data.isSerialLast || data.serialLast) {
+                    updates.isSerialLast = deleteField();
+                    updates.serialLast = deleteField();
+                }
+                if (Object.keys(updates).length > 0) {
+                    batch.update(docSnap.ref, updates);
+                }
+            }
+        });
 
-            batch.set(doc(db, "sections", section), {
-                serialZeroQid: targetData.qid || "",
-                serialZeroStudentId: selectedStudentId
-            }, { merge: true });
-
-            await batch.commit();
-            void writeActivityLog("EDIT_STUDENT", `${targetData.qid || ""} · ${targetData.name || ""} (Set as S.No 0)`, { section });
-            alert(`✅ "${targetData.name || "Student"}" is now set at Serial No. 0!\nThey will appear at the very top, and numbering will start from 0.`);
+        const sectionUpdates = {};
+        if (selectedZeroId && targetZeroData) {
+            sectionUpdates.serialZeroQid = targetZeroData.qid || "";
+            sectionUpdates.serialZeroStudentId = selectedZeroId;
         } else {
-            snap.docs.forEach(docSnap => {
-                if (isStudentZero(docSnap.data())) {
-                    batch.update(docSnap.ref, { serialNo: deleteField(), isSerialZero: deleteField() });
-                }
-            });
-            batch.set(doc(db, "sections", section), {
-                serialZeroQid: deleteField(),
-                serialZeroStudentId: deleteField()
-            }, { merge: true });
-
-            await batch.commit();
-            alert("✅ Serial No. 0 removed. All students in this section will now start from Serial No. 1.");
+            sectionUpdates.serialZeroQid = deleteField();
+            sectionUpdates.serialZeroStudentId = deleteField();
         }
+
+        if (selectedLastId && targetLastData) {
+            sectionUpdates.serialLastQid = targetLastData.qid || "";
+            sectionUpdates.serialLastStudentId = selectedLastId;
+        } else {
+            sectionUpdates.serialLastQid = deleteField();
+            sectionUpdates.serialLastStudentId = deleteField();
+        }
+
+        batch.set(doc(db, "sections", section), sectionUpdates, { merge: true });
+
+        await batch.commit();
+
+        let logMsg = [];
+        if (targetZeroData) logMsg.push(`S.No 0: ${targetZeroData.name}`);
+        if (targetLastData) logMsg.push(`Last: ${targetLastData.name}`);
+        void writeActivityLog("EDIT_STUDENT", `Serial order updated (${logMsg.join(", ") || "Normal order"})`, { section });
+
+        let alertMsg = "✅ Student ordering saved successfully!\n";
+        if (targetZeroData) {
+            alertMsg += `\n• Serial No. 0: "${targetZeroData.name}" (at the absolute top)`;
+        } else {
+            alertMsg += "\n• Serial No. 0: None (starts from Serial No. 1)";
+        }
+        if (targetLastData) {
+            alertMsg += `\n• Last Student: "${targetLastData.name}" (at the very bottom)`;
+        } else {
+            alertMsg += "\n• Last Student: None (normal alphabetical order)";
+        }
+        alert(alertMsg);
 
         await refreshManageData();
         if (activeSection === section) {
@@ -3930,9 +4258,9 @@ document.getElementById("saveManageSerialZeroBtn")?.addEventListener("click", as
         }
     } catch (err) {
         console.error(err);
-        alert("Error saving Serial No. 0: " + err.message);
+        alert("Error saving serial order: " + err.message);
     } finally {
-        if (saveBtn) saveBtn.textContent = "💾 Save Serial No. 0";
+        if (saveBtn) saveBtn.textContent = "💾 Save Order Settings";
     }
 });
 
@@ -5172,6 +5500,11 @@ async function shareRecord(
                     if (aZero && !bZero) return -1;
                     if (!aZero && bZero) return 1;
 
+                    const aLast = isStudentLast(a);
+                    const bLast = isStudentLast(b);
+                    if (aLast && !bLast) return 1;
+                    if (!aLast && bLast) return -1;
+
                     if (
                         a.status === "Present" &&
                         b.status === "Absent"
@@ -5723,6 +6056,11 @@ downloadBtn?.addEventListener(
                     const bZero = isStudentZero(b);
                     if (aZero && !bZero) return -1;
                     if (!aZero && bZero) return 1;
+
+                    const aLast = isStudentLast(a);
+                    const bLast = isStudentLast(b);
+                    if (aLast && !bLast) return 1;
+                    if (!aLast && bLast) return -1;
 
                     if (
                         a.status === "Present" &&
