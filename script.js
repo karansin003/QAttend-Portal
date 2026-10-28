@@ -2464,7 +2464,6 @@ function displayStudents() {
 
                 <div class="student-name">
                     ${escapeHtml(student.name)}
-                    ${isZero ? '<span class="sno-name-tag">⭐ S.No 0</span>' : (isLast ? '<span class="sno-name-tag sno-last-tag">🔻 Last</span>' : '')}
                 </div>
 
 
@@ -2538,7 +2537,7 @@ function displayStudents() {
                                 class="toggle-serial-zero-btn"
                                 data-id="${student.id}">
 
-                                ${isZero ? "🔢 Set Normal S.No" : "0️⃣ Set as S.No 0"}
+                                ${isZero ? "Set Normal S.No" : "Set as S.No 0"}
 
                             </button>
 
@@ -2547,7 +2546,7 @@ function displayStudents() {
                                 class="toggle-serial-last-btn"
                                 data-id="${student.id}">
 
-                                ${isLast ? "🔢 Remove from Last" : "🔻 Set as Last"}
+                                ${isLast ? "Remove from Last" : "Set as Last"}
 
                             </button>
 
@@ -4125,7 +4124,7 @@ async function loadManagementSerialZero(section) {
             // Serial Zero option
             const optZero = document.createElement("option");
             optZero.value = s.id;
-            optZero.textContent = `${s.qid || ""} - ${s.name || ""}${isZero ? " ⭐ [Current S.No 0]" : ""}${isLast ? " 🔻 [Current Last]" : ""}`;
+            optZero.textContent = `${s.qid || ""} - ${s.name || ""}${isZero ? " [Current S.No 0]" : ""}${isLast ? " [Current Last]" : ""}`;
             if (isZero) {
                 optZero.selected = true;
             }
@@ -4135,7 +4134,7 @@ async function loadManagementSerialZero(section) {
             if (selectLast) {
                 const optLast = document.createElement("option");
                 optLast.value = s.id;
-                optLast.textContent = `${s.qid || ""} - ${s.name || ""}${isLast ? " 🔻 [Current Last]" : ""}${isZero ? " ⭐ [Current S.No 0]" : ""}`;
+                optLast.textContent = `${s.qid || ""} - ${s.name || ""}${isLast ? " [Current Last]" : ""}${isZero ? " [Current S.No 0]" : ""}`;
                 if (isLast) {
                     optLast.selected = true;
                 }
